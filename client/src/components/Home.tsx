@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { relayInit } from 'nostr-tools';
 import PostCard from './PostCard/PostCard';
+import Header from './Header/Header';
 
 // Define the Event interface
 interface Event {
@@ -10,7 +11,7 @@ interface Event {
   // Add other fields if necessary
 }
 
-const relay = relayInit('wss://powrelay.xyz');
+const relay = relayInit('wss://relay.damus.io');
 
 const Home = () => {
   // Define the type of the state variable
@@ -22,6 +23,7 @@ const Home = () => {
 
       const eventList = await relay.list([
         {
+          ids: ['0000'],
           kinds: [1],
           limit: 10,
         },
@@ -39,13 +41,16 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen">
+    <>
+    <main className="bg-gray-950 text-white min-h-screen">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {events.map((event, index) => (
           <PostCard key={index} content={event.content} />
         ))}
       </div>
-    </div>
+    </main>
+    <Header />
+    </>
   );
 };
 
