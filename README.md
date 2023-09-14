@@ -3,7 +3,7 @@ Outlining a stupid simple standard to facilitate unstoppable free speech on the 
 
 ## Overview
 Nostr at the core: censorship resistant, also stupid simple and permissionless <br/>
-Anon only: Names and Nyms carry reputations/private-risks - Anons speak freely <br/>
+Anon only: Names and Nyms carry reputations/ego and risk doxxing - Anons speak freely <br/>
 PoW: Spam and noise
 
 ### Nitty Gritty
