@@ -1,36 +1,42 @@
 import CardContainer from './CardContainer';
+import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 
 const NewThreadCard = () => {
-
   return (
     <>
       <CardContainer>
-        <div className="flex flex-col">
-        <form name="post" method="post" encType="multipart/form-data"><input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
-        <div id="togglePostFormLink" className="desktop">Start a New Thread
-        </div>
-        <table className="postForm" id="postForm">
-          <tbody>
-            <tr data-type="Comment">
-              <td><textarea name="com" wrap="soft" /></td>
-            </tr>
-            <tr data-type="File">
-              <td>File*</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={2}>
-                <div id="postFormError" />
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </form>
-        </div>
+          <form 
+            name="post" 
+            method="post" 
+            encType="multipart/form-data"
+            className=""
+          >
+            <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
+            <div id="togglePostFormLink" className="text-lg font-semibold">
+              Start a New Thread
+            </div>
+            <div>
+              <textarea 
+                name="com" 
+                wrap="soft" 
+                className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none"
+              />
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+                <input type="file" className="hidden" />
+              </div>
+            <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
+              Submit
+            </button>
+            </div>
+            <div id="postFormError" className="text-red-500" />
+          </form>
       </CardContainer>
     </>
   );
 };
+
 
 export default NewThreadCard;
