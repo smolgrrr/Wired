@@ -1,25 +1,30 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './components/Home';
-
-declare global {
-  interface Window {
-    nostr?: any;
-  }
-}
+import Settings from './components/Settings';
+import SwipeableViews from 'react-swipeable-views';
 
 function App() {
+  const [index, setIndex] = React.useState(1);
+
+  const handleChangeIndex = (index: number) => {
+    console.log("Changed index to:", index);  // Add a log to see if this function is called
+    setIndex(index);
+  };
+
   return (
-    <Router>
     <div>
-        <Routes>
-          <Route path="/" element={<Home />} />
-        </Routes>
+      <SwipeableViews index={index} onChangeIndex={handleChangeIndex}>
+        <div>
+          <Settings />
+        </div>
+        <div>
+          <Home />
+        </div>
+      </SwipeableViews>
     </div>
-    </Router>
   );
 }
 
 export default App;
+
