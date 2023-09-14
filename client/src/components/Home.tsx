@@ -12,7 +12,7 @@ interface Event {
   // Add other fields if necessary
 }
 
-const relay = relayInit('wss://relay.damus.io');
+const relay = relayInit('wss://nostr.lu.ke');
 
 const Home = () => {
   // Define the type of the state variable
@@ -24,7 +24,7 @@ const Home = () => {
 
       const eventList = await relay.list([
         {
-          ids: ['0000'],
+          ids: ['00'],
           kinds: [1],
           limit: 10,
         },
@@ -46,12 +46,12 @@ const Home = () => {
     <main className="bg-black text-white min-h-screen">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         <NewThreadCard />
-        {events.map((event, index) => (
+        {events.sort((a, b) => a.created_at - b.created_at).map((event, index) => (
           <PostCard key={index} content={event.content} />
         ))}
       </div>
     </main>
-    <Header />
+    {/* <Header /> */}
     </>
   );
 };

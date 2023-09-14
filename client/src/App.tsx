@@ -4,6 +4,12 @@ import './App.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './components/Home';
 
+declare global {
+  interface Window {
+    nostr?: any;
+  }
+}
+
 function App() {
   return (
     <Router>
