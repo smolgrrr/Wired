@@ -3,14 +3,8 @@ import { relayInit } from 'nostr-tools';
 import PostCard from './PostCard/PostCard';
 import Header from './Header/Header';
 import NewThreadCard from './PostCard/NewThreadCard';
-
-// Define the Event interface
-interface Event {
-  id: string;
-  content: string;
-  created_at: number;
-  // Add other fields if necessary
-}
+import { getPow } from '../utils/mine';
+import { Event } from 'nostr-tools';
 
 const relay = relayInit('wss://nostr.lu.ke');
 
@@ -24,14 +18,16 @@ const Home = () => {
 
       const eventList = await relay.list([
         {
-          ids: ['00'],
           kinds: [1],
-          limit: 10,
+          limit: 200,
         },
       ]);
 
+      // Filter events with a difficulty greater than 10
+      const filteredEvents = eventList.filter(event => getPow(event.id) > 2);
+
       // Assuming eventList is of type Event[]
-      setEvents(eventList);
+      setEvents(filteredEvents);
     });
 
     relay.on('error', () => {
@@ -46,8 +42,8 @@ const Home = () => {
     <main className="bg-black text-white min-h-screen">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         <NewThreadCard />
-        {events.sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-          <PostCard key={index} content={event.content} />
+        {events.sort((a, b) => b.created_at - a.created_at).map((event, index) => (
+          <PostCard key={index} event={event}/>
         ))}
       </div>
     </main>

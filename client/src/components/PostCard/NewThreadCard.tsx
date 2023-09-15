@@ -2,9 +2,11 @@ import CardContainer from './CardContainer';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { generatePrivateKey, getPublicKey, finishEvent, relayInit} from 'nostr-tools';
-import { minePow } from '../../func/mine';
+import { minePow } from '../../utils/mine';
 
 const difficulty = 10
+
+export const relay = relayInit('wss://nostr.lu.ke')
 
 const NewThreadCard = () => {
   const [comment, setComment] = useState("");
@@ -14,7 +16,6 @@ const NewThreadCard = () => {
     let sk = generatePrivateKey()
     let pk = getPublicKey(sk)
 
-    const relay = relayInit('wss://nostr.lu.ke')
     relay.on('connect', () => {
       console.log(`connected to ${relay.url}`)
     })
