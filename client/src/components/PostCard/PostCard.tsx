@@ -25,6 +25,19 @@ function getRandomElement(array: string[]): string {
   const index = Math.floor(Math.random() * array.length);
   return array[index];
 }
+
+const getColorFromHash = (id: string, colors: string[]): string => {
+  // Create a simple hash from the event.id
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+  }
+
+  // Use the hash to pick a color from the colors array
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 const timeAgo = (unixTime: number) => {
   const seconds = Math.floor((new Date().getTime() / 1000) - unixTime);
   
@@ -52,6 +65,7 @@ const PostCard = ({ event}: { event: Event }) => {
     //     limit: 200,
     //   },
     // ]);
+    const colorCombo = getColorFromHash(event.id, colorCombos);
 
   return (
     <>
@@ -59,7 +73,7 @@ const PostCard = ({ event}: { event: Event }) => {
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-            <div className={`h-5 w-5 bg-gradient-to-r ${getRandomElement(colorCombos)} rounded-full`} />
+            <div className={`h-5 w-5 bg-gradient-to-r ${colorCombo} rounded-full`} />
               <div className="ml-2 text-md font-semibold">Anonymous</div>
             </div>
             <div className="flex items-center ml-auto">

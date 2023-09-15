@@ -3,7 +3,9 @@ import './App.css';
 import Home from './components/Home';
 import Settings from './components/Settings';
 import SwipeableViews from 'react-swipeable-views';
+import { NostrProvider } from './utils/relays';
 
+const relayUrls = ['wss://relay.damus.io'];
 function App() {
   const [index, setIndex] = React.useState(1);
 
@@ -13,7 +15,7 @@ function App() {
   };
 
   return (
-    <div>
+    <NostrProvider relayUrls={relayUrls} debug={true}>
       <SwipeableViews index={index} onChangeIndex={handleChangeIndex}>
         <div>
           <Settings />
@@ -22,7 +24,7 @@ function App() {
           <Home />
         </div>
       </SwipeableViews>
-    </div>
+    </NostrProvider>
   );
 }
 
