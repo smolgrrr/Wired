@@ -1,47 +1,34 @@
 import CardContainer from './CardContainer';
-import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
-import { generatePrivateKey, getPublicKey, finishEvent, relayInit} from 'nostr-tools';
+import { Event, generatePrivateKey, getPublicKey, finishEvent, relayInit} from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 
 const difficulty = 10
 
-export const relay = relayInit('wss://nostr.lu.ke')
-
-const NewThreadCard = () => {
+const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
-
+  
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    let sk = generatePrivateKey()
-    let pk = getPublicKey(sk)
-
-    relay.on('connect', () => {
-      console.log(`connected to ${relay.url}`)
-    })
-    relay.on('error', () => {
-      console.log(`failed to connect to ${relay.url}`)
-    })
-
-    await relay.connect()
+    let sk = generatePrivateKey();
 
     try {
       const event = minePow({
         kind: 1,
         tags: [],
-        content: 'Hello, world!',
-        created_at: Math.floor(Date.now() / 1000), //needs to be date To Unix
-        pubkey: pk,
-      }, difficulty)
+        content: comment,
+        created_at: Math.floor(Date.now() / 1000),
+        pubkey: getPublicKey(sk),
+      }, difficulty);
 
-      const signedEvent = finishEvent(event, sk)
-      await relay.publish(signedEvent)
-      console.log(signedEvent.id)
+      const signedEvent = finishEvent(event, sk);
+      // await publish(signedEvent);
+      console.log(signedEvent.id);
 
     } catch (error) {
       setComment(comment + " " + error);
     }
-    relay.close()
   };
 
   // async function attachFile(file_input: File | null) {
@@ -80,6 +67,8 @@ const NewThreadCard = () => {
                 name="com" 
                 wrap="soft" 
                 className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none"
+                value={comment} 
+                onChange={(e) => setComment(e.target.value)}
               />
             </div>
             <div className="flex justify-between items-center">
@@ -87,9 +76,10 @@ const NewThreadCard = () => {
                 <ArrowUpTrayIcon className="h-6 w-6 text-white" />
                 <input type="file" className="hidden" />
               </div>
-            <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
-              Submit
-            </button>
+              <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
+              <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
+                Submit
+              </button>
             </div>
             <div id="postFormError" className="text-red-500" />
           </form>
@@ -97,6 +87,5 @@ const NewThreadCard = () => {
     </>
   );
 };
-
 
 export default NewThreadCard;

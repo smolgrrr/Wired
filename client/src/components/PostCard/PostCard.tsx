@@ -21,11 +21,6 @@ const colorCombos = [
   'from-sky-400 to-cyan-500'
 ];
 
-function getRandomElement(array: string[]): string {
-  const index = Math.floor(Math.random() * array.length);
-  return array[index];
-}
-
 const getColorFromHash = (id: string, colors: string[]): string => {
   // Create a simple hash from the event.id
   let hash = 0;

@@ -1,152 +1,108 @@
-import {
-createContext,
-ReactNode,
-useCallback,
-useContext,
-useEffect,
-useRef,
-useState,
-} from "react"
-import { Relay, Filter, Event, relayInit, Sub } from "nostr-tools"
-import { uniqBy } from "./utils"
+import {Event, Filter, relayInit, Relay, Sub} from 'nostr-tools';
 
-type OnConnectFunc = (relay: Relay) => void
-type OnDisconnectFunc = (relay: Relay) => void
-type OnEventFunc = (event: Event) => void
-type OnDoneFunc = () => void
-type OnSubscribeFunc = (sub: Sub, relay: Relay) => void
+type SubCallback = (
+  event: Readonly<Event>,
+  relay: Readonly<string>,
+) => void;
 
-interface NostrContextType {
-    isLoading: boolean
-    debug?: boolean
-    connectedRelays: Relay[]
-    onConnect: (_onConnectCallback?: OnConnectFunc) => void
-    onDisconnect: (_onDisconnectCallback?: OnDisconnectFunc) => void
-    publish: (event: Event) => void
-}
-  
-const NostrContext = createContext<NostrContextType>({
-    isLoading: true,
-    connectedRelays: [],
-    onConnect: () => null,
-    onDisconnect: () => null,
-    publish: () => null,
-})
+type Subscribe = {
+  cb: SubCallback;
+  filter: Filter;
+  unsub?: boolean;
+};
 
-const log = (
-    isOn: boolean | undefined,
-    type: "info" | "error" | "warn",
-    ...args: unknown[]
+const subList: Array<Sub> = [];
+const currentSubList: Array<Subscribe> = [];
+const relayMap = new Map<string, Relay>();
+
+export const addRelay = async (url: string) => {
+  const relay = relayInit(url);
+  relay.on('connect', () => {
+    console.info(`connected to ${relay.url}`);
+  });
+  relay.on('error', () => {
+    console.warn(`failed to connect to ${relay.url}`);
+  });
+  try {
+    await relay.connect();
+    currentSubList.forEach(({cb, filter}) => subscribe(cb, filter, relay));
+    relayMap.set(url, relay);
+  } catch {
+    console.warn(`could not connect to ${url}`);
+  }
+};
+
+export const unsubscribe = (sub: Sub) => {
+  sub.unsub();
+  subList.splice(subList.indexOf(sub), 1);
+};
+
+const subscribe = (
+  cb: SubCallback,
+  filter: Filter,
+  relay: Relay,
+  unsub?: boolean
 ) => {
-    if (!isOn) return
-    console[type](...args)
-}
+  const sub = relay.sub([filter]);
+  subList.push(sub);
+  sub.on('event', (event: Event) => {
+    cb(event, relay.url);
+  });
+  if (unsub) {
+    sub.on('eose', () => {
+      // console.log('eose', relay.url);
+      unsubscribe(sub);
+    });
+  }
+  return sub;
+};
 
-export function NostrProvider({
-    children,
-    relayUrls,
-    debug,
-  }: {
-    children: ReactNode
-    relayUrls: string[]
-    debug?: boolean
-  }) {
-    const [isLoading, setIsLoading] = useState(true)
-    const [connectedRelays, setConnectedRelays] = useState<Relay[]>([])
-    const [relays, setRelays] = useState<Relay[]>([])
-    const relayUrlsRef = useRef<string[]>([])
-  
-    let onConnectCallback: null | OnConnectFunc = null
-    let onDisconnectCallback: null | OnDisconnectFunc = null
-  
-    const disconnectToRelays = useCallback(
-      (relayUrls: string[]) => {
-        relayUrls.forEach(async (relayUrl) => {
-          await relays.find((relay) => relay.url === relayUrl)?.close()
-          setRelays((prev) => prev.filter((r) => r.url !== relayUrl))
-        })
-      },
-      [relays],
-    )
-  
-    const connectToRelays = useCallback(
-      (relayUrls: string[]) => {
-        relayUrls.forEach(async (relayUrl) => {
-          const relay = relayInit(relayUrl)
-  
-          if (connectedRelays.findIndex((r) => r.url === relayUrl) >= 0) {
-            // already connected, skip
-            return
-          }
-  
-          setRelays((prev) => uniqBy([...prev, relay], "url"))
-          relay.connect()
-  
-          relay.on("connect", () => {
-            log(debug, "info", `✅ nostr (${relayUrl}): Connected!`)
-            setIsLoading(false)
-            onConnectCallback?.(relay)
-            setConnectedRelays((prev) => uniqBy([...prev, relay], "url"))
-          })
-  
-          relay.on("disconnect", () => {
-            log(debug, "warn", `🚪 nostr (${relayUrl}): Connection closed.`)
-            onDisconnectCallback?.(relay)
-            setConnectedRelays((prev) => prev.filter((r) => r.url !== relayUrl))
-          })
-  
-          relay.on("error", () => {
-            log(debug, "error", `❌ nostr (${relayUrl}): Connection error!`)
-          })
-        })
-      },
-      [connectedRelays, debug, onConnectCallback, onDisconnectCallback],
-    )
-  
-    useEffect(() => {
-      if (relayUrlsRef.current === relayUrls) {
-        // relayUrls isn't updated, skip
-        return
+export const sub = (obj: Subscribe) => {
+  currentSubList.push(obj);
+  relayMap.forEach((relay) => subscribe(obj.cb, obj.filter, relay, obj.unsub));
+};
+
+export const subOnce = (
+  obj: Subscribe & {relay: string}
+) => {
+  const relay = relayMap.get(obj.relay);
+  if (relay) {
+    const sub = subscribe(obj.cb, obj.filter, relay);
+    sub.on('eose', () => {
+      // console.log('eose', obj.relay);
+      unsubscribe(sub);
+    });
+  }
+};
+
+export const unsubAll = () => {
+  subList.forEach(unsubscribe);
+  currentSubList.length = 0;
+};
+
+type PublishCallback = (
+  relay: string,
+  errorMessage?: string,
+) => void;
+
+
+export const publish = (event: Event, cb: PublishCallback) => {
+    relayMap.forEach(async (relay, url) => {
+      try {
+        await relay.publish(event);
+        console.info(`${relay.url} has accepted our event`);
+        cb(relay.url);
+      } catch (reason) {
+        console.error(`failed to publish to ${relay.url}: ${reason}`);
+        cb(relay.url, reason as string);
       }
-  
-      const relayUrlsToDisconnect = relayUrlsRef.current.filter(
-        (relayUrl) => !relayUrls.includes(relayUrl),
-      )
-  
-      disconnectToRelays(relayUrlsToDisconnect)
-      connectToRelays(relayUrls)
-  
-      relayUrlsRef.current = relayUrls
-    }, [relayUrls, connectToRelays, disconnectToRelays])
-  
-    const publish = (event: Event) => {
-      return connectedRelays.map((relay) => {
-        log(debug, "info", `⬆️ nostr (${relay.url}): Sending event:`, event)
-  
-        return relay.publish(event)
-      })
-    }
-  
-    const value: NostrContextType = {
-      debug,
-      isLoading,
-      connectedRelays,
-      publish,
-      onConnect: (_onConnectCallback?: OnConnectFunc) => {
-        if (_onConnectCallback) {
-          onConnectCallback = _onConnectCallback
-        }
-      },
-      onDisconnect: (_onDisconnectCallback?: OnDisconnectFunc) => {
-        if (_onDisconnectCallback) {
-          onDisconnectCallback = _onDisconnectCallback
-        }
-      },
-    }
-  
-    return <NostrContext.Provider value={value}>{children}</NostrContext.Provider>
-  }
-  
-  export function useNostr() {
-    return useContext(NostrContext)
-  }
+    });
+  };
+
+
+addRelay('wss://relay.snort.social');
+addRelay('wss://nostr.bitcoiner.social');
+addRelay('wss://nostr.mom');
+addRelay('wss://relay.nostr.bg');
+addRelay('wss://nos.lol');
+// addRelay('wss://relay.nostr.ch');
