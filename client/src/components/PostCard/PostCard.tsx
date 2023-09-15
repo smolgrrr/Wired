@@ -80,14 +80,14 @@ const PostCard = ({ event}: { event: Event }) => {
           <div className="mr-2 flex flex-col break-words">
             {comment}
           </div>
-          {file !== "" && (
+          {/* {file !== "" && (
             <div className="file">
                 <img
                   src={file}
                   loading="lazy"
                 /> 
             </div>
-           )}
+           )} */}
         </div>
       </CardContainer>
     </>

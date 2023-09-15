@@ -3,8 +3,9 @@ import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { Event, generatePrivateKey, getPublicKey, finishEvent, relayInit} from 'nostr-tools';
 import { minePow } from '../../utils/mine';
+import { publish } from '../../utils/relays';
 
-const difficulty = 10
+const difficulty = 20
 
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
@@ -23,7 +24,7 @@ const NewThreadCard: React.FC = () => {
       }, difficulty);
 
       const signedEvent = finishEvent(event, sk);
-      // await publish(signedEvent);
+      await publish(signedEvent);
       console.log(signedEvent.id);
 
     } catch (error) {

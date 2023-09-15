@@ -86,15 +86,13 @@ type PublishCallback = (
 ) => void;
 
 
-export const publish = (event: Event, cb: PublishCallback) => {
+export const publish = (event: Event) => {
     relayMap.forEach(async (relay, url) => {
       try {
         await relay.publish(event);
-        console.info(`${relay.url} has accepted our event`);
-        cb(relay.url);
+        console.info(`${relay.url} has accepted our event: ${event.id}`);
       } catch (reason) {
         console.error(`failed to publish to ${relay.url}: ${reason}`);
-        cb(relay.url, reason as string);
       }
     });
   };

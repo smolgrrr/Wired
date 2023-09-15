@@ -6,21 +6,13 @@ import { relayInit, Event } from 'nostr-tools';
 import { subGlobalFeed, simpleSub24hFeed } from '../utils/subscriptions';
 import { uniqBy } from '../utils/utils';
 
-const relay = relayInit('wss://nostr.lu.ke');
-
-type EventRelayMap = {
-  [eventId: string]: string[];
-};
-const eventRelayMap: EventRelayMap = {}; // eventId: [relay1, relay2]
-
-
 const Home = () => {
   const [events, setEvents] = useState<Event[]>([]); // Initialize state
 
   // Define your callback function for subGlobalFeed
   const onEvent = (event: Event, relay: string) => {
     setEvents((prevEvents) => [...prevEvents, event]);
-    console.log(event.id);
+    console.log(event.id + ' ' + event.kind + ' ' + event.tags);
   };
 
   useEffect(() => {
@@ -34,8 +26,12 @@ const Home = () => {
   }, []);  // Empty dependency array means this useEffect runs once when the component mounts
 
   const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
-  // const filteredEvents = uniqEvents.filter(event => getPow(event.id) > 5);
-  const sortedEvents = uniqEvents.sort((a, b) => (b.created_at as any) - (a.created_at as any));
+  const filteredEvents1 = uniqEvents.filter(event => getPow(event.id) > 3);
+  const filteredEvents2 = filteredEvents1.filter(event => event.kind == 1);
+  const filteredEvents3 = filteredEvents2.filter(event => 
+    !event.tags.some(tag => tag[0] === 'p')
+  );
+  const sortedEvents = filteredEvents3.sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
   return (
     <>
