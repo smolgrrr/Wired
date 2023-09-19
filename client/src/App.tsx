@@ -3,6 +3,8 @@ import './App.css';
 import Home from './components/Home';
 import Settings from './components/Settings';
 import SwipeableViews from 'react-swipeable-views';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Thread from './components/Thread/Thread';
 
 function App() {
   const [index, setIndex] = React.useState(1);
@@ -13,14 +15,19 @@ function App() {
   };
 
   return (
-      <SwipeableViews index={index} onChangeIndex={handleChangeIndex}>
-        <div>
-          <Settings />
-        </div>
-        <div>
-          <Home />
-        </div>
-      </SwipeableViews>
+    <Router>
+      <Routes>
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/home" element={<Home />} />
+        <Route path='/thread/:id' element={<Thread />} />
+        <Route path="/" element={
+          <SwipeableViews index={index} onChangeIndex={handleChangeIndex}>
+            <Settings />
+            <Home />
+          </SwipeableViews>
+        } />
+      </Routes>
+    </Router>
   );
 }
 

@@ -82,7 +82,7 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
     });
   };
 
-  /** subscribe to global feed */
+/** subscribe to global feed */
 export const simpleSub24hFeed = (onEvent: SubCallback) => {
   unsubAll();
   sub({
@@ -94,4 +94,49 @@ export const simpleSub24hFeed = (onEvent: SubCallback) => {
       limit: 1,
     }
   });
+};
+
+/** subscribe to a note id (nip-19) */
+export const subNote = (
+  eventId: string,
+  onEvent: SubCallback,
+) => {
+  unsubAll();
+  sub({
+    cb: onEvent,
+    filter: {
+      ids: [eventId],
+      kinds: [1],
+      limit: 1,
+    },
+    unsub: true,
+  });
+
+  const replies = new Set<string>();
+
+  const onReply = (evt: Event, relay: string) => {
+    replies.add(evt.id)
+    onEvent(evt, relay);
+    unsubAll();
+    sub({
+      cb: onEvent,
+      filter: {
+        '#e': Array.from(replies),
+        kinds: [1],
+      },
+      unsub: true,
+    });
+  };
+
+  replies.add(eventId);
+  setTimeout(() => {
+    sub({
+      cb: onReply,
+      filter: {
+        '#e': [eventId],
+        kinds: [1],
+      },
+      unsub: true, // TODO: probably keep this subscription also after onReply/unsubAll
+    });
+  }, 200);
 };
