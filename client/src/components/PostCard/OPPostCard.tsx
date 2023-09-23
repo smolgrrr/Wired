@@ -2,7 +2,6 @@ import CardContainer from './CardContainer';
 import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
-import { nip19 } from 'nostr-tools';
 
 const colorCombos = [
   'from-red-400 to-yellow-500',
@@ -66,7 +65,6 @@ const PostCard = ({ event}: { event: Event }) => {
   return (
     <>
       <CardContainer>
-        <a href={`/thread/${nip19.noteEncode(event.id)}`}>
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
@@ -82,16 +80,15 @@ const PostCard = ({ event}: { event: Event }) => {
           <div className="mr-2 flex flex-col break-words">
             {comment}
           </div>
-          {/* {file !== "" && (
+          {file !== "" && (
             <div className="file">
                 <img
                   src={file}
                   loading="lazy"
                 /> 
             </div>
-           )} */}
+           )}
         </div>
-        </a>
       </CardContainer>
     </>
   );
