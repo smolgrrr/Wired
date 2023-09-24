@@ -14,6 +14,7 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
     const now = Math.floor(Date.now() * 0.001);
     const pubkeys = new Set<string>();
     const notes = new Set<string>();
+    const replies = new Set<string>();
     const prefix = Math.floor(16 / 4); //  4 bits in each '0' character
     sub({ // get past events
       cb: (evt, relay) => {
@@ -30,19 +31,19 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
       unsub: true
     });
   
-    // New Callback to only add events that pass the PoW requirement
-    const powFilteredCallback = (evt: Event, relay: string) => {
-        if (getPow(evt.id) > 2) { // Replace '5' with your actual PoW requirement
-        pubkeys.add(evt.pubkey);
-        notes.add(evt.id);
-        onEvent(evt, relay);
-        }
-    };
+    // // New Callback to only add events that pass the PoW requirement
+    // const powFilteredCallback = (evt: Event, relay: string) => {
+    //     if (getPow(evt.id) > 2) { // Replace '5' with your actual PoW requirement
+    //     pubkeys.add(evt.pubkey);
+    //     notes.add(evt.id);
+    //     onEvent(evt, relay);
+    //     }
+    // };
 
     setTimeout(() => {
       // get profile info
       sub({
-        cb: powFilteredCallback,
+        cb: onEvent,
         filter: {
           authors: Array.from(pubkeys),
           kinds: [0],
@@ -51,6 +52,16 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
         unsub: true,
       });
       pubkeys.clear();
+      
+      sub({
+        cb: onEvent,
+        filter: {
+          '#e': Array.from(notes),
+          kinds: [1],
+        },
+        unsub: true,
+      });
+
       notes.clear();
     }, 2000);
   

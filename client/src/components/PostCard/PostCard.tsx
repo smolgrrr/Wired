@@ -3,6 +3,9 @@ import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
+import { useEffect, useState } from 'react';
+import { subNote } from '../../utils/subscriptions';
+import { getMetadata, uniqBy } from '../../utils/utils';
 
 const colorCombos = [
   'from-red-400 to-yellow-500',
@@ -46,23 +49,23 @@ const timeAgo = (unixTime: number) => {
   if (hours < 24) return `${hours}h`;
 
   const days = Math.floor(hours / 24);
-  return `${days} days ago`;
+  if (days < 7) return `${days}d`;
+
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w`;
 };
 
-const PostCard = ({ event}: { event: Event }) => {
+const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event | null, replyCount: number}) => {
     // Replace 10 with the actual number of comments for each post
     const numberOfComments = 10;
-
     const { comment, file } = parseContent(event);
-
-    // const replyList = await relay.list([
-    //   {
-    //     kinds: [1],
-    //     limit: 200,
-    //   },
-    // ]);
     const colorCombo = getColorFromHash(event.pubkey, colorCombos);
 
+    let metadataParsed = null;
+    if (metadata !== null) {
+        metadataParsed = getMetadata(metadata);
+    }
+    
   return (
     <>
       <CardContainer>
@@ -70,13 +73,22 @@ const PostCard = ({ event}: { event: Event }) => {
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-            <div className={`h-5 w-5 bg-gradient-to-r ${colorCombo} rounded-full`} />
+            {metadataParsed ? 
+              <>
+              <img className={`h-8 w-8 rounded-full`} src={metadataParsed.picture} />
+              <div className="ml-2 text-md font-semibold">{metadataParsed.name}</div>
+              </>
+              :
+              <>
+              <div className={`h-8 w-8 bg-gradient-to-r ${colorCombo} rounded-full`} />
               <div className="ml-2 text-md font-semibold">Anonymous</div>
+              </>
+            }
             </div>
             <div className="flex items-center ml-auto">
               <div className="text-xs font-semibold text-gray-500 mr-2">{timeAgo(event.created_at)}</div>
               <FolderIcon className="h-5 w-5 mr-1 text-gray-500" />
-              <span className="text-xs text-gray-500">{numberOfComments}</span>
+              <span className="text-xs text-gray-500">{replyCount}</span>
             </div>  
           </div>
           <div className="mr-2 flex flex-col break-words">

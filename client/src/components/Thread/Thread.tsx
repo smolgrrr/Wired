@@ -5,7 +5,6 @@ import { subNote } from '../../utils/subscriptions';
 import { useEffect } from 'react';
 import PostCard from '../PostCard/PostCard';
 import { uniqBy } from '../../utils/utils';
-import OPPostCard from '../PostCard/OPPostCard';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
 
 const Thread = () => {
@@ -62,14 +61,14 @@ const Thread = () => {
         <>
             <main className="bg-black text-white min-h-screen">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <OPPostCard event={uniqEvents[0]} />
+                    <PostCard event={uniqEvents[0]} metadata={null} replyCount={0}/>
                     <div className="col-span-full flex justify-center space-x-36    ">
                         <DocumentTextIcon className="h-5 w-5 text-gray-200" />
                         <FolderPlusIcon className="h-5 w-5 text-gray-200" />
                     </div>
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
-                    {uniqEvents.sort((a, b) => b.created_at - a.created_at).map((event, index) => (
-                        <PostCard key={index} event={event} />
+                    {uniqEvents.slice(1).sort((a, b) => b.created_at - a.created_at).map((event, index) => (
+                        <PostCard key={index} event={event} metadata={null} replyCount={0}/>
                     ))}
                 </div>
             </main>

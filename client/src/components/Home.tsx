@@ -3,48 +3,54 @@ import PostCard from './PostCard/PostCard';
 import NewThreadCard from './PostCard/NewThreadCard';
 import { getPow } from '../utils/mine';
 import { relayInit, Event } from 'nostr-tools';
-import { subGlobalFeed, simpleSub24hFeed } from '../utils/subscriptions';
+import { subGlobalFeed } from '../utils/subscriptions';
 import { uniqBy } from '../utils/utils';
 
 const Home = () => {
-  const [events, setEvents] = useState<Event[]>([]); // Initialize state
+  const [events, setEvents] = useState<Event[]>([]);
 
-  // Define your callback function for subGlobalFeed
-  const onEvent = (event: Event, relay: string) => {
+  const onEvent = (event: Event) => {
     setEvents((prevEvents) => [...prevEvents, event]);
-    console.log(event.id + ' ' + event.kind + ' ' + event.tags);
+    console.log(`${event.id} ${event.kind} ${event.tags}`);
   };
 
   useEffect(() => {
-    // Subscribe to global feed when the component mounts
     subGlobalFeed(onEvent);
-
-    // Optionally, return a cleanup function to unsubscribe when the component unmounts
-    return () => {
-      // Your cleanup code here
-    };
-  }, []);  // Empty dependency array means this useEffect runs once when the component mounts
+    // If you eventually need a cleanup function, put it here
+  }, []);
 
   const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
-  const filteredEvents1 = uniqEvents.filter(event => getPow(event.id) > 3);
-  const filteredEvents2 = filteredEvents1.filter(event => event.kind == 1);
-  const filteredEvents3 = filteredEvents2.filter(event => 
-    !event.tags.some(tag => tag[0] === 'p')
-  );
-  const sortedEvents = filteredEvents3.sort((a, b) => (b.created_at as any) - (a.created_at as any));
+  
+  const filteredAndSortedEvents = uniqEvents
+    .filter(event => 
+      getPow(event.id) > 3 &&
+      event.kind === 1 &&
+      !event.tags.some(tag => tag[0] === 'p')
+    )
+    .sort((a, b) => (b.created_at as any) - (a.created_at as any));
+
+  
+  const getMetadataEvent = (event: Event) => {
+    const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
+    if (metadataEvent) {
+      return metadataEvent;
+    }
+    return null;
+  }
+
+  const countReplies = (event: Event) => {
+    return uniqEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id)).length;
+  }
 
   return (
-    <>
     <main className="bg-black text-white min-h-screen">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         <NewThreadCard />
-        {sortedEvents.sort((a, b) => b.created_at - a.created_at).map((event, index) => (
-          <PostCard key={index} event={event}/>
+        {filteredAndSortedEvents.map((event, index) => (
+          <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)}/>
         ))}
       </div>
     </main>
-    {/* <Header /> */}
-    </>
   );
 };
 
