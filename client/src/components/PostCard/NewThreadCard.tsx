@@ -67,7 +67,8 @@ const NewThreadCard: React.FC = () => {
               <textarea 
                 name="com" 
                 wrap="soft" 
-                className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none"
+                className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none placeholder-blue-300"
+                placeholder='Shitpost here...'
                 value={comment} 
                 onChange={(e) => setComment(e.target.value)}
               />

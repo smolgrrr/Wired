@@ -6,11 +6,21 @@ import { useEffect } from 'react';
 import PostCard from '../PostCard/PostCard';
 import { uniqBy } from '../../utils/utils';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
+import { generatePrivateKey, getPublicKey, finishEvent, relayInit } from 'nostr-tools';
+import { minePow } from '../../utils/mine';
+import { publish } from '../../utils/relays';
+
+
+const difficulty = 20
 
 const Thread = () => {
     const { id } = useParams();
     const [events, setEvents] = useState<Event[]>([]); // Initialize state
     let decodeResult = nip19.decode(id as string);
+    const [comment, setComment] = useState("");
+    const [showForm, setShowForm] = useState(false);
+
 
 
     // Define your callback function for subGlobalFeed
@@ -32,12 +42,34 @@ const Thread = () => {
         };
     }, []);  // Empty dependency array means this useEffect runs once when the component mounts
 
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        let sk = generatePrivateKey();
+
+        try {
+            const event = minePow({
+                kind: 1,
+                tags: [],
+                content: comment,
+                created_at: Math.floor(Date.now() / 1000),
+                pubkey: getPublicKey(sk),
+            }, difficulty);
+
+            const signedEvent = finishEvent(event, sk);
+            await publish(signedEvent);
+            console.log(signedEvent.id);
+
+        } catch (error) {
+            setComment(comment + " " + error);
+        }
+    };
+
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
 
     const getMetadataEvent = (event: Event) => {
         const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
         if (metadataEvent) {
-          return metadataEvent;
+            return metadataEvent;
         }
         return null;
     }
@@ -73,18 +105,54 @@ const Thread = () => {
         <>
             <main className="bg-black text-white min-h-screen">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <PostCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])}/>
+                    <PostCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
                     <div className="col-span-full flex justify-center space-x-36    ">
-                        <DocumentTextIcon className="h-5 w-5 text-gray-200" />
-                        <FolderPlusIcon className="h-5 w-5 text-gray-200" />
+                        <DocumentTextIcon className="h-5 w-5 text-gray-200" onClick={() => setShowForm(prevShowForm => !prevShowForm)} />
+                        <FolderPlusIcon className="h-5 w-5 text-gray-200" onClick={() => setShowForm(prevShowForm => !prevShowForm)} />
+                    </div>
+                    <div>
+                        {showForm && (
+                            <form
+                                name="post"
+                                method="post"
+                                encType="multipart/form-data"
+                                className=""
+                                onSubmit={handleSubmit}
+                            >
+                                <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
+                                <div id="togglePostFormLink" className="text-lg font-semibold">
+                                    Reply to note
+                                </div>
+                                <div>
+                                    <textarea
+                                        name="com"
+                                        wrap="soft"
+                                        className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none placeholder-blue-300"
+                                        placeholder='Shitpost here...'
+                                        value={comment}
+                                        onChange={(e) => setComment(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center">
+                                        <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+                                        <input type="file" className="hidden" />
+                                    </div>
+                                    <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
+                                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
+                                        Submit
+                                    </button>
+                                </div>
+                                <div id="postFormError" className="text-red-500" />
+                            </form>)}
                     </div>
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
                     {uniqEvents
-                    .slice(1)
-                    .filter(event => event.kind === 1)
-                    .sort((a, b) => b.created_at - a.created_at).map((event, index) => (
-                        <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)}/>
-                    ))}
+                        .slice(1)
+                        .filter(event => event.kind === 1)
+                        .sort((a, b) => b.created_at - a.created_at).map((event, index) => (
+                            <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} />
+                        ))}
                 </div>
             </main>
         </>
