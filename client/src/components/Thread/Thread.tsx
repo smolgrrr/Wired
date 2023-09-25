@@ -34,6 +34,18 @@ const Thread = () => {
 
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
 
+    const getMetadataEvent = (event: Event) => {
+        const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
+        if (metadataEvent) {
+          return metadataEvent;
+        }
+        return null;
+    }
+
+    const countReplies = (event: Event) => {
+        return uniqEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id)).length;
+    }
+
     if (!uniqEvents[0]) {
         return (
             <main className="bg-black text-white min-h-screen">
@@ -61,14 +73,17 @@ const Thread = () => {
         <>
             <main className="bg-black text-white min-h-screen">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <PostCard event={uniqEvents[0]} metadata={null} replyCount={0}/>
+                    <PostCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])}/>
                     <div className="col-span-full flex justify-center space-x-36    ">
                         <DocumentTextIcon className="h-5 w-5 text-gray-200" />
                         <FolderPlusIcon className="h-5 w-5 text-gray-200" />
                     </div>
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
-                    {uniqEvents.slice(1).sort((a, b) => b.created_at - a.created_at).map((event, index) => (
-                        <PostCard key={index} event={event} metadata={null} replyCount={0}/>
+                    {uniqEvents
+                    .slice(1)
+                    .filter(event => event.kind === 1)
+                    .sort((a, b) => b.created_at - a.created_at).map((event, index) => (
+                        <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)}/>
                     ))}
                 </div>
             </main>

@@ -14,7 +14,6 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
     const now = Math.floor(Date.now() * 0.001);
     const pubkeys = new Set<string>();
     const notes = new Set<string>();
-    const replies = new Set<string>();
     const prefix = Math.floor(16 / 4); //  4 bits in each '0' character
     sub({ // get past events
       cb: (evt, relay) => {
@@ -113,8 +112,12 @@ export const subNote = (
   onEvent: SubCallback,
 ) => {
   unsubAll();
+  const pubkeys = new Set<string>();
   sub({
-    cb: onEvent,
+    cb: (evt, relay) => {
+      pubkeys.add(evt.pubkey);
+      onEvent(evt, relay);
+    },
     filter: {
       ids: [eventId],
       kinds: [1],
@@ -124,13 +127,15 @@ export const subNote = (
   });
 
   const replies = new Set<string>();
-
   const onReply = (evt: Event, relay: string) => {
     replies.add(evt.id)
     onEvent(evt, relay);
     unsubAll();
     sub({
-      cb: onEvent,
+      cb: (evt, relay) => {
+        pubkeys.add(evt.pubkey);
+        onEvent(evt, relay);
+      },
       filter: {
         '#e': Array.from(replies),
         kinds: [1],
@@ -138,6 +143,20 @@ export const subNote = (
       unsub: true,
     });
   };
+
+  setTimeout(() => {
+    // get profile info
+    sub({
+      cb: onEvent,
+      filter: {
+        authors: Array.from(pubkeys),
+        kinds: [0],
+        limit: pubkeys.size,
+      },
+      unsub: true,
+    });
+    pubkeys.clear();
+  }, 2000);
 
   replies.add(eventId);
   setTimeout(() => {
