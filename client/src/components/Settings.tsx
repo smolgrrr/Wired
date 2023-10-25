@@ -1,56 +1,55 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {generatePrivateKey, getPublicKey} from 'nostr-tools';
+// import {powEvent} from './system';
+// import {publish} from './relays';
 
 const Settings = () => {
-  // State variables to hold the settings
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [username, setUsername] = useState('');
+  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
+  const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 20);
 
-  // Mimic fetching existing settings from an API or local storage
-  useEffect(() => {
-    // Simulate fetching existing settings
-    const existingSettings = {
-      isDarkMode: false, // replace with actual value
-      username: '' // replace with actual value
-    };
-    setIsDarkMode(existingSettings.isDarkMode);
-    setUsername(existingSettings.username);
-  }, []);
-
-  // Function to save changes (simulate API call or local storage update)
-  const saveChanges = () => {
-    // Replace this with an actual API call or local storage update
-    console.log('Dark Mode:', isDarkMode);
-    console.log('Username:', username);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('filterDifficulty', String(filterDifficulty));
+    localStorage.setItem('difficulty', String(difficulty));
   };
 
   return (
-    <div className="settings-page">
-      <h1>Settings</h1>
-
-      <div className="setting-item">
-        <label>
-          Dark Mode
-          <input
-            type="checkbox"
-            checked={isDarkMode}
-            onChange={(e) => setIsDarkMode(e.target.checked)}
-          />
+<div className="settings-page bg-black text-white min-h-screen p-8">
+  <h1 className="text-lg font-semibold mb-4">Settings</h1>
+  <form onSubmit={handleSubmit}>
+    <div className="flex flex-wrap -mx-2 mb-4">
+      <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
+        <label className="block mb-2" htmlFor="filterDifficulty">
+          Filter Difficulty:
         </label>
+        <input 
+          id="filterDifficulty"
+          type="number"
+          value={filterDifficulty}
+          onChange={e => setFilterDifficulty(e.target.value)}
+          className="w-full px-3 py-2 border rounded-md text-black"
+        />
       </div>
 
-      <div className="setting-item">
-        <label>
-          Username
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+      <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
+        <label className="block mb-2" htmlFor="difficulty">
+          Post Difficulty:
         </label>
+        <input 
+          id="difficulty"
+          type="number"
+          value={difficulty}
+          onChange={e => setDifficulty(e.target.value)}
+          className="w-full px-3 py-2 border rounded-md text-black"
+        />
       </div>
-
-      <button onClick={saveChanges}>Save Changes</button>
     </div>
+    <button className="bg-gradient-to-r from-blue-900 to-cyan-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+      Save Settings
+    </button>
+  </form>
+</div>
+
   );
 };
 

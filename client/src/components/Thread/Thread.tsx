@@ -10,6 +10,7 @@ import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { generatePrivateKey, getPublicKey, finishEvent, relayInit } from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
+import ThreadPost from './ThreadPost';
 
 
 const difficulty = 20
@@ -20,6 +21,7 @@ const Thread = () => {
     let decodeResult = nip19.decode(id as string);
     const [comment, setComment] = useState("");
     const [showForm, setShowForm] = useState(false);
+    const [postType, setPostType] = useState("");
 
 
 
@@ -80,7 +82,7 @@ const Thread = () => {
 
     if (!uniqEvents[0]) {
         return (
-            <main className="bg-black text-white min-h-screen">
+            <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     <div className="border border-blue-300 shadow rounded-md p-4 max-w-sm w-full mx-auto">
                         <div className="animate-pulse flex space-x-4">
@@ -98,7 +100,7 @@ const Thread = () => {
                         </div>
                     </div>
                 </div>
-            </main>
+            </>
         );
     }
     return (
@@ -107,44 +109,24 @@ const Thread = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     <PostCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
                     <div className="col-span-full flex justify-center space-x-36    ">
-                        <DocumentTextIcon className="h-5 w-5 text-gray-200" onClick={() => setShowForm(prevShowForm => !prevShowForm)} />
-                        <FolderPlusIcon className="h-5 w-5 text-gray-200" onClick={() => setShowForm(prevShowForm => !prevShowForm)} />
+                        <DocumentTextIcon
+                            className="h-5 w-5 text-gray-200"
+                            onClick={() => {
+                                setShowForm(prevShowForm => !prevShowForm);
+                                setPostType('r');
+                            }}
+                        />
+
+                        <FolderPlusIcon
+                            className="h-5 w-5 text-gray-200"
+                            onClick={() => {
+                                setShowForm(prevShowForm => !prevShowForm);
+                                setPostType('q');
+                            }}
+                        />
                     </div>
                     <div>
-                        {showForm && (
-                            <form
-                                name="post"
-                                method="post"
-                                encType="multipart/form-data"
-                                className=""
-                                onSubmit={handleSubmit}
-                            >
-                                <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
-                                <div id="togglePostFormLink" className="text-lg font-semibold">
-                                    Reply to note
-                                </div>
-                                <div>
-                                    <textarea
-                                        name="com"
-                                        wrap="soft"
-                                        className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none placeholder-blue-300"
-                                        placeholder='Shitpost here...'
-                                        value={comment}
-                                        onChange={(e) => setComment(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center">
-                                        <ArrowUpTrayIcon className="h-6 w-6 text-white" />
-                                        <input type="file" className="hidden" />
-                                    </div>
-                                    <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
-                                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
-                                        Submit
-                                    </button>
-                                </div>
-                                <div id="postFormError" className="text-red-500" />
-                            </form>)}
+                        <ThreadPost state={showForm} type={postType} />
                     </div>
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
                     {uniqEvents

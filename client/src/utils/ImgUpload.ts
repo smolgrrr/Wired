@@ -9,27 +9,27 @@ export interface UploadResult {
  */
 
 export default async function NostrImg(file: File ): Promise<UploadResult> {
-    const buf = await file.arrayBuffer();
-  
-    const req = await fetch("https://void.cat/upload", {
-      body: buf,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "V-Content-Type": file.type, // Extracting the mime type
-        "V-Filename": file.name, // Extracting the filename
-        "V-Description": "Upload from https://tao-green.vercel.app/",
-      },
-    });
-    if (req.ok) {
-        let rsp: VoidUploadResponse = await req.json();
-        const fileExtension = file.name.split('.').pop(); // Extracting the file extension
-        const resultUrl = `https://void.cat/d/${rsp.file?.id}.${fileExtension}`;
-        return {url: resultUrl};
+  const fd = new FormData();
+  fd.append("image", file);
+
+  const req = await fetch("https://nostrimg.com/api/upload", {
+    body: fd,
+    method: "POST",
+    headers: {
+      accept: "application/json",
+    },
+  });
+  if (req.ok) {
+    const data: UploadResponse = await req.json();
+    if (typeof data?.imageUrl === "string" && data.success) {
+      return {
+        url: new URL(data.imageUrl).toString(),
+      };
     }
-    return {
-      error: "Upload failed",
-    };
+  }
+  return {
+    error: "Upload failed",
+  };
   }
 
 export interface UploadResult {
@@ -41,6 +41,22 @@ export type VoidUploadResponse = {
     ok: boolean,
     file?: VoidFile,
     errorMessage?: string,
+}
+
+interface UploadResponse {
+  fileID?: string;
+  fileName?: string;
+  imageUrl?: string;
+  lightningDestination?: string;
+  lightningPaymentLink?: string;
+  message?: string;
+  route?: string;
+  status: number;
+  success: boolean;
+  url?: string;
+  data?: {
+    url?: string;
+  };
 }
 
 export type VoidFile = {
