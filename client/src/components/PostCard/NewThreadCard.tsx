@@ -6,7 +6,7 @@ import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';
 
-const difficulty = 25
+const difficulty = 20
 
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");

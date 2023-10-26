@@ -170,3 +170,37 @@ export const subNote = (
     });
   }, 200);
 };
+
+/** quick subscribe to a note id (nip-19) */
+export const subNoteOnce = (
+  eventId: string,
+  onEvent: SubCallback,
+) => {
+  const pubkeys = new Set<string>();
+  sub({
+    cb: (evt, relay) => {
+      pubkeys.add(evt.pubkey);
+      onEvent(evt, relay);
+    },
+    filter: {
+      ids: [eventId],
+      kinds: [1],
+      limit: 1,
+    },
+    unsub: true,
+  });
+
+  setTimeout(() => {
+    // get profile info
+    sub({
+      cb: onEvent,
+      filter: {
+        authors: Array.from(pubkeys),
+        kinds: [0],
+        limit: pubkeys.size,
+      },
+      unsub: true,
+    });
+    pubkeys.clear();
+  }, 2000);
+};

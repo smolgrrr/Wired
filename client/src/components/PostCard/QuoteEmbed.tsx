@@ -8,7 +8,6 @@ import { subNote } from '../../utils/subscriptions';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import { getLinkPreview } from 'link-preview-js';
 import { subNoteOnce } from '../../utils/subscriptions';
-import QuoteEmbed from './QuoteEmbed';
 
 const colorCombos = [
   'from-red-400 to-yellow-500',
@@ -58,10 +57,10 @@ const timeAgo = (unixTime: number) => {
   return `${weeks}w`;
 };
 
-const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event | null, replyCount: number}) => {
+const QuoteEmbed = ({ event, metadata }: { event: Event, metadata: Event | null}) => {
     // Replace 10 with the actual number of comments for each post
     const numberOfComments = 10;
-    let { comment, file } = parseContent(event);
+    const { comment, file } = parseContent(event);
     const colorCombo = getColorFromHash(event.pubkey, colorCombos);
     const [isExpanded, setIsExpanded] = useState(false);
     const truncatedComment = comment.slice(0, 240);
@@ -72,13 +71,6 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
     }
 
     const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
-    const [quoteEvents, setQuoteEvents] = useState<Event[]>([]); // Initialize state
-
-        // Define your callback function for subGlobalFeed
-      const onEvent = (event: Event, relay: string) => {
-          setQuoteEvents((prevEvents) => [...prevEvents, event]);
-          console.log(event.id + ' ' + event.kind + ' ' + event.tags);
-      };
 
     useEffect(() => {
       const urls = comment.match(/\bhttps?:\/\/\S+/gi);
@@ -87,49 +79,25 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
           .then((preview) => setLinkPreview(preview as LinkPreview))
           .catch((error) => console.error(error));
       }
-
-      const match = comment.match(/\bnostr:([a-z0-9]+)/i);
-      const nostrQuoteID = match && match[1];
-      if (nostrQuoteID && nostrQuoteID.length > 0) {
-        let id_to_hex = String(nip19.decode(nostrQuoteID as string).data);
-        subNoteOnce(id_to_hex, onEvent);
-
-        comment = comment.replace(/\bnostr:[a-z0-9]+\b/i, '').trim();
-      }
     }, [comment]);
-
-    const getMetadataEvent = (event: Event) => {
-      const metadataEvent = quoteEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
-      if (metadataEvent) {
-          return metadataEvent;
-      }
-      return null;
-  }
     
   return (
-    <>
-      <CardContainer>
-        <a href={`/thread/${nip19.noteEncode(event.id)}`}>
+    <div className="link-preview p-1 bg-gradient-to-r from-black to-neutral-900 rounded-lg border border-neutral-800">
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
             {metadataParsed ? 
               <>
-              <img className={`h-8 w-8 rounded-full`} src={metadataParsed.picture} />
-              <div className="ml-2 text-md font-semibold">{metadataParsed.name}</div>
+              <img className={`h-5 w-5 rounded-full`} src={metadataParsed.picture} />
+              <div className="ml-2 text-sm font-semibold">{metadataParsed.name}</div>
               </>
               :
               <>
-              <div className={`h-8 w-8 bg-gradient-to-r ${colorCombo} rounded-full`} />
-              <div className="ml-2 text-md font-semibold">Anonymous</div>
+              <div className={`h-5 w-5 bg-gradient-to-r ${colorCombo} rounded-full`} />
+              <div className="ml-2 text-sm font-semibold">Anonymous</div>
               </>
             }
             </div>
-            <div className="flex items-center ml-auto">
-              <div className="text-xs font-semibold text-gray-500 mr-2">{timeAgo(event.created_at)}</div>
-              <FolderIcon className="h-5 w-5 mr-1 text-gray-500" />
-              <span className="text-xs text-gray-500">{replyCount}</span>
-            </div>  
           </div>
           <div className="mr-2 flex flex-col break-words">
           {isExpanded ? comment : truncatedComment}
@@ -148,9 +116,6 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
               </a>
             </div>
           )}
-          {quoteEvents[0] && quoteEvents.length > 0 && (
-            <QuoteEmbed event={quoteEvents[0]} metadata={getMetadataEvent(quoteEvents[0])} />
-          )}
           </div>
           {file !== "" && (
             <div className="file">
@@ -161,9 +126,7 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
             </div>
            )}
         </div>
-        </a>
-      </CardContainer>
-    </>
+    </div>
   );
 };
 
@@ -186,4 +149,4 @@ interface LinkPreview {
   [key: string]: any;
 }
 
-export default PostCard;
+export default QuoteEmbed;
