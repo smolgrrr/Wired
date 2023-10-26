@@ -1,4 +1,4 @@
-import CardContainer from './CardContainer';
+import CardContainer from '../PostCard/CardContainer';
 import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
@@ -56,7 +56,7 @@ const timeAgo = (unixTime: number) => {
   return `${weeks}w`;
 };
 
-const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event | null, replyCount: number}) => {
+const OPCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event | null, replyCount: number}) => {
     // Replace 10 with the actual number of comments for each post
     const numberOfComments = 10;
     const { comment, file } = parseContent(event);
@@ -83,7 +83,6 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
   return (
     <>
       <CardContainer>
-        <a href={`/thread/${nip19.noteEncode(event.id)}`}>
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
@@ -108,8 +107,8 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
           <div className="mr-2 flex flex-col break-words">
           {isExpanded ? comment : truncatedComment}
         {comment.length > 240 && (
-          <button className="text-gray-500">
-            ... Read more
+          <button className="text-gray-500" onClick={() => setIsExpanded(!isExpanded)}>
+            {isExpanded ? 'Read less' : '... Read more'}
           </button>
         )}
             {linkPreview && linkPreview.images && linkPreview.images.length > 0 && (
@@ -132,7 +131,6 @@ const PostCard = ({ event, metadata, replyCount }: { event: Event, metadata: Eve
             </div>
            )}
         </div>
-        </a>
       </CardContainer>
     </>
   );
@@ -157,4 +155,4 @@ interface LinkPreview {
   [key: string]: any;
 }
 
-export default PostCard;
+export default OPCard;

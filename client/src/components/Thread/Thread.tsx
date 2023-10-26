@@ -12,6 +12,7 @@ import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import ThreadPost from './ThreadPost';
 import ReplyCard from './ReplyCard';
+import OPCard from './OPCard';
 
 
 const difficulty = 20
@@ -110,7 +111,7 @@ const Thread = () => {
         <>
             <main className="bg-black text-white min-h-screen">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <PostCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
+                    <OPCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
                     <div className="col-span-full flex justify-center space-x-36    ">
                         <DocumentTextIcon
                             className="h-5 w-5 text-gray-200"
