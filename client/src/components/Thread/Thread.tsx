@@ -11,6 +11,7 @@ import { generatePrivateKey, getPublicKey, finishEvent, relayInit } from 'nostr-
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import ThreadPost from './ThreadPost';
+import ReplyCard from './ReplyCard';
 
 
 const difficulty = 20
@@ -22,8 +23,6 @@ const Thread = () => {
     const [comment, setComment] = useState("");
     const [showForm, setShowForm] = useState(false);
     const [postType, setPostType] = useState("");
-
-
 
     // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
@@ -80,6 +79,10 @@ const Thread = () => {
         return uniqEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id)).length;
     }
 
+    const repliedList = (event: Event): Event[] => {
+        return uniqEvents.filter(e => event.tags.some(tag => tag[0] === 'p' && tag[1] === e.pubkey) && e.kind === 0);
+    }
+
     if (!uniqEvents[0]) {
         return (
             <>
@@ -132,8 +135,8 @@ const Thread = () => {
                     {uniqEvents
                         .slice(1)
                         .filter(event => event.kind === 1)
-                        .sort((a, b) => b.created_at - a.created_at).map((event, index) => (
-                            <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} />
+                        .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
+                            <ReplyCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)}/>
                         ))}
                 </div>
             </main>

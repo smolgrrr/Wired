@@ -23,7 +23,7 @@ const Home = () => {
   
   const filteredAndSortedEvents = uniqEvents
     .filter(event => 
-      getPow(event.id) > 3 &&
+      getPow(event.id) > 20 &&
       event.kind === 1 &&
       !event.tags.some(tag => tag[0] === 'p')
     )

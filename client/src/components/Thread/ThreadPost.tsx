@@ -8,13 +8,12 @@ import NostrImg from '../../utils/ImgUpload';
 import { nip19 } from 'nostr-tools';
 
 
-const difficulty = 5
+const difficulty = 25
 
 const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
     const { id} = useParams();
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
-    const [tags, setTags] = useState([['']]);
 
     let decodeResult = nip19.decode(id as string);
 
@@ -23,6 +22,7 @@ const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
         let sk = generatePrivateKey();
         let id = decodeResult.data as string
 
+        let tags = []; 
         if (type === 'r') {
             tags.push(["e", id as string])
         } else if (type === 'q') {
