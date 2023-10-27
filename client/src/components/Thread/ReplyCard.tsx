@@ -3,8 +3,6 @@ import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
-import { useEffect, useState } from 'react';
-import { subNote } from '../../utils/subscriptions';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
 

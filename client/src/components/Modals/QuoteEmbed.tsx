@@ -1,13 +1,7 @@
-import CardContainer from '../PostCard/CardContainer';
-import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
-import { nip19 } from 'nostr-tools';
-import { useEffect, useState } from 'react';
-import { subNote } from '../../utils/subscriptions';
 import { getMetadata, uniqBy } from '../../utils/utils';
-import { getLinkPreview } from 'link-preview-js';
-import { subNoteOnce } from '../../utils/subscriptions';
+import ContentPreview from './TextModal';
 
 const colorCombos = [
   'from-red-400 to-yellow-500',
@@ -58,29 +52,14 @@ const timeAgo = (unixTime: number) => {
 };
 
 const QuoteEmbed = ({ event, metadata }: { event: Event, metadata: Event | null}) => {
-    // Replace 10 with the actual number of comments for each post
-    const numberOfComments = 10;
     const { comment, file } = parseContent(event);
     const colorCombo = getColorFromHash(event.pubkey, colorCombos);
-    const [isExpanded, setIsExpanded] = useState(false);
-    const truncatedComment = comment.slice(0, 240);
 
     let metadataParsed = null;
     if (metadata !== null) {
         metadataParsed = getMetadata(metadata);
     }
 
-    const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
-
-    useEffect(() => {
-      const urls = comment.match(/\bhttps?:\/\/\S+/gi);
-      if (urls && urls.length > 0) {
-        getLinkPreview(urls[0])
-          .then((preview) => setLinkPreview(preview as LinkPreview))
-          .catch((error) => console.error(error));
-      }
-    }, [comment]);
-    
   return (
     <div className="p-1 bg-gradient-to-r from-black to-neutral-900 rounded-lg border border-neutral-800">
         <div className="flex flex-col">
@@ -100,22 +79,7 @@ const QuoteEmbed = ({ event, metadata }: { event: Event, metadata: Event | null}
             </div>
           </div>
           <div className="mr-2 flex flex-col break-words">
-          {isExpanded ? comment : truncatedComment}
-        {comment.length > 240 && (
-          <button className="text-gray-500">
-            ... Read more
-          </button>
-        )}
-            {linkPreview && linkPreview.images && linkPreview.images.length > 0 && (
-            <div className="link-preview p-1 bg-neutral-800 rounded-lg border border-neutral-800">
-              <a href={linkPreview.url} target="_blank" rel="noopener noreferrer" className="">
-                <img src={linkPreview.images[0]} alt={linkPreview.title} className="rounded-lg"/>
-                <div className="font-semibold text-xs text-gray-300">
-                  {linkPreview.title}
-                </div>
-              </a>
-            </div>
-          )}
+            <ContentPreview key={event.id} comment={comment} />
           </div>
           {file !== "" && (
             <div className="file">
@@ -129,24 +93,5 @@ const QuoteEmbed = ({ event, metadata }: { event: Event, metadata: Event | null}
     </div>
   );
 };
-
-interface LinkPreview {
-  url: string;
-  title: string;
-  siteName?: string;
-  description?: string;
-  mediaType: string;
-  contentType?: string;
-  images: string[];
-  videos: {
-    url?: string;
-    secureUrl?: string;
-    type?: string;
-    width?: string;
-    height?: string;
-    [key: string]: any;
-  }[];
-  [key: string]: any;
-}
 
 export default QuoteEmbed;

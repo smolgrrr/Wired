@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import {generatePrivateKey, getPublicKey} from 'nostr-tools';
+import React, { useState } from 'react';
 // import {powEvent} from './system';
 // import {publish} from './relays';
 

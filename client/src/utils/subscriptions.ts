@@ -1,6 +1,5 @@
 import {sub, subOnce, unsubAll} from './relays';
 import { Event } from 'nostr-tools';
-import { getPow } from './mine';
 
 type SubCallback = (
     event: Event,

@@ -3,11 +3,9 @@ import { useState } from "react";
 import { Event, nip19 } from "nostr-tools"
 import { subNote } from '../../utils/subscriptions';
 import { useEffect } from 'react';
-import PostCard from '../PostCard/PostCard';
 import { uniqBy } from '../../utils/utils';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
-import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
-import { generatePrivateKey, getPublicKey, finishEvent, relayInit } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import ThreadPost from './ThreadPost';
@@ -28,7 +26,6 @@ const Thread = () => {
     // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
         setEvents((prevEvents) => [...prevEvents, event]);
-        console.log(event.id + ' ' + event.kind + ' ' + event.tags);
     };
 
     useEffect(() => {

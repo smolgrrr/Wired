@@ -2,11 +2,7 @@ import CardContainer from '../PostCard/CardContainer';
 import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
-import { nip19 } from 'nostr-tools';
-import { useEffect, useState } from 'react';
-import { subNote } from '../../utils/subscriptions';
-import { getMetadata, uniqBy } from '../../utils/utils';
-import { getLinkPreview } from 'link-preview-js';
+import { getMetadata } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
 
 const colorCombos = [
@@ -58,28 +54,13 @@ const timeAgo = (unixTime: number) => {
 };
 
 const OPCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event | null, replyCount: number}) => {
-    // Replace 10 with the actual number of comments for each post
-    const numberOfComments = 10;
     const { comment, file } = parseContent(event);
     const colorCombo = getColorFromHash(event.pubkey, colorCombos);
-    const [isExpanded, setIsExpanded] = useState(false);
-    const truncatedComment = comment.slice(0, 240);
 
     let metadataParsed = null;
     if (metadata !== null) {
         metadataParsed = getMetadata(metadata);
     }
-
-    const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
-
-    useEffect(() => {
-      const urls = comment.match(/\bhttps?:\/\/\S+/gi);
-      if (urls && urls.length > 0) {
-        getLinkPreview(urls[0])
-          .then((preview) => setLinkPreview(preview as LinkPreview))
-          .catch((error) => console.error(error));
-      }
-    }, [comment]);
     
   return (
     <>

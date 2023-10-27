@@ -3,7 +3,7 @@ import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
-import { getMetadata, uniqBy } from '../../utils/utils';
+import { getMetadata } from '../../utils/utils';
 import ContentPreview from'../Modals/TextModal';
 
 const colorCombos = [
@@ -89,7 +89,7 @@ const PostCard = ({ key, event, metadata, replyCount }: { key: string, event: Ev
               </div>
             </div>
             <div className="mr-2 flex flex-col break-words">
-              <ContentPreview key={key} comment={comment} />
+              <ContentPreview key={event.id} comment={comment} />
             </div>
             {file !== "" && (
               <div className="file">

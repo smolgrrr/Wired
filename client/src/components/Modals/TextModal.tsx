@@ -1,8 +1,6 @@
 import QuoteEmbed from "./QuoteEmbed";
-import { getLinkPreview } from 'link-preview-js';
 import { Event } from 'nostr-tools';
 import { useEffect, useState } from "react";
-import { getMetadata, uniqBy } from '../../utils/utils';
 import { subNoteOnce } from '../../utils/subscriptions';
 import { nip19 } from "nostr-tools";
 import LinkModal from "./LinkPreview";
@@ -16,14 +14,13 @@ const ContentPreview = ({ key, comment }: { key: string, comment: string }) => {
       // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
         setQuoteEvents((prevEvents) => [...prevEvents, event]);
-        console.log(event.id + ' ' + event.kind + ' ' + event.tags);
     };
 
     useEffect(() => {
         const findUrl = comment.match(/\bhttps?:\/\/\S+/gi);
         if (findUrl && findUrl.length > 0) {
             setUrl(findUrl[0])
-            // setFinalComment(finalComment.replace(findUrl[0], '').trim())
+            setFinalComment(finalComment.replace(findUrl[0], '').trim())
         }
     
         const match = comment.match(/\bnostr:([a-z0-9]+)/i);
@@ -33,7 +30,7 @@ const ContentPreview = ({ key, comment }: { key: string, comment: string }) => {
           subNoteOnce(id_to_hex, onEvent);
           setFinalComment(finalComment.replace('nostr:'+nostrQuoteID, '').trim())
         }
-      }, [comment]);
+      }, [comment, finalComment]);
     
     const getMetadataEvent = (event: Event) => {
     const metadataEvent = quoteEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);

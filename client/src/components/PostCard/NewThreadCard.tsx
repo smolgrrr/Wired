@@ -1,7 +1,7 @@
 import CardContainer from './CardContainer';
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
-import { Event, generatePrivateKey, getPublicKey, finishEvent, relayInit } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';

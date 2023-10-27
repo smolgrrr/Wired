@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useState } from "react";
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
-import { generatePrivateKey, getPublicKey, finishEvent, relayInit } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';

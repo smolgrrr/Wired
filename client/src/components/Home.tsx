@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import PostCard from './PostCard/PostCard';
 import NewThreadCard from './PostCard/NewThreadCard';
 import { getPow } from '../utils/mine';
-import { relayInit, Event } from 'nostr-tools';
+import { Event } from 'nostr-tools';
 import { subGlobalFeed } from '../utils/subscriptions';
 import { uniqBy } from '../utils/utils';
 
@@ -11,7 +11,6 @@ const Home = () => {
 
   const onEvent = (event: Event) => {
     setEvents((prevEvents) => [...prevEvents, event]);
-    console.log(`${event.id} ${event.kind} ${event.tags}`);
   };
 
   useEffect(() => {
