@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { subNote } from '../../utils/subscriptions';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import { getLinkPreview } from 'link-preview-js';
+import ContentPreview from '../Modals/TextModal';
 
 const colorCombos = [
   'from-red-400 to-yellow-500',
@@ -105,22 +106,7 @@ const OPCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event
             </div>  
           </div>
           <div className="mr-2 flex flex-col break-words">
-          {isExpanded ? comment : truncatedComment}
-        {comment.length > 240 && (
-          <button className="text-gray-500" onClick={() => setIsExpanded(!isExpanded)}>
-            {isExpanded ? 'Read less' : '... Read more'}
-          </button>
-        )}
-            {linkPreview && linkPreview.images && linkPreview.images.length > 0 && (
-            <div className="link-preview p-1 bg-neutral-800 rounded-lg border border-neutral-800">
-              <a href={linkPreview.url} target="_blank" rel="noopener noreferrer" className="">
-                <img src={linkPreview.images[0]} alt={linkPreview.title} className="rounded-lg"/>
-                <div className="font-semibold text-xs text-gray-300">
-                  {linkPreview.title}
-                </div>
-              </a>
-            </div>
-          )}
+            <ContentPreview key={event.id} comment={comment} />
           </div>
           {file !== "" && (
             <div className="file">

@@ -20,10 +20,10 @@ const ContentPreview = ({ key, comment }: { key: string, comment: string }) => {
     };
 
     useEffect(() => {
-        const urls = comment.match(/\bhttps?:\/\/\S+/gi);
-        if (urls && urls.length > 0) {
-            setUrl(url)
-            setFinalComment(finalComment.replace(url, '').trim())
+        const findUrl = comment.match(/\bhttps?:\/\/\S+/gi);
+        if (findUrl && findUrl.length > 0) {
+            setUrl(findUrl[0])
+            // setFinalComment(finalComment.replace(findUrl[0], '').trim())
         }
     
         const match = comment.match(/\bnostr:([a-z0-9]+)/i);
@@ -47,7 +47,7 @@ const ContentPreview = ({ key, comment }: { key: string, comment: string }) => {
       <div className="mr-2 flex flex-col break-words">
         {isExpanded ? finalComment : finalComment.slice(0, 240)}
         {finalComment.length > 240 && (
-          <button className="text-gray-500">
+          <button className="text-gray-500" onClick={() => setIsExpanded(true)}>
             ... Read more
           </button>
         )}
@@ -55,7 +55,7 @@ const ContentPreview = ({ key, comment }: { key: string, comment: string }) => {
             <LinkModal key={key} url={url} />
         )}
         {quoteEvents[0] && quoteEvents.length > 0 && (
-          <QuoteEmbed event={quoteEvents[0]} metadata={getMetadataEvent(quoteEvents[0])} />
+          <QuoteEmbed key={key} event={quoteEvents[0]} metadata={getMetadataEvent(quoteEvents[0])} />
         )}
       </div>
     );

@@ -2,17 +2,14 @@ import { getLinkPreview } from 'link-preview-js';
 import { useState, useEffect } from 'react';
 
 
-const LinkModal = ({ key, url }: { key: string, url: string}) => {
+const LinkModal = ({ url }: { url: string}) => {
     const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
 
     useEffect(() => {
-      const fetchLinkPreview = async () => {
         getLinkPreview(url)          
         .then((preview) => setLinkPreview(preview as LinkPreview))
         .catch((error) => console.error(error));
-      };
   
-      fetchLinkPreview();
     }, [url]);
   
     if (!linkPreview) {
