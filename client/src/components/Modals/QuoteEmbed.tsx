@@ -1,4 +1,4 @@
-import CardContainer from './CardContainer';
+import CardContainer from '../PostCard/CardContainer';
 import { FolderIcon } from '@heroicons/react/24/outline';
 import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
@@ -82,7 +82,7 @@ const QuoteEmbed = ({ event, metadata }: { event: Event, metadata: Event | null}
     }, [comment]);
     
   return (
-    <div className="link-preview p-1 bg-gradient-to-r from-black to-neutral-900 rounded-lg border border-neutral-800">
+    <div className="p-1 bg-gradient-to-r from-black to-neutral-900 rounded-lg border border-neutral-800">
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
