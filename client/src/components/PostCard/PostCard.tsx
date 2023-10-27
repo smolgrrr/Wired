@@ -83,7 +83,8 @@ const PostCard = ({ key, event, metadata, replyCount }: { key: string, event: Ev
                 }
               </div>
               <div className="flex items-center ml-auto">
-                <div className="text-xs font-semibold text-gray-500 mr-2">{timeAgo(event.created_at)}</div>
+                <div className="text-xs text-gray-500">{event.id.match(/^0*([^\0]{2})/)?.[0] || 0}</div> &nbsp;
+                <div className="text-xs font-semibold text-gray-500 mr-2"> {timeAgo(event.created_at)}</div>
                 <FolderIcon className="h-5 w-5 mr-1 text-gray-500" />
                 <span className="text-xs text-gray-500">{replyCount}</span>
               </div>
@@ -98,7 +99,7 @@ const PostCard = ({ key, event, metadata, replyCount }: { key: string, event: Ev
                   loading="lazy"
                 />
               </div>
-            )}
+            )}               
           </div>
         </a>
       </CardContainer>
