@@ -103,4 +103,5 @@ addRelay('wss://nostr.bitcoiner.social');
 addRelay('wss://nostr.mom');
 addRelay('wss://relay.nostr.bg');
 addRelay('wss://nos.lol');
+addRelay('wss://powrelay.xyz');
 // addRelay('wss://relay.nostr.ch');

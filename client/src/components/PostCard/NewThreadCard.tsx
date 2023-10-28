@@ -1,39 +1,63 @@
 import CardContainer from './CardContainer';
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';
+const powWorker = new Worker('../../powWorker');
 
 const difficulty = 20
 
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
   const [file, setFile] = useState("");
+  const [isWorking, setIsWorking] = useState(false);
+  const [workerResult, setWorkerResult] = useState(null);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    powWorker.addEventListener('message', (event) => {
+        setWorkerResult(event.data);
+    });
+
+    return () => {
+        powWorker.terminate();
+    };
+}, []);
+
+const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     let sk = generatePrivateKey();
+    
+    powWorker.postMessage({
+        unsigned: {
+            kind: 1,
+            tags: [],
+            content: comment + " " + file,
+            created_at: Math.floor(Date.now() / 1000),
+            pubkey: getPublicKey(sk),
+        },
+        difficulty
+    });
 
-    try {
-      const event = minePow({
-        kind: 1,
-        tags: [],
-        content: comment + " " + file,
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: getPublicKey(sk),
-      }, difficulty);
+    setIsWorking(true);
+};
 
-      const signedEvent = finishEvent(event, sk);
-      await publish(signedEvent);
-      
-      setComment("")
-      setFile("")
-    } catch (error) {
-      setComment(comment + " " + error);
+useEffect(() => {
+    if (workerResult) {
+        try {
+            const signedEvent = finishEvent(workerResult, generatePrivateKey());
+            publish(signedEvent);
+
+            setComment("");
+            setFile("");
+        } catch (error) {
+            setComment(error + ' ' + comment);
+        }
+        setIsWorking(false);
     }
-  };
+}, [workerResult]);
 
   async function attachFile(file_input: File | null) {
     try {
@@ -60,7 +84,10 @@ const NewThreadCard: React.FC = () => {
           method="post"
           encType="multipart/form-data"
           className=""
-          onSubmit={handleSubmit}
+          onSubmit={(event) => {
+            handleSubmit(event);
+            setIsWorking(true);
+          }}
         >
           <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
           <div id="togglePostFormLink" className="text-lg font-semibold">
@@ -112,6 +139,7 @@ const NewThreadCard: React.FC = () => {
           </div>
           <div id="postFormError" className="text-red-500" />
         </form>
+        {isWorking ? (<div className="flex animate-pulse"><CpuChipIcon className="h-5 w-5 ml-auto text-gray-300" /> <span className="text-sm text-gray-300" >Doing work...</span></div>) : <></>} 
       </CardContainer>
     </>
   );
