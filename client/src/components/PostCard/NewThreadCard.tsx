@@ -1,6 +1,6 @@
 import CardContainer from './CardContainer';
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
@@ -11,29 +11,50 @@ const difficulty = 20
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
   const [file, setFile] = useState("");
+  const [sk, setSk] =  useState(generatePrivateKey());
+  
+  const [messageFromWorker, setMessageFromWorker] = useState(null);
+    // Initialize the worker outside of any effects
+  const worker = useMemo(() => new Worker(new URL('../../powWorker', import.meta.url)), []);
+
+  useEffect(() => {
+    worker.onmessage = (event) => {
+      setMessageFromWorker(event.data);
+    };
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    let sk = generatePrivateKey();
-
-    try {
-      const event = minePow({
-        kind: 1,
-        tags: [],
-        content: comment + " " + file,
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: getPublicKey(sk),
-      }, difficulty);
-
-      const signedEvent = finishEvent(event, sk);
-      await publish(signedEvent);
-      
-      setComment("")
-      setFile("")
-    } catch (error) {
-      setComment(comment + " " + error);
-    }
+    worker.postMessage({
+        unsigned: {
+            kind: 1,  
+            tags: [],
+            content: comment + " " + file,
+            created_at: Math.floor(Date.now() / 1000),
+            pubkey: getPublicKey(sk),
+        },
+        difficulty
+    });
   };
+
+  useEffect(() => {
+    if (messageFromWorker) {
+        try {
+            const signedEvent = finishEvent(messageFromWorker, sk);
+            publish(signedEvent);
+
+            setComment("");
+            setFile("");
+            setSk(generatePrivateKey())
+
+            return () => {
+              worker.terminate();
+            };
+        } catch (error) {
+            setComment(error + ' ' + comment);
+        }
+    }
+}, [messageFromWorker]);
 
   async function attachFile(file_input: File | null) {
     try {
@@ -55,6 +76,7 @@ const NewThreadCard: React.FC = () => {
   return (
     <>
       <CardContainer>
+        {/* <p>Message from worker: {messageFromWorker}</p> */}
         <form
           name="post"
           method="post"
