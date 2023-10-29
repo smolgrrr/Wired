@@ -5,6 +5,7 @@ import Settings from './components/Settings';
 import SwipeableViews from 'react-swipeable-views';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Thread from './components/Thread/Thread';
+import { useState, useEffect } from 'react';
 
 function App() {
   const [index, setIndex] = React.useState(1);
