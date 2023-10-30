@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { addRelay } from '../utils/relays';
 
 const Settings = () => {
-  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
-  const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 20);
+  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 21);
+  const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +25,7 @@ const Settings = () => {
 // }, []);
 
   return (
-    <div className="settings-page bg-black text-white min-h-screen p-8">
+    <div className="settings-page bg-black text-white p-8">
       <h1 className="text-lg font-semibold mb-4">Settings</h1>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-wrap -mx-2 mb-4">
@@ -59,6 +59,15 @@ const Settings = () => {
           Save Settings
         </button>
       </form>
+
+      <div className="settings-page py-10">
+          <h1 className="text-lg font-semibold mb-4">About</h1>
+          <div className='flex'>  
+            <a href='https://github.com/smolgrrr/TAO'>
+            <img src="https://img.shields.io/github/stars/smolgrrr/TAO.svg?style=social"/>
+            </a>
+          </div>
+        </div>
     </div>
 
   );

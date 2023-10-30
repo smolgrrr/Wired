@@ -1,13 +1,24 @@
-import { CogIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 export default function Header() {
     return (
-        <footer className="fixed bottom-0 z-20 w-full bg-gradient-to-r from-blue-900 to-cyan-500 shadow-lg shadow-black">
-            <div className="flex justify-end items-center h-14"> {/* Adjust height as needed */}
-                <button tabIndex={0} className="p-4">
-                    <CogIcon className="h-12 w-12 text-transperant" />
+        <header className="hidden lg:block text-white p-4">
+            <div className="container mx-auto flex justify-between items-center">
+                <a href='/'>
+                <div className="flex items-center">
+                    <img src="tao.png" className="h-8" />
+                    <span className="font-bold">The Anon Operation</span>
+                </div>
+                </a>
+                <button className="ml-auto pr-4">
+                    <QuestionMarkCircleIcon className="h-6 w-6 text-transperant" />
                 </button>
+                <a href='/settings'>
+                <button className="">
+                    <Cog6ToothIcon className="h-6 w-6 text-transperant" />
+                </button>
+                </a>
             </div>
-        </footer>
+        </header>
     );
 }

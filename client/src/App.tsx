@@ -5,6 +5,7 @@ import Settings from './components/Settings';
 import SwipeableViews from 'react-swipeable-views';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Thread from './components/Thread/Thread';
+import Header from './components/Header/Header';
 
 function App() {
   const [index, setIndex] = React.useState(1);
@@ -16,6 +17,7 @@ function App() {
 
   return (
     <Router>
+      <Header />
       <Routes>
         <Route path="/settings" element={<Settings />} />
         <Route path="/home" element={<Home />} />
