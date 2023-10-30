@@ -19,7 +19,6 @@ const Thread = () => {
     const { id } = useParams();
     const [events, setEvents] = useState<Event[]>([]); // Initialize state
     let decodeResult = nip19.decode(id as string);
-    const [comment, setComment] = useState("");
     const [showForm, setShowForm] = useState(false);
     const [postType, setPostType] = useState("");
 
@@ -41,28 +40,6 @@ const Thread = () => {
         };
     }, []);  // Empty dependency array means this useEffect runs once when the component mounts
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        let sk = generatePrivateKey();
-
-        try {
-            const event = minePow({
-                kind: 1,
-                tags: [],
-                content: comment,
-                created_at: Math.floor(Date.now() / 1000),
-                pubkey: getPublicKey(sk),
-            }, difficulty);
-
-            const signedEvent = finishEvent(event, sk);
-            await publish(signedEvent);
-            console.log(signedEvent.id);
-
-        } catch (error) {
-            setComment(comment + " " + error);
-        }
-    };
-
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
 
     const getMetadataEvent = (event: Event) => {
@@ -78,7 +55,7 @@ const Thread = () => {
     }
 
     const repliedList = (event: Event): Event[] => {
-        return uniqEvents.filter(e => event.tags.some(tag => tag[0] === 'p' && tag[1] === e.pubkey) && e.kind === 0);
+        return uniqEvents.filter(e => event.tags.some(tag => tag[0] === 'p' && tag[1] === e.pubkey));
     }
 
     if (!uniqEvents[0]) {
@@ -127,7 +104,7 @@ const Thread = () => {
                         />
                     </div>
                     <div>
-                        <ThreadPost state={showForm} type={postType} />
+                        <ThreadPost OPEvent={uniqEvents[0]} state={showForm} type={postType} />
                     </div>
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
                     {uniqEvents

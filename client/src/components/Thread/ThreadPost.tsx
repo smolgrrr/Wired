@@ -1,13 +1,13 @@
 import { useParams } from 'react-router-dom';
 import { useState, useMemo, useEffect } from "react";
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
-import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
+import { generatePrivateKey, getPublicKey, finishEvent, Event as NostrEvent } from 'nostr-tools';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';
 import { nip19 } from 'nostr-tools';
 
 
-const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
+const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Boolean, type: String }) => {
     const { id } = useParams();
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
@@ -47,8 +47,10 @@ const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
         let modifiedComment = comment + " " + file;
         if (type === 'r') {
             tags.push(["e", id as string])
+            tags.push(["p", OPEvent.pubkey])
         } else if (type === 'q') {
             tags.push(["q", id as string])
+            tags.push(["p", OPEvent.pubkey])
             modifiedComment += ' nostr:' + nip19.noteEncode(id);
         }
 

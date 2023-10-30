@@ -5,6 +5,7 @@ import { Event } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
+import { useEffect } from 'react';
 
 const colorCombos = [
     'from-red-400 to-yellow-500',
@@ -63,7 +64,7 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
         metadataParsed = getMetadata(metadata);
     }
 
-    // const replyPubkeys = event.tags.filter(tag => tag[0] === 'p');
+    const replyPubkeys = event.tags.filter(tag => tag[0] === 'p');
 
     // const getMetadataEvent = (event: Event) => {
     //     const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
@@ -72,6 +73,9 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
     //     }
     //     return null;
     // }
+    useEffect(() => {
+        console.log(repliedTo)
+    }, []);
 
     return (
         <>
@@ -100,9 +104,9 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
                         </div>
                         <div className="flex items-center my-1" >
                             <span className="text-xs text-gray-500">Reply to: </span>
-                            {uniqBy(repliedTo, 'pubkey').map((event, index) => (
+                            {repliedTo.map((event, index) => (
                                 <>
-                                <img className={`h-5 w-5 rounded-full`} src={getMetadata(event).picture} />
+                                {/* <img className={`h-5 w-5 rounded-full`} src={getMetadata(event).picture} /> */}
                                 <div className={`h-5 w-5 bg-gradient-to-r ${getColorFromHash(event.pubkey, colorCombos)} rounded-full`} />
                                 </>
                             ))}
