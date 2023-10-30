@@ -2,59 +2,73 @@ import CardContainer from './CardContainer';
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect, useMemo } from 'react';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
-import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';
-
-const difficulty = 20
 
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
   const [file, setFile] = useState("");
-  const [sk, setSk] =  useState(generatePrivateKey());
-  
+  const [sk, setSk] = useState(generatePrivateKey());
+  const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || '21');
+
+
   const [messageFromWorker, setMessageFromWorker] = useState(null);
-    // Initialize the worker outside of any effects
+  const [doingWorkProp, setDoingWorkProp] = useState(false);
+  // Initialize the worker outside of any effects
   const worker = useMemo(() => new Worker(new URL('../../powWorker', import.meta.url)), []);
 
   useEffect(() => {
     worker.onmessage = (event) => {
       setMessageFromWorker(event.data);
     };
+
+    const handleDifficultyChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { difficulty, filterDifficulty } = customEvent.detail;
+      setDifficulty(difficulty);
+    };
+  
+    window.addEventListener('difficultyChanged', handleDifficultyChange);
+    
+    return () => {
+      window.removeEventListener('difficultyChanged', handleDifficultyChange);
+    };
   }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     worker.postMessage({
-        unsigned: {
-            kind: 1,  
-            tags: [],
-            content: comment + " " + file,
-            created_at: Math.floor(Date.now() / 1000),
-            pubkey: getPublicKey(sk),
-        },
-        difficulty
+      unsigned: {
+        kind: 1,
+        tags: [],
+        content: comment + " " + file,
+        created_at: Math.floor(Date.now() / 1000),
+        pubkey: getPublicKey(sk),
+      },
+      difficulty
     });
   };
 
   useEffect(() => {
+    setDoingWorkProp(false)
     if (messageFromWorker) {
-        try {
-            const signedEvent = finishEvent(messageFromWorker, sk);
-            publish(signedEvent);
+      try {
+        const signedEvent = finishEvent(messageFromWorker, sk);
+        publish(signedEvent);
 
-            setComment("");
-            setFile("");
-            setSk(generatePrivateKey())
+        setComment("");
+        setFile("");
+        setSk(generatePrivateKey());
+        setMessageFromWorker(null);
 
-            return () => {
-              worker.terminate();
-            };
-        } catch (error) {
-            setComment(error + ' ' + comment);
-        }
+        return () => {
+          worker.terminate();
+        };
+      } catch (error) {
+        setComment(error + ' ' + comment);
+      }
     }
-}, [messageFromWorker]);
+  }, [messageFromWorker]);
 
   async function attachFile(file_input: File | null) {
     try {
@@ -76,13 +90,15 @@ const NewThreadCard: React.FC = () => {
   return (
     <>
       <CardContainer>
-        {/* <p>Message from worker: {messageFromWorker}</p> */}
         <form
           name="post"
           method="post"
           encType="multipart/form-data"
           className=""
-          onSubmit={handleSubmit}
+          onSubmit={(event) => {
+            handleSubmit(event);
+            setDoingWorkProp(true);
+          }}
         >
           <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
           <div id="togglePostFormLink" className="text-lg font-semibold">
@@ -99,14 +115,14 @@ const NewThreadCard: React.FC = () => {
             />
           </div>
           <div>
-          {file !== "" && (
-            <div className="file m-0.5">
+            {file !== "" && (
+              <div className="file m-0.5">
                 <img
                   src={file}
                   loading="lazy"
-                /> 
-            </div>
-           )} 
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-between items-center">
             <div className="flex items-center">
@@ -132,6 +148,12 @@ const NewThreadCard: React.FC = () => {
               Submit
             </button>
           </div>
+          {doingWorkProp ? (
+              <div className='flex animate-pulse text-sm text-gray-300'>
+                <CpuChipIcon className="h-4 w-4 ml-auto" />
+                <span>Working...</span>
+              </div>
+            ) : null}
           <div id="postFormError" className="text-red-500" />
         </form>
       </CardContainer>

@@ -10,6 +10,13 @@ const Settings = () => {
     e.preventDefault();
     localStorage.setItem('filterDifficulty', String(filterDifficulty));
     localStorage.setItem('difficulty', String(difficulty));
+
+    const eventData = {
+      difficulty: String(difficulty),
+      filterDifficulty: String(filterDifficulty),
+    };
+    const event = new CustomEvent('settingsChanged', { detail: eventData });
+    window.dispatchEvent(event);
   };
 
   return (

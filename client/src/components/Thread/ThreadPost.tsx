@@ -1,52 +1,93 @@
 import { useParams } from 'react-router-dom';
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
-import { minePow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import NostrImg from '../../utils/ImgUpload';
 import { nip19 } from 'nostr-tools';
 
 
-const difficulty = 25
-
 const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
-    const { id} = useParams();
+    const { id } = useParams();
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
+    const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || '21');
 
     let decodeResult = nip19.decode(id as string);
 
+    const [sk, setSk] = useState(generatePrivateKey());
+
+    const [messageFromWorker, setMessageFromWorker] = useState(null);
+    const [doingWorkProp, setDoingWorkProp] = useState(false);
+    // Initialize the worker outside of any effects
+    const worker = useMemo(() => new Worker(new URL('../../powWorker', import.meta.url)), []);
+
+    useEffect(() => {
+        worker.onmessage = (event) => {
+            setMessageFromWorker(event.data);
+        };
+
+        const handleDifficultyChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            setDifficulty(customEvent.detail);
+          };
+        
+          window.addEventListener('difficultyChanged', handleDifficultyChange);
+          
+          return () => {
+            window.removeEventListener('difficultyChanged', handleDifficultyChange);
+        };
+    }, []);
+
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        let sk = generatePrivateKey();
         let id = decodeResult.data as string
 
-        let tags = []; 
+        let tags = [];
+        let modifiedComment = comment + " " + file;
         if (type === 'r') {
             tags.push(["e", id as string])
         } else if (type === 'q') {
             tags.push(["q", id as string])
-            setComment(comment + ' nostr:' + id)
+            modifiedComment += ' nostr:' + nip19.noteEncode(id);
         }
 
         try {
-            const event = minePow({
-                kind: 1,
-                tags,
-                content: comment + " " + file,
-                created_at: Math.floor(Date.now() / 1000),
-                pubkey: getPublicKey(sk),
-            }, difficulty);
-
-            const signedEvent = finishEvent(event, sk);
-            await publish(signedEvent);
-            console.log(signedEvent.id);
+            worker.postMessage({
+                unsigned: {
+                    kind: 1,
+                    tags,
+                    content: modifiedComment,
+                    created_at: Math.floor(Date.now() / 1000),
+                    pubkey: getPublicKey(sk),
+                }, difficulty
+            });
 
         } catch (error) {
             setComment(comment + " " + error);
         }
     };
+
+    useEffect(() => {
+        setDoingWorkProp(false)
+        if (messageFromWorker) {
+            try {
+                const signedEvent = finishEvent(messageFromWorker, sk);
+                publish(signedEvent);
+
+                setComment("");
+                setFile("");
+                setSk(generatePrivateKey())
+                setMessageFromWorker(null);
+
+                return () => {
+                    worker.terminate();
+                };
+            } catch (error) {
+                setComment(error + ' ' + comment);
+            }
+        }
+    }, [messageFromWorker]);
 
     async function attachFile(file_input: File | null) {
         try {
@@ -74,7 +115,10 @@ const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
                     method="post"
                     encType="multipart/form-data"
                     className=""
-                    onSubmit={handleSubmit}
+                    onSubmit={(event) => {
+                        handleSubmit(event);
+                        setDoingWorkProp(true);
+                      }}
                 >
                     <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
                     <div id="togglePostFormLink" className="text-lg font-semibold">
@@ -124,6 +168,12 @@ const ThreadPost = ({ state, type }: { state: Boolean, type: String }) => {
                             Submit
                         </button>
                     </div>
+                    {doingWorkProp ? (
+                        <div className='flex animate-pulse text-sm text-gray-300'>
+                            <CpuChipIcon className="h-4 w-4 ml-auto" />
+                            <span>Working...</span>
+                        </div>
+                    ) : null}
                     <div id="postFormError" className="text-red-500" />
                 </form>)}
         </>

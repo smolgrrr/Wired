@@ -8,6 +8,7 @@ import { uniqBy } from '../utils/utils';
 
 const Home = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || '12');
 
   const onEvent = (event: Event) => {
     setEvents((prevEvents) => [...prevEvents, event]);
@@ -16,15 +17,27 @@ const Home = () => {
   useEffect(() => {
     subGlobalFeed(onEvent);
     // If you eventually need a cleanup function, put it here
+
+    const handleDifficultyChange = (event: any) => {
+      const customEvent = event as CustomEvent;
+      const { difficulty, filterDifficulty } = customEvent.detail;
+      setFilterDifficulty(filterDifficulty);
+    };
+  
+    window.addEventListener('difficultyChanged', handleDifficultyChange);
+    
+    return () => {
+      window.removeEventListener('difficultyChanged', handleDifficultyChange);
+    };
   }, []);
 
   const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
   
   const filteredAndSortedEvents = uniqEvents
     .filter(event => 
-      getPow(event.id) > 5 &&
+      getPow(event.id) > Math.ceil(Number(filterDifficulty)/4) &&
       event.kind === 1 &&
-      !event.tags.some(tag => tag[0] === 'p')
+      !event.tags.some(tag => tag[0] === 'e')
     )
     .sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
