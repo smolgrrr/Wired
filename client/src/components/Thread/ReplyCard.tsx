@@ -101,7 +101,10 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
                         <div className="flex items-center my-1" >
                             <span className="text-xs text-gray-500">Reply to: </span>
                             {uniqBy(repliedTo, 'pubkey').map((event, index) => (
+                                <>
                                 <img className={`h-5 w-5 rounded-full`} src={getMetadata(event).picture} />
+                                <div className={`h-5 w-5 bg-gradient-to-r ${getColorFromHash(event.pubkey, colorCombos)} rounded-full`} />
+                                </>
                             ))}
                         </div>
                         <div className="mr-2 flex flex-col break-words">

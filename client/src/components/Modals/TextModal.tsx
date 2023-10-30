@@ -52,7 +52,9 @@ const ContentPreview = ({ key, comment }: { key: string, comment: string }) => {
             <LinkModal key={key} url={url} />
         )}
         {quoteEvents[0] && quoteEvents.length > 0 && (
-          <QuoteEmbed key={key} event={quoteEvents[0]} metadata={getMetadataEvent(quoteEvents[0])} />
+          <a href={`/thread/${nip19.noteEncode(quoteEvents[0].id)}`}>
+            <QuoteEmbed key={key} event={quoteEvents[0]} metadata={getMetadataEvent(quoteEvents[0])} />
+          </a>
         )}
       </div>
     );
