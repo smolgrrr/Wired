@@ -5,7 +5,8 @@ import { Event } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { subPubkeysMetadata } from '../../utils/subscriptions';
 
 const colorCombos = [
     'from-red-400 to-yellow-500',
@@ -58,6 +59,7 @@ const timeAgo = (unixTime: number) => {
 const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, metadata: Event | null, replyCount: number, repliedTo: Event[] }) => {
     const { comment, file } = parseContent(event);
     const colorCombo = getColorFromHash(event.pubkey, colorCombos);
+    const [events, setEvents] = useState<Event[]>([]);
 
     let metadataParsed = null;
     if (metadata !== null) {
@@ -66,13 +68,6 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
 
     const replyPubkeys = event.tags.filter(tag => tag[0] === 'p');
 
-    // const getMetadataEvent = (event: Event) => {
-    //     const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
-    //     if (metadataEvent) {
-    //         return metadataEvent;
-    //     }
-    //     return null;
-    // }
     useEffect(() => {
         console.log(repliedTo)
     }, []);
@@ -104,11 +99,14 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
                         </div>
                         <div className="flex items-center my-1" >
                             <span className="text-xs text-gray-500">Reply to: </span>
-                            {repliedTo.map((event, index) => (
-                                <>
-                                {/* <img className={`h-5 w-5 rounded-full`} src={getMetadata(event).picture} /> */}
-                                <div className={`h-5 w-5 bg-gradient-to-r ${getColorFromHash(event.pubkey, colorCombos)} rounded-full`} />
-                                </>
+                            {uniqBy(repliedTo, 'pubkey').map((event, index) => (
+                                <div key={index}>
+                                {event.kind == 0 ? (
+                                    <img className={`h-5 w-5 rounded-full`} src={getMetadata(event)?.picture} />
+                                ) : (
+                                    <div className={`h-5 w-5 bg-gradient-to-r ${getColorFromHash(event.pubkey, colorCombos)} rounded-full`} />
+                                )}
+                                </div>
                             ))}
                         </div>
                         <div className="mr-2 flex flex-col break-words">
