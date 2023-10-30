@@ -35,7 +35,7 @@ const Home = () => {
   
   const filteredAndSortedEvents = uniqEvents
     .filter(event => 
-      getPow(event.id) > Math.ceil(Number(filterDifficulty)/4) &&
+      getPow(event.id) > Number(filterDifficulty) &&
       event.kind === 1 &&
       !event.tags.some(tag => tag[0] === 'e')
     )

@@ -6,7 +6,6 @@ import { nip19 } from 'nostr-tools';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
 import { useEffect, useState } from 'react';
-import { subPubkeysMetadata } from '../../utils/subscriptions';
 
 const colorCombos = [
     'from-red-400 to-yellow-500',

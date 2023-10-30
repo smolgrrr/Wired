@@ -203,20 +203,3 @@ export const subNoteOnce = (
     pubkeys.clear();
   }, 2000);
 };
-
-export const subPubkeysMetadata = (
-  pubkeys: string[],
-  onEvent: SubCallback,
-) => {
-  unsubAll();
-  // get metadata
-  sub({
-    cb: onEvent,
-    filter: {
-      authors: pubkeys,
-      kinds: [0],
-      limit: pubkeys.length,
-    },
-    unsub: true,
-  });
-};
