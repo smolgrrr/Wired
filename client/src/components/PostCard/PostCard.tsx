@@ -92,10 +92,10 @@ const PostCard = ({ key, event, metadata, replyCount }: { key: string, event: Ev
             </div>
             <div className="mr-2 flex flex-col break-words">
               <ContentPreview key={event.id} comment={comment} />
-            </div>
-            {renderMedia(file)}              
+            </div>            
           </div>
         </a>
+        {renderMedia(file)}  
       </CardContainer>
     </>
   );

@@ -10,10 +10,11 @@ export default function Header() {
                     <span className="font-bold">The Anon Operation</span>
                 </div>
                 </a>
+                <a href='/settings'>
                 <button className="ml-auto pr-4">
                     <QuestionMarkCircleIcon className="h-6 w-6 text-transperant" />
                 </button>
-                <a href='/settings'>
+                
                 <button className="">
                     <Cog6ToothIcon className="h-6 w-6 text-transperant" />
                 </button>

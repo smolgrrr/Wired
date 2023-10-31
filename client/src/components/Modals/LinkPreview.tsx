@@ -18,7 +18,7 @@ const LinkModal = ({ url }: { url: string }) => {
   }, [url]);
 
   if (!linkPreview) {
-    return <a className='hover:underline' href={url}>{url}</a>; // or some loading state
+    return <a className='hover:underline text-xs text-neutral-500' href={url}>{url}</a>; // or some loading state
   }
 
   return (

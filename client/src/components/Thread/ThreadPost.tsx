@@ -173,7 +173,7 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                     {doingWorkProp ? (
                         <div className='flex animate-pulse text-sm text-gray-300'>
                             <CpuChipIcon className="h-4 w-4 ml-auto" />
-                            <span>Working...</span>
+                            <span>Generating Proof-of-Work...</span>
                         </div>
                     ) : null}
                     <div id="postFormError" className="text-red-500" />

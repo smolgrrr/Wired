@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 // import {powEvent} from './system';
 // import {publish} from './relays';
 import { addRelay } from '../utils/relays';
-
+import { CpuChipIcon } from '@heroicons/react/24/outline';
 const Settings = () => {
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 21);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
@@ -20,9 +20,9 @@ const Settings = () => {
     window.dispatchEvent(event);
   };
 
-//   useEffect(() => {
-//     addRelay('wss://powrelay.xyz');
-// }, []);
+  //   useEffect(() => {
+  //     addRelay('wss://powrelay.xyz');
+  // }, []);
 
   return (
     <div className="settings-page bg-black text-white p-8">
@@ -31,7 +31,9 @@ const Settings = () => {
         <div className="flex flex-wrap -mx-2 mb-4">
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
             <label className="block mb-2" htmlFor="filterDifficulty">
-              Filter Difficulty:
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                Proof-of-Work Difficulty Filter {'('}<CpuChipIcon className="h-4 w-4" />{'>'}X to appear on feed{')'}:
+              </span>
             </label>
             <input
               id="filterDifficulty"
@@ -44,7 +46,9 @@ const Settings = () => {
 
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
             <label className="block mb-2" htmlFor="difficulty">
-              Post Difficulty:
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                Post Difficulty {'('}<CpuChipIcon className="h-4 w-4" /> required to make post{')'}:
+              </span>
             </label>
             <input
               id="difficulty"
@@ -61,13 +65,20 @@ const Settings = () => {
       </form>
 
       <div className="settings-page py-10">
-          <h1 className="text-lg font-semibold mb-4">About</h1>
-          <div className='flex'>  
-            <a href='https://github.com/smolgrrr/TAO'>
-            <img src="https://img.shields.io/github/stars/smolgrrr/TAO.svg?style=social"/>
-            </a>
-          </div>
+        <h1 className="text-lg font-semibold mb-4">About</h1>
+        <div className="flex flex-col">
+          <p>The Anon Operation (TAO) is an anonymous-first forum, built upon the <a className="underline" href="https://nostr.com/">NOSTR protocol</a>.</p>
+          <br />
+          <p>TAO is built to facilitate unstoppable free speech on the internet.</p>
+          <p>-PWA to be widely accessible with distribution via URLS, and to side-step App Store gatekeeping</p>
+          <p>-Uses NOSTR as a censorship-resistant global "social" network</p>
+          <p>-Employs Proof-of-Work (PoW) as a spam prevention mechanism, as opposed to Captcha, moderation or other verification methods</p>
+          <br />
+          <a href="https://github.com/smolgrrr/TAO">
+            <img src="https://img.shields.io/github/stars/smolgrrr/TAO.svg?style=social" alt="Github Stars Badge" />
+          </a>
         </div>
+      </div>
     </div>
 
   );
