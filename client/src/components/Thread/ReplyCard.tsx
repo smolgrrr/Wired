@@ -5,7 +5,7 @@ import { Event } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
-import { useEffect, useState } from 'react';
+import { renderMedia } from '../../utils/FileUpload';
 
 const colorCombos = [
     'from-red-400 to-yellow-500',
@@ -108,14 +108,7 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
                         <div className="mr-2 flex flex-col break-words">
                             <ContentPreview key={event.id} comment={comment} />
                         </div>
-                        {file !== "" && (
-                            <div className="file">
-                                <img
-                                    src={file}
-                                    loading="lazy"
-                                />
-                            </div>
-                        )}
+                        {renderMedia(file)}
                     </div>
                 </a>
             </CardContainer>

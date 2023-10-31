@@ -2,6 +2,7 @@ import { parseContent } from '../../utils/content';
 import { Event } from 'nostr-tools';
 import { getMetadata, uniqBy } from '../../utils/utils';
 import ContentPreview from './TextModal';
+import { renderMedia } from '../../utils/FileUpload';
 
 const colorCombos = [
   'from-red-400 to-yellow-500',
@@ -81,14 +82,7 @@ const QuoteEmbed = ({ event, metadata }: { event: Event, metadata: Event | null}
           <div className="mr-2 flex flex-col break-words">
             <ContentPreview key={event.id} comment={comment} />
           </div>
-          {file !== "" && (
-            <div className="file">
-                <img
-                  src={file}
-                  loading="lazy"
-                /> 
-            </div>
-           )}
+            {renderMedia(file)}
         </div>
     </div>
   );

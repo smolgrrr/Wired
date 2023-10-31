@@ -3,7 +3,8 @@ import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect, useMemo } from 'react';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { publish } from '../../utils/relays';
-import NostrImg from '../../utils/ImgUpload';
+import FileUpload from '../../utils/FileUpload';
+import { renderMedia } from '../../utils/FileUpload';
 
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
@@ -73,7 +74,7 @@ const NewThreadCard: React.FC = () => {
   async function attachFile(file_input: File | null) {
     try {
       if (file_input) {
-        const rx = await NostrImg(file_input);
+        const rx = await FileUpload(file_input);
         if (rx.url) {
           setFile(rx.url);
         } else if (rx?.error) {
@@ -115,14 +116,7 @@ const NewThreadCard: React.FC = () => {
             />
           </div>
           <div>
-            {file !== "" && (
-              <div className="file m-0.5">
-                <img
-                  src={file}
-                  loading="lazy"
-                />
-              </div>
-            )}
+          {renderMedia(file)} 
           </div>
           <div className="flex justify-between items-center">
             <div className="flex items-center">

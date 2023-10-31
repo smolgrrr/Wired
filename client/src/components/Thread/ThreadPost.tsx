@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
 import { generatePrivateKey, getPublicKey, finishEvent, Event as NostrEvent } from 'nostr-tools';
 import { publish } from '../../utils/relays';
-import NostrImg from '../../utils/ImgUpload';
+import NostrImg from '../../utils/FileUpload';
 import { nip19 } from 'nostr-tools';
 
 
