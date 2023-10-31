@@ -8,7 +8,7 @@ import { uniqBy } from '../utils/utils';
 
 const Home = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || '12');
+  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || '21');
 
   const onEvent = (event: Event) => {
     setEvents((prevEvents) => [...prevEvents, event]);

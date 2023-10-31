@@ -58,18 +58,15 @@ const timeAgo = (unixTime: number) => {
 const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, metadata: Event | null, replyCount: number, repliedTo: Event[] }) => {
     const { comment, file } = parseContent(event);
     const colorCombo = getColorFromHash(event.pubkey, colorCombos);
-    const [events, setEvents] = useState<Event[]>([]);
+    // const [events, setEvents] = useState<Event[]>([]);
 
     let metadataParsed = null;
     if (metadata !== null) {
         metadataParsed = getMetadata(metadata);
     }
 
-    const replyPubkeys = event.tags.filter(tag => tag[0] === 'p');
+    // const replyPubkeys = event.tags.filter(tag => tag[0] === 'p');
 
-    useEffect(() => {
-        console.log(repliedTo)
-    }, []);
 
     return (
         <>

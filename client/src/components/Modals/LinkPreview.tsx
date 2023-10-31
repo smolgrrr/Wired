@@ -2,19 +2,20 @@ import { getLinkPreview } from 'link-preview-js';
 import { useState, useEffect } from 'react';
 
 
+//Need to move this all server side 
 const LinkModal = ({ url }: { url: string}) => {
     const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
 
     useEffect(() => {
-        getLinkPreview(url)          
-        .then((preview) => setLinkPreview(preview as LinkPreview))
-        .catch((error) => console.error(error));
-  
-    }, [url]);
-  
-    if (!linkPreview) {
-      return <></>; // or some loading state
-    }
+      getLinkPreview(url)          
+      .then((preview) => setLinkPreview(preview as LinkPreview))
+      .catch((error) => console.error(error));
+
+  }, [url]);
+
+  if (!linkPreview) { 
+    return <a className="hover:underline" href={url}>{url}</a>; // or some loading state
+  }
     
   return (
     <div className="link-preview p-1 bg-neutral-800 rounded-lg border border-neutral-800">

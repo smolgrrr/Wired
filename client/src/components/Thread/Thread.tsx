@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useState } from "react";
 import { Event, nip19 } from "nostr-tools"
-import { subNote } from '../../utils/subscriptions';
+import { subNote, subNotesOnce } from '../../utils/subscriptions';
 import { useEffect } from 'react';
 import { uniqBy } from '../../utils/utils';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
@@ -21,6 +21,8 @@ const Thread = () => {
     let decodeResult = nip19.decode(id as string);
     const [showForm, setShowForm] = useState(false);
     const [postType, setPostType] = useState("");
+    const [hasRun, setHasRun] = useState(false);
+    const [preOPEvents, setPreOPEvents] = useState(['']);
 
     // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
@@ -35,12 +37,23 @@ const Thread = () => {
         }
         // Subscribe to global feed when the component mounts
         // Optionally, return a cleanup function to unsubscribe when the component unmounts
+
         return () => {
             // Your cleanup code here
         };
     }, []);  // Empty dependency array means this useEffect runs once when the component mounts
 
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
+
+    useEffect(() => {
+        if (!hasRun && events.length > 0) {
+            let OPNoteEvents = events[0].tags.filter(tag => tag[0] === 'e').map(tag => tag[1]);
+            console.log(OPNoteEvents);
+            setHasRun(true);
+            setPreOPEvents(OPNoteEvents)
+            subNotesOnce(OPNoteEvents, onEvent)
+          }
+    }, [uniqEvents, hasRun]);
 
     const getMetadataEvent = (event: Event) => {
         const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
@@ -57,6 +70,13 @@ const Thread = () => {
     const repliedList = (event: Event): Event[] => {
         return uniqEvents.filter(e => event.tags.some(tag => tag[0] === 'p' && tag[1] === e.pubkey));
     }
+
+    const earlierEvents = uniqEvents
+    .filter(event => 
+      event.kind === 1 &&
+      preOPEvents.includes(event.id)
+    )
+    .sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
     if (!uniqEvents[0]) {
         return (
@@ -85,6 +105,11 @@ const Thread = () => {
         <>
             <main className="bg-black text-white min-h-screen">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                        {earlierEvents
+                            .filter(event => event.kind === 1)
+                            .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
+                                <OPCard event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)}/>
+                            ))}
                     <OPCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
                     <div className="col-span-full flex justify-center space-x-36    ">
                         <DocumentTextIcon
@@ -107,7 +132,7 @@ const Thread = () => {
                         <ThreadPost OPEvent={uniqEvents[0]} state={showForm} type={postType} />
                     </div>
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
-                    {uniqEvents
+                        {uniqEvents
                         .slice(1)
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (

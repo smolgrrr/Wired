@@ -6,7 +6,7 @@ export default function Header() {
             <div className="container mx-auto flex justify-between items-center">
                 <a href='/'>
                 <div className="flex items-center">
-                    <img src="tao.png" className="h-8" />
+                    <img src="/tao.png" className="h-8" />
                     <span className="font-bold">The Anon Operation</span>
                 </div>
                 </a>
