@@ -25,7 +25,7 @@ const Settings = () => {
   // }, []);
 
   return (
-    <div className="settings-page bg-black text-white p-8">
+    <div className="settings-page bg-black text-white p-8 flex flex-col h-full">
       <h1 className="text-lg font-semibold mb-4">Settings</h1>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-wrap -mx-2 mb-4">
@@ -77,8 +77,12 @@ const Settings = () => {
           <a href="https://github.com/smolgrrr/TAO">
             <img src="https://img.shields.io/github/stars/smolgrrr/TAO.svg?style=social" alt="Github Stars Badge" />
           </a>
+          <div>
+            <span>Found a bug? dm me: <a className="underline" href="https://njump.me/npub13azv2cf3kd3xdzcwqxlgcudjg7r9nzak37usnn7h374lkpvd6rcq4k8m54">doot</a></span>
+          </div>
         </div>
       </div>
+      <img className="block sm:hidden h-20 mx-auto mt-auto" src="/pepe.png"/>
     </div>
 
   );
