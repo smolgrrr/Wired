@@ -30,7 +30,7 @@ const Settings = () => {
       <form onSubmit={handleSubmit}>
         <div className="flex flex-wrap -mx-2 mb-4">
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-            <label className="block mb-2" htmlFor="filterDifficulty">
+            <label className="block text-xs mb-2" htmlFor="filterDifficulty">
               <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                 Proof-of-Work Difficulty Filter {'('}<CpuChipIcon className="h-4 w-4" />{'>'}X to appear on feed{')'}:
               </span>
@@ -45,7 +45,7 @@ const Settings = () => {
           </div>
 
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-            <label className="block mb-2" htmlFor="difficulty">
+            <label className="block text-xs mb-2" htmlFor="difficulty">
               <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                 Post Difficulty {'('}<CpuChipIcon className="h-4 w-4" /> required to make post{')'}:
               </span>

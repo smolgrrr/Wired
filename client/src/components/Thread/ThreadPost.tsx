@@ -1,10 +1,12 @@
 import { useParams } from 'react-router-dom';
 import { useState, useMemo, useEffect } from "react";
-import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CpuChipIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XCircleIcon } from '@heroicons/react/24/solid';
 import { generatePrivateKey, getPublicKey, finishEvent, Event as NostrEvent } from 'nostr-tools';
 import { publish } from '../../utils/relays';
-import NostrImg from '../../utils/FileUpload';
+import FileUpload from '../../utils/FileUpload';
 import { nip19 } from 'nostr-tools';
+import { renderMedia } from '../../utils/FileUpload';
 
 
 const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Boolean, type: String }) => {
@@ -12,7 +14,7 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
     const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || '21');
-
+    const [uploadingFile, setUploadingFile] = useState(false);
     let decodeResult = nip19.decode(id as string);
 
     const [sk, setSk] = useState(generatePrivateKey());
@@ -30,11 +32,11 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
         const handleDifficultyChange = (event: Event) => {
             const customEvent = event as CustomEvent;
             setDifficulty(customEvent.detail);
-          };
-        
-          window.addEventListener('difficultyChanged', handleDifficultyChange);
-          
-          return () => {
+        };
+
+        window.addEventListener('difficultyChanged', handleDifficultyChange);
+
+        return () => {
             window.removeEventListener('difficultyChanged', handleDifficultyChange);
         };
     }, []);
@@ -92,9 +94,11 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
     }, [messageFromWorker]);
 
     async function attachFile(file_input: File | null) {
+        setUploadingFile(true);  // start loading
         try {
             if (file_input) {
-                const rx = await NostrImg(file_input);
+                const rx = await FileUpload(file_input);
+                setUploadingFile(false);  // stop loading
                 if (rx.url) {
                     setFile(rx.url);
                 } else if (rx?.error) {
@@ -102,6 +106,7 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                 }
             }
         } catch (error: unknown) {
+            setUploadingFile(false);  // stop loading
             if (error instanceof Error) {
                 setFile(error?.message);
             }
@@ -120,7 +125,7 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                     onSubmit={(event) => {
                         handleSubmit(event);
                         setDoingWorkProp(true);
-                      }}
+                    }}
                 >
                     <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
                     <div id="togglePostFormLink" className="text-lg font-semibold">
@@ -136,15 +141,11 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                             onChange={(e) => setComment(e.target.value)}
                         />
                     </div>
-                    <div>
-                        {file !== "" && (
-                            <div className="file m-0.5">
-                                <img
-                                    src={file}
-                                    loading="lazy"
-                                />
-                            </div>
-                        )}
+                    <div className="relative">
+                    {file != '' &&
+                        <button onClick={() => setFile('')}><XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" /></button>
+                    }
+                    {renderMedia(file)}  
                     </div>
                     <div className="flex justify-between items-center">
                         <div className="flex items-center">
@@ -164,6 +165,11 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                                     }
                                 }}
                             />
+                            {uploadingFile ? (
+                                <div className='flex animate-spin text-sm text-gray-300'>
+                                    <ArrowPathIcon className="h-4 w-4 ml-auto" />
+                                </div>
+                            ) : null}
                         </div>
                         <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
                         <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">

@@ -1,5 +1,6 @@
 import CardContainer from './CardContainer';
-import { ArrowUpTrayIcon, CpuChipIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CpuChipIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XCircleIcon } from '@heroicons/react/24/solid';
 import { useState, useEffect, useMemo } from 'react';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
 import { publish } from '../../utils/relays';
@@ -11,8 +12,7 @@ const NewThreadCard: React.FC = () => {
   const [file, setFile] = useState("");
   const [sk, setSk] = useState(generatePrivateKey());
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || '21');
-
-
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [messageFromWorker, setMessageFromWorker] = useState(null);
   const [doingWorkProp, setDoingWorkProp] = useState(false);
   // Initialize the worker outside of any effects
@@ -28,9 +28,9 @@ const NewThreadCard: React.FC = () => {
       const { difficulty, filterDifficulty } = customEvent.detail;
       setDifficulty(difficulty);
     };
-  
+
     window.addEventListener('difficultyChanged', handleDifficultyChange);
-    
+
     return () => {
       window.removeEventListener('difficultyChanged', handleDifficultyChange);
     };
@@ -72,9 +72,11 @@ const NewThreadCard: React.FC = () => {
   }, [messageFromWorker]);
 
   async function attachFile(file_input: File | null) {
+    setUploadingFile(true);  // start loading
     try {
       if (file_input) {
         const rx = await FileUpload(file_input);
+        setUploadingFile(false);  // stop loading
         if (rx.url) {
           setFile(rx.url);
         } else if (rx?.error) {
@@ -82,11 +84,13 @@ const NewThreadCard: React.FC = () => {
         }
       }
     } catch (error: unknown) {
+      setUploadingFile(false);  // stop loading
       if (error instanceof Error) {
         setFile(error?.message);
       }
     }
   }
+
 
   return (
     <>
@@ -115,9 +119,12 @@ const NewThreadCard: React.FC = () => {
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
-          <div>
-          {renderMedia(file)} 
-          </div>
+          <div className="relative">
+                    {file != '' &&
+                        <button onClick={() => setFile('')}><XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" /></button>
+                    }
+                    {renderMedia(file)}  
+                    </div>
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <ArrowUpTrayIcon
@@ -136,6 +143,11 @@ const NewThreadCard: React.FC = () => {
                   }
                 }}
               />
+              {uploadingFile ? (
+                <div className='flex animate-spin text-sm text-gray-300'>
+                  <ArrowPathIcon className="h-4 w-4 ml-auto" />
+                </div>
+              ) : null}
             </div>
             <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
             <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
@@ -143,11 +155,11 @@ const NewThreadCard: React.FC = () => {
             </button>
           </div>
           {doingWorkProp ? (
-              <div className='flex animate-pulse text-sm text-gray-300'>
-                <CpuChipIcon className="h-4 w-4 ml-auto" />
-                <span>Generating Proof-of-Work...</span>
-              </div>
-            ) : null}
+            <div className='flex animate-pulse text-sm text-gray-300'>
+              <CpuChipIcon className="h-4 w-4 ml-auto" />
+              <span>Generating Proof-of-Work...</span>
+            </div>
+          ) : null}
           <div id="postFormError" className="text-red-500" />
         </form>
       </CardContainer>
