@@ -120,11 +120,11 @@ const NewThreadCard: React.FC = () => {
             />
           </div>
           <div className="relative">
-                    {file != '' &&
-                        <button onClick={() => setFile('')}><XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" /></button>
-                    }
-                    {renderMedia(file)}  
-                    </div>
+            {file != '' &&
+              <button onClick={() => setFile('')}><XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" /></button>
+            }
+            {renderMedia(file)}
+          </div>
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <ArrowUpTrayIcon
