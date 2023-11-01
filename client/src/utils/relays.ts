@@ -99,8 +99,10 @@ export const publish = (event: Event) => {
 
 
 addRelay('wss://relay.snort.social');
-addRelay('wss://nostr.bitcoiner.social');
+addRelay('wss://relay.damus.io');
 addRelay('wss://nostr.mom');
 addRelay('wss://relay.nostr.bg');
 addRelay('wss://nos.lol');
 addRelay('wss://powrelay.xyz');
+addRelay('wss://relay.mostr.pub');
+addRelay('wss://nostr.mutinywallet.com');
