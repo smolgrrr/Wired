@@ -5,10 +5,12 @@ import { getPow } from '../utils/mine';
 import { Event } from 'nostr-tools';
 import { subGlobalFeed } from '../utils/subscriptions';
 import { uniqBy } from '../utils/utils';
+import PWAInstallPopup from './Modals/PWACheckModal';
 
 const Home = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || '20');
+  const [inBrowser, setInBrowser] = useState(false)
 
   const onEvent = (event: Event) => {
     setEvents((prevEvents) => [...prevEvents, event]);
@@ -23,6 +25,13 @@ const Home = () => {
       const { difficulty, filterDifficulty } = customEvent.detail;
       setFilterDifficulty(filterDifficulty);
     };
+
+    // if ((window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches) {
+    //   console.log('App is running in standalone mode.');
+    // } else {
+    //   console.log('App is running in a browser.');
+    //   setInBrowser(true) 
+    // }
   
     window.addEventListener('difficultyChanged', handleDifficultyChange);
     
@@ -56,6 +65,7 @@ const Home = () => {
 
   return (
     <main className="bg-black text-white min-h-screen">
+      {/* {inBrowser && <PWAInstallPopup onClose={() => setInBrowser(false)} />} */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         <NewThreadCard />
         {filteredAndSortedEvents.map((event, index) => (

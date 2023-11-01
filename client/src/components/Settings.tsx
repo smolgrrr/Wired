@@ -20,10 +20,6 @@ const Settings = () => {
     window.dispatchEvent(event);
   };
 
-  //   useEffect(() => {
-  //     addRelay('wss://powrelay.xyz');
-  // }, []);
-
   return (
     <div className="settings-page bg-black text-white p-8 flex flex-col h-full">
       <h1 className="text-lg font-semibold mb-4">Settings</h1>
