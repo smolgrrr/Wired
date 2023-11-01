@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { addRelay } from '../utils/relays';
 import { CpuChipIcon } from '@heroicons/react/24/outline';
 const Settings = () => {
-  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 21);
+  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -78,7 +78,8 @@ const Settings = () => {
             <img src="https://img.shields.io/github/stars/smolgrrr/TAO.svg?style=social" alt="Github Stars Badge" />
           </a>
           <div>
-            <span>Found a bug? dm me: <a className="underline" href="https://njump.me/npub13azv2cf3kd3xdzcwqxlgcudjg7r9nzak37usnn7h374lkpvd6rcq4k8m54">doot</a></span>
+            <span>Found a bug? dm me: <a className="underline" href="https://njump.me/npub13azv2cf3kd3xdzcwqxlgcudjg7r9nzak37usnn7h374lkpvd6rcq4k8m54">doot</a> or <a className="underline" href="mailto:smolgrrr@protonmail.com">smolgrrr@protonmail.com</a></span>
+            <img className="h-16" src="doot.jpeg"/>
           </div>
         </div>
       </div>
