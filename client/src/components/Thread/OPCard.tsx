@@ -5,36 +5,7 @@ import { Event } from 'nostr-tools';
 import { getMetadata } from '../../utils/utils';
 import ContentPreview from '../Modals/TextModal';
 import { renderMedia } from '../../utils/FileUpload';
-
-const colorCombos = [
-  'from-red-400 to-yellow-500',
-  'from-green-400 to-blue-500',
-  'from-purple-400 to-pink-500',
-  'from-yellow-400 to-orange-500',
-  'from-indigo-400 to-purple-500',
-  'from-pink-400 to-red-500',
-  'from-blue-400 to-indigo-500',
-  'from-orange-400 to-red-500',
-  'from-teal-400 to-green-500',
-  'from-cyan-400 to-teal-500',
-  'from-lime-400 to-green-500',
-  'from-amber-400 to-orange-500',
-  'from-rose-400 to-pink-500',
-  'from-violet-400 to-purple-500',
-  'from-sky-400 to-cyan-500'
-];
-
-const getColorFromHash = (id: string, colors: string[]): string => {
-  // Create a simple hash from the event.id
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash << 5) - hash + id.charCodeAt(i);
-  }
-
-  // Use the hash to pick a color from the colors array
-  const index = Math.abs(hash) % colors.length;
-  return colors[index];
-};
+import { getIconFromHash } from '../../utils/deterministicProfileIcon';
 
 const timeAgo = (unixTime: number) => {
   const seconds = Math.floor((new Date().getTime() / 1000) - unixTime);
@@ -56,7 +27,7 @@ const timeAgo = (unixTime: number) => {
 
 const OPCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event | null, replyCount: number}) => {
     const { comment, file } = parseContent(event);
-    const colorCombo = getColorFromHash(event.pubkey, colorCombos);
+    const icon = getIconFromHash(event.pubkey);
 
     let metadataParsed = null;
     if (metadata !== null) {
@@ -76,7 +47,7 @@ const OPCard = ({ event, metadata, replyCount }: { event: Event, metadata: Event
               </>
               :
               <>
-              <div className={`h-8 w-8 bg-gradient-to-r ${colorCombo} rounded-full`} />
+              <div className={`h-8 w-8 ${icon} rounded-full`} />
               <div className="ml-2 text-md font-semibold">Anonymous</div>
               </>
             }
