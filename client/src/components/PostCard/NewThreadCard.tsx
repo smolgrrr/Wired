@@ -118,7 +118,7 @@ const NewThreadCard: React.FC = () => {
       >
         Start a New Thread
       </div>
-      <div className="px-4 pt-4 flex flex-col bg-neutral-900 border border-neutral-800 rounded-lg">
+      <div className="px-4 pt-4 flex flex-col bg-neutral-900 rounded-lg">
         <textarea
           name="com"
           wrap="soft"
@@ -133,7 +133,7 @@ const NewThreadCard: React.FC = () => {
               <CpuChipIcon className="h-4 w-4" />
             </div>
             <p className="text-xs font-medium text-neutral-400">
-              {difficulty} POW
+              {difficulty} PoW
             </p>
           </div>
           <div>

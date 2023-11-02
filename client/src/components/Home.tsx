@@ -72,10 +72,10 @@ const Home = () => {
   return (
     <main className="text-white mb-20">
       {/* {inBrowser && <PWAInstallPopup onClose={() => setInBrowser(false)} />} */}
-      <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-16">
+      <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewThreadCard />
       </div>
-      <div className="columns-1 md:columns-2 lg:columns-3 [column-fill:_balance] box-border gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
         {filteredAndSortedEvents.map((event) => (
           <PostCard
             key={event.id}
