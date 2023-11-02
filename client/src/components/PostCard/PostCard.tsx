@@ -1,28 +1,28 @@
-import CardContainer from './CardContainer';
-import { FolderIcon } from '@heroicons/react/24/outline';
-import { parseContent } from '../../utils/content';
-import { Event } from 'nostr-tools';
-import { nip19 } from 'nostr-tools';
-import { getMetadata } from '../../utils/utils';
-import ContentPreview from'../Modals/TextModal';
-import { renderMedia } from '../../utils/FileUpload';
+import CardContainer from "./CardContainer";
+import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
+import { parseContent } from "../../utils/content";
+import { Event } from "nostr-tools";
+import { nip19 } from "nostr-tools";
+import { getMetadata } from "../../utils/utils";
+import ContentPreview from "../Modals/TextModal";
+import { renderMedia } from "../../utils/FileUpload";
 
 const colorCombos = [
-  'from-red-400 to-yellow-500',
-  'from-green-400 to-blue-500',
-  'from-purple-400 to-pink-500',
-  'from-yellow-400 to-orange-500',
-  'from-indigo-400 to-purple-500',
-  'from-pink-400 to-red-500',
-  'from-blue-400 to-indigo-500',
-  'from-orange-400 to-red-500',
-  'from-teal-400 to-green-500',
-  'from-cyan-400 to-teal-500',
-  'from-lime-400 to-green-500',
-  'from-amber-400 to-orange-500',
-  'from-rose-400 to-pink-500',
-  'from-violet-400 to-purple-500',
-  'from-sky-400 to-cyan-500'
+  "from-red-400 to-yellow-500",
+  "from-green-400 to-blue-500",
+  "from-purple-400 to-pink-500",
+  "from-yellow-400 to-orange-500",
+  "from-indigo-400 to-purple-500",
+  "from-pink-400 to-red-500",
+  "from-blue-400 to-indigo-500",
+  "from-orange-400 to-red-500",
+  "from-teal-400 to-green-500",
+  "from-cyan-400 to-teal-500",
+  "from-lime-400 to-green-500",
+  "from-amber-400 to-orange-500",
+  "from-rose-400 to-pink-500",
+  "from-violet-400 to-purple-500",
+  "from-sky-400 to-cyan-500",
 ];
 
 const getColorFromHash = (id: string, colors: string[]): string => {
@@ -38,7 +38,7 @@ const getColorFromHash = (id: string, colors: string[]): string => {
 };
 
 const timeAgo = (unixTime: number) => {
-  const seconds = Math.floor((new Date().getTime() / 1000) - unixTime);
+  const seconds = Math.floor(new Date().getTime() / 1000 - unixTime);
 
   if (seconds < 60) return `now`;
 
@@ -55,7 +55,17 @@ const timeAgo = (unixTime: number) => {
   return `${weeks}w`;
 };
 
-const PostCard = ({ key, event, metadata, replyCount }: { key: string, event: Event, metadata: Event | null, replyCount: number }) => {
+const PostCard = ({
+  key,
+  event,
+  metadata,
+  replyCount,
+}: {
+  key: string;
+  event: Event;
+  metadata: Event | null;
+  replyCount: number;
+}) => {
   let { comment, file } = parseContent(event);
   const colorCombo = getColorFromHash(event.pubkey, colorCombos);
 
@@ -65,39 +75,55 @@ const PostCard = ({ key, event, metadata, replyCount }: { key: string, event: Ev
   }
 
   return (
-    <>
-      <CardContainer>
-        <a href={`/thread/${nip19.noteEncode(event.id)}`}>
-          <div className="flex flex-col">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center">
-                {metadataParsed ?
-                  <>
-                    <img className={`h-8 w-8 rounded-full`} src={metadataParsed.picture} />
-                    <div className="ml-2 text-md font-semibold">{metadataParsed.name}</div>
-                  </>
-                  :
-                  <>
-                    <div className={`h-8 w-8 bg-gradient-to-r ${colorCombo} rounded-full`} />
-                    <div className="ml-2 text-md font-semibold">Anonymous</div>
-                  </>
-                }
+    <CardContainer>
+      <a href={`/thread/${nip19.noteEncode(event.id)}`}>
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2.5">
+              {metadataParsed ? (
+                <>
+                  <img
+                    className={`h-8 w-8 rounded-full`}
+                    src={metadataParsed.picture}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="text-md font-semibold">
+                    {metadataParsed.name}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className={`h-7 w-7 bg-gradient-to-r ${colorCombo} rounded-full`}
+                  />
+                  <div className="text-sm font-semibold">Anonymous</div>
+                </>
+              )}
+            </div>
+            <div className="flex items-center ml-auto gap-2.5">
+              <div className="text-xs text-neutral-600">
+                {event.id.match(/^0*([^\0]{2})/)?.[0] || 0}
               </div>
-              <div className="flex items-center ml-auto">
-                <div className="text-xs text-gray-500">{event.id.match(/^0*([^\0]{2})/)?.[0] || 0}</div> &nbsp;
-                <div className="text-xs font-semibold text-gray-500 mr-2"> {timeAgo(event.created_at)}</div>
-                <FolderIcon className="h-5 w-5 mr-1 text-gray-500" />
-                <span className="text-xs text-gray-500">{replyCount}</span>
+              <span className="text-neutral-700">·</span>
+              <div className="text-xs font-semibold text-neutral-600">
+                {timeAgo(event.created_at)}
+              </div>
+              <span className="text-neutral-700">·</span>
+              <div className="inline-flex items-center gap-1.5">
+                <ChatBubbleLeftEllipsisIcon className="h-4 w-4 text-neutral-600" />
+                <span className="text-xs text-neutral-600">{replyCount}</span>
               </div>
             </div>
-            <div className="mr-2 flex flex-col break-words">
-              <ContentPreview key={event.id} comment={comment} />
-            </div>            
           </div>
-        </a>
-        {renderMedia(file)}  
-      </CardContainer>
-    </>
+          <div className="flex flex-col break-words">
+            <ContentPreview key={event.id} comment={comment} />
+          </div>
+        </div>
+      </a>
+      {renderMedia(file)}
+    </CardContainer>
   );
 };
 

@@ -1,22 +1,31 @@
-import CardContainer from './CardContainer';
-import { ArrowUpTrayIcon, CpuChipIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { XCircleIcon } from '@heroicons/react/24/solid';
-import { useState, useEffect, useMemo } from 'react';
-import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
-import { publish } from '../../utils/relays';
-import FileUpload from '../../utils/FileUpload';
-import { renderMedia } from '../../utils/FileUpload';
+import CardContainer from "./CardContainer";
+import {
+  ArrowUpTrayIcon,
+  CpuChipIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/outline";
+import { XCircleIcon } from "@heroicons/react/24/solid";
+import { useState, useEffect, useMemo } from "react";
+import { generatePrivateKey, getPublicKey, finishEvent } from "nostr-tools";
+import { publish } from "../../utils/relays";
+import FileUpload from "../../utils/FileUpload";
+import { renderMedia } from "../../utils/FileUpload";
 
 const NewThreadCard: React.FC = () => {
   const [comment, setComment] = useState("");
   const [file, setFile] = useState("");
   const [sk, setSk] = useState(generatePrivateKey());
-  const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || '21');
+  const [difficulty, setDifficulty] = useState(
+    localStorage.getItem("difficulty") || "21"
+  );
   const [uploadingFile, setUploadingFile] = useState(false);
   const [messageFromWorker, setMessageFromWorker] = useState(null);
   const [doingWorkProp, setDoingWorkProp] = useState(false);
   // Initialize the worker outside of any effects
-  const worker = useMemo(() => new Worker(new URL('../../powWorker', import.meta.url)), []);
+  const worker = useMemo(
+    () => new Worker(new URL("../../powWorker", import.meta.url)),
+    []
+  );
 
   useEffect(() => {
     worker.onmessage = (event) => {
@@ -29,10 +38,10 @@ const NewThreadCard: React.FC = () => {
       setDifficulty(difficulty);
     };
 
-    window.addEventListener('difficultyChanged', handleDifficultyChange);
+    window.addEventListener("difficultyChanged", handleDifficultyChange);
 
     return () => {
-      window.removeEventListener('difficultyChanged', handleDifficultyChange);
+      window.removeEventListener("difficultyChanged", handleDifficultyChange);
     };
   }, []);
 
@@ -46,12 +55,12 @@ const NewThreadCard: React.FC = () => {
         created_at: Math.floor(Date.now() / 1000),
         pubkey: getPublicKey(sk),
       },
-      difficulty
+      difficulty,
     });
   };
 
   useEffect(() => {
-    setDoingWorkProp(false)
+    setDoingWorkProp(false);
     if (messageFromWorker) {
       try {
         const signedEvent = finishEvent(messageFromWorker, sk);
@@ -66,17 +75,17 @@ const NewThreadCard: React.FC = () => {
           worker.terminate();
         };
       } catch (error) {
-        setComment(error + ' ' + comment);
+        setComment(error + " " + comment);
       }
     }
   }, [messageFromWorker]);
 
   async function attachFile(file_input: File | null) {
-    setUploadingFile(true);  // start loading
+    setUploadingFile(true); // start loading
     try {
       if (file_input) {
         const rx = await FileUpload(file_input);
-        setUploadingFile(false);  // stop loading
+        setUploadingFile(false); // stop loading
         if (rx.url) {
           setFile(rx.url);
         } else if (rx?.error) {
@@ -84,86 +93,100 @@ const NewThreadCard: React.FC = () => {
         }
       }
     } catch (error: unknown) {
-      setUploadingFile(false);  // stop loading
+      setUploadingFile(false); // stop loading
       if (error instanceof Error) {
         setFile(error?.message);
       }
     }
   }
 
-
   return (
-    <>
-      <CardContainer>
-        <form
-          name="post"
-          method="post"
-          encType="multipart/form-data"
-          className=""
-          onSubmit={(event) => {
-            handleSubmit(event);
-            setDoingWorkProp(true);
-          }}
-        >
-          <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
-          <div id="togglePostFormLink" className="text-lg font-semibold">
-            Start a New Thread
+    <form
+      name="post"
+      method="post"
+      encType="multipart/form-data"
+      className=""
+      onSubmit={(event) => {
+        handleSubmit(event);
+        setDoingWorkProp(true);
+      }}
+    >
+      <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
+      <div
+        id="togglePostFormLink"
+        className="text-lg text-neutral-700 text-center mb-2 font-semibold"
+      >
+        Start a New Thread
+      </div>
+      <div className="px-4 pt-4 flex flex-col bg-neutral-900 border border-neutral-800 rounded-lg">
+        <textarea
+          name="com"
+          wrap="soft"
+          className="shadow-lg w-full px-4 py-3 h-28 rounded-md outline-none focus:outline-none bg-neutral-800 border border-neutral-700 text-white placeholder:text-neutral-500"
+          placeholder="Shitpost here..."
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+        <div className="h-14 flex items-center justify-between">
+          <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
+            <div className="inline-flex items-center gap-1.5 text-neutral-300">
+              <CpuChipIcon className="h-4 w-4" />
+            </div>
+            <p className="text-xs font-medium text-neutral-400">
+              {difficulty} POW
+            </p>
           </div>
           <div>
-            <textarea
-              name="com"
-              wrap="soft"
-              className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none placeholder-blue-300"
-              placeholder='Shitpost here...'
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          </div>
-          <div className="relative">
-            {file != '' &&
-              <button onClick={() => setFile('')}><XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" /></button>
-            }
-            {renderMedia(file)}
-          </div>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <ArrowUpTrayIcon
-                className="h-6 w-6 text-white cursor-pointer"
-                onClick={() => document.getElementById('file_input')?.click()}
-              />
-              <input
-                type="file"
-                name="file_input"
-                id="file_input"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file_input = e.target.files?.[0];
-                  if (file_input) {
-                    attachFile(file_input);
-                  }
-                }}
-              />
-              {uploadingFile ? (
-                <div className='flex animate-spin text-sm text-gray-300'>
-                  <ArrowPathIcon className="h-4 w-4 ml-auto" />
-                </div>
-              ) : null}
+            <div className="relative">
+              {file !== "" && (
+                <button onClick={() => setFile("")}>
+                  <XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" />
+                </button>
+              )}
+              {renderMedia(file)}
             </div>
-            <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
-            <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
-              Submit
-            </button>
-          </div>
-          {doingWorkProp ? (
-            <div className='flex animate-pulse text-sm text-gray-300'>
-              <CpuChipIcon className="h-4 w-4 ml-auto" />
-              <span>Generating Proof-of-Work...</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center">
+                <ArrowUpTrayIcon
+                  className="h-4 w-4 text-neutral-400 cursor-pointer"
+                  onClick={() => document.getElementById("file_input")?.click()}
+                />
+                <input
+                  type="file"
+                  name="file_input"
+                  id="file_input"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file_input = e.target.files?.[0];
+                    if (file_input) {
+                      attachFile(file_input);
+                    }
+                  }}
+                />
+                {uploadingFile ? (
+                  <div className="flex animate-spin text-sm text-gray-300">
+                    <ArrowPathIcon className="h-4 w-4 ml-auto" />
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="submit"
+                className="h-9 inline-flex items-center justify-center px-4 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-medium text-sm"
+              >
+                Submit
+              </button>
             </div>
-          ) : null}
-          <div id="postFormError" className="text-red-500" />
-        </form>
-      </CardContainer>
-    </>
+            {doingWorkProp ? (
+              <div className="flex animate-pulse text-sm text-gray-300">
+                <CpuChipIcon className="h-4 w-4 ml-auto" />
+                <span>Generating Proof-of-Work...</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div id="postFormError" className="text-red-500" />
+    </form>
   );
 };
 
