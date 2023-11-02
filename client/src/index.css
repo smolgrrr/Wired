@@ -20,7 +20,7 @@ code {
 @layer components {
   .card {
     border-radius: theme('borderRadius.lg');
-    padding: theme('spacing.6');
+    padding: theme('spacing.4');
   }
   /* ... */
 }
