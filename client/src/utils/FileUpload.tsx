@@ -40,7 +40,7 @@ export const renderMedia = (file: string) => {
         controls
         muted
         preload="metadata"
-        className="thumb mt-2 rounded-md w-full ring-1 ring-neutral-800"
+        className="thumb mt-2 rounded-md w-full"
       >
         <source src={file} type="video/mp4" />
       </video>
@@ -52,7 +52,7 @@ export const renderMedia = (file: string) => {
       <img
         alt="Invalid thread"
         loading="lazy"
-        className="thumb mt-2 rounded-md w-full ring-1 ring-neutral-800"
+        className="thumb mt-2 rounded-md w-full"
         src={file}
       />
     );

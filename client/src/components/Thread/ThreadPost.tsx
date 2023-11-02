@@ -131,58 +131,75 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                     <div id="togglePostFormLink" className="text-lg font-semibold">
                         {type === 'r' ? <span>Reply To Post</span> : <span>Quote Post</span>}
                     </div>
-                    <div>
-                        <textarea
-                            name="com"
-                            wrap="soft"
-                            className="w-full p-2 rounded bg-gradient-to-r from-blue-900 to-cyan-500 text-white border-none placeholder-blue-300"
-                            placeholder='Shitpost here...'
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                        />
-                    </div>
-                    <div className="relative">
-                        {file != '' &&
-                            <button onClick={() => setFile('')}><XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" /></button>
-                        }
-                        {renderMedia(file)}
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center">
-                            <ArrowUpTrayIcon
-                                className="h-6 w-6 text-white cursor-pointer"
-                                onClick={() => document.getElementById('file_input')?.click()}
+                    <div className="px-4 pt-4 flex flex-col bg-neutral-900 border border-neutral-800 rounded-lg">
+                        <div>
+                            <textarea
+                                name="com"
+                                wrap="soft"
+                                className="shadow-lg w-full px-4 py-3 h-28 rounded-md outline-none focus:outline-none bg-neutral-800 border border-neutral-700 text-white placeholder:text-neutral-500"
+                                placeholder='Shitpost here...'
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
                             />
-                            <input
-                                type="file"
-                                name="file_input"
-                                id="file_input"
-                                style={{ display: 'none' }}
-                                onChange={(e) => {
-                                    const file_input = e.target.files?.[0];
-                                    if (file_input) {
-                                        attachFile(file_input);
-                                    }
-                                }}
-                            />
-                            {uploadingFile ? (
-                                <div className='flex animate-spin text-sm text-gray-300'>
-                                    <ArrowPathIcon className="h-4 w-4 ml-auto" />
+                        </div>
+                        <div className="h-14 flex items-center justify-between">
+                            <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
+                                <div className="inline-flex items-center gap-1.5 text-neutral-300">
+                                    <CpuChipIcon className="h-4 w-4" />
                                 </div>
-                            ) : null}
+                                <p className="text-xs font-medium text-neutral-400">
+                                    {difficulty} PoW
+                                </p>
+                            </div>
+                            <div>
+                                <div className="relative">
+                                    {file !== "" && (
+                                        <button onClick={() => setFile("")}>
+                                            <XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" />
+                                        </button>
+                                    )}
+                                    {renderMedia(file)}
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center">
+                                        <ArrowUpTrayIcon
+                                            className="h-4 w-4 text-neutral-400 cursor-pointer"
+                                            onClick={() => document.getElementById("file_input")?.click()}
+                                        />
+                                        <input
+                                            type="file"
+                                            name="file_input"
+                                            id="file_input"
+                                            style={{ display: "none" }}
+                                            onChange={(e) => {
+                                                const file_input = e.target.files?.[0];
+                                                if (file_input) {
+                                                    attachFile(file_input);
+                                                }
+                                            }}
+                                        />
+                                        {uploadingFile ? (
+                                            <div className="flex animate-spin text-sm text-gray-300">
+                                                <ArrowPathIcon className="h-4 w-4 ml-auto" />
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        className="h-9 inline-flex items-center justify-center px-4 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-medium text-sm"
+                                    >
+                                        Submit
+                                    </button>
+                                </div>
+                                {doingWorkProp ? (
+                                    <div className="flex animate-pulse text-sm text-gray-300">
+                                        <CpuChipIcon className="h-4 w-4 ml-auto" />
+                                        <span>Generating Proof-of-Work...</span>
+                                    </div>
+                                ) : null}
+                            </div>
                         </div>
-                        <span className="flex items-center"><CpuChipIcon className="h-6 w-6 text-white" />: {difficulty}</span>
-                        <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-900 to-blue-500 rounded text-white font-semibold">
-                            Submit
-                        </button>
                     </div>
-                    {doingWorkProp ? (
-                        <div className='flex animate-pulse text-sm text-gray-300'>
-                            <CpuChipIcon className="h-4 w-4 ml-auto" />
-                            <span>Generating Proof-of-Work...</span>
-                        </div>
-                    ) : null}
-                    <div id="postFormError" className="text-red-500" />
                 </form>)}
         </>
     );

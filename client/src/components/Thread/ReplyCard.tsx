@@ -87,21 +87,26 @@ const ReplyCard = ({ event, metadata, replyCount, repliedTo }: { event: Event, m
                                     </>
                                 }
                             </div>
-                            <div className="flex items-center ml-auto">
-                                <div className="text-xs font-semibold text-gray-500 mr-2">{timeAgo(event.created_at)}</div>
-                                <FolderIcon className="h-5 w-5 mr-1 text-gray-500" />
-                                <span className="text-xs text-gray-500">{replyCount}</span>
+                            <div className="flex items-center ml-auto gap-2.5">
+                                <div className="text-xs font-semibold text-neutral-600">
+                                    {timeAgo(event.created_at)}
+                                </div>
+                                <span className="text-neutral-700">·</span>
+                                <div className="inline-flex items-center gap-1.5">
+                                    <FolderIcon className="h-4 w-4 text-neutral-600" />
+                                    <span className="text-xs text-neutral-600">{replyCount}</span>
+                                </div>
                             </div>
                         </div>
                         <div className="flex items-center my-1" >
                             <span className="text-xs text-gray-500">Reply to: </span>
                             {uniqBy(repliedTo, 'pubkey').map((event, index) => (
                                 <div key={index}>
-                                {event.kind == 0 ? (
-                                    <img className={`h-5 w-5 rounded-full`} src={getMetadata(event)?.picture} />
-                                ) : (
-                                    <div className={`h-5 w-5 bg-gradient-to-r ${getColorFromHash(event.pubkey, colorCombos)} rounded-full`} />
-                                )}
+                                    {event.kind == 0 ? (
+                                        <img className={`h-5 w-5 rounded-full`} src={getMetadata(event)?.picture} />
+                                    ) : (
+                                        <div className={`h-5 w-5 bg-gradient-to-r ${getColorFromHash(event.pubkey, colorCombos)} rounded-full`} />
+                                    )}
                                 </div>
                             ))}
                         </div>

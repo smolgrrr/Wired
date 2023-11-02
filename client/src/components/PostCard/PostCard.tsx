@@ -1,5 +1,5 @@
 import CardContainer from "./CardContainer";
-import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
+import { FolderIcon } from "@heroicons/react/24/outline";
 import { parseContent } from "../../utils/content";
 import { Event } from "nostr-tools";
 import { nip19 } from "nostr-tools";
@@ -112,7 +112,7 @@ const PostCard = ({
               </div>
               <span className="text-neutral-700">·</span>
               <div className="inline-flex items-center gap-1.5">
-                <ChatBubbleLeftEllipsisIcon className="h-4 w-4 text-neutral-600" />
+                <FolderIcon className="h-4 w-4 text-neutral-600" />
                 <span className="text-xs text-neutral-600">{replyCount}</span>
               </div>
             </div>

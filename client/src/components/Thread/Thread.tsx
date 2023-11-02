@@ -52,7 +52,7 @@ const Thread = () => {
             setHasRun(true);
             setPreOPEvents(OPNoteEvents)
             subNotesOnce(OPNoteEvents, onEvent)
-          }
+        }
     }, [uniqEvents, hasRun]);
 
     const getMetadataEvent = (event: Event) => {
@@ -72,11 +72,11 @@ const Thread = () => {
     }
 
     const earlierEvents = uniqEvents
-    .filter(event => 
-      event.kind === 1 &&
-      preOPEvents.includes(event.id)
-    )
-    .sort((a, b) => (b.created_at as any) - (a.created_at as any));
+        .filter(event =>
+            event.kind === 1 &&
+            preOPEvents.includes(event.id)
+        )
+        .sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
     if (!uniqEvents[0]) {
         return (
@@ -104,39 +104,41 @@ const Thread = () => {
     return (
         <>
             <main className="bg-black text-white min-h-screen">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                        {earlierEvents
-                            .filter(event => event.kind === 1)
-                            .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                                <OPCard event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)}/>
-                            ))}
+                <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                    {earlierEvents
+                        .filter(event => event.kind === 1)
+                        .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
+                            <OPCard event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} />
+                        ))}
                     <OPCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
-                    <div className="col-span-full flex justify-center space-x-36    ">
-                        <DocumentTextIcon
-                            className="h-5 w-5 text-gray-200"
-                            onClick={() => {
-                                setShowForm(prevShowForm => !prevShowForm);
-                                setPostType('r');
-                            }}
-                        />
+                </div>
+                <div className="col-span-full flex justify-center space-x-36">
+                    <DocumentTextIcon
+                        className="h-5 w-5 text-gray-200"
+                        onClick={() => {
+                            setShowForm(prevShowForm => !prevShowForm);
+                            setPostType('r');
+                        }}
+                    />
 
-                        <FolderPlusIcon
-                            className="h-5 w-5 text-gray-200"
-                            onClick={() => {
-                                setShowForm(prevShowForm => !prevShowForm);
-                                setPostType('q');
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <ThreadPost OPEvent={uniqEvents[0]} state={showForm} type={postType} />
-                    </div>
+                    <FolderPlusIcon
+                        className="h-5 w-5 text-gray-200"
+                        onClick={() => {
+                            setShowForm(prevShowForm => !prevShowForm);
+                            setPostType('q');
+                        }}
+                    />
+                </div>
+                <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                    <ThreadPost OPEvent={uniqEvents[0]} state={showForm} type={postType} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
-                        {uniqEvents
+                    {uniqEvents
                         .slice(1)
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                            <ReplyCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)}/>
+                            <ReplyCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
                         ))}
                 </div>
             </main>
