@@ -142,6 +142,14 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                                 onChange={(e) => setComment(e.target.value)}
                             />
                         </div>
+                        <div className="relative">
+                            {file !== "" && (
+                                <button onClick={() => setFile("")}>
+                                    <XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" />
+                                </button>
+                            )}
+                            {renderMedia(file)}
+                        </div>
                         <div className="h-14 flex items-center justify-between">
                             <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
                                 <div className="inline-flex items-center gap-1.5 text-neutral-300">
@@ -152,14 +160,6 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                                 </p>
                             </div>
                             <div>
-                                <div className="relative">
-                                    {file !== "" && (
-                                        <button onClick={() => setFile("")}>
-                                            <XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" />
-                                        </button>
-                                    )}
-                                    {renderMedia(file)}
-                                </div>
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center">
                                         <ArrowUpTrayIcon
