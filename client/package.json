@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@cashu/cashu-ts": "^0.8.2-rc.7",
     "@heroicons/react": "^2.0.18",
     "@types/jest": "^27.5.2",
     "@types/node": "^17.0.45",
