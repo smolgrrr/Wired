@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { uniqBy } from '../../utils/utils';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
 import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
-import { minePow } from '../../utils/mine';
+import { getPow } from '../../utils/mine';
 import { publish } from '../../utils/relays';
 import ThreadPost from './ThreadPost';
 import ReplyCard from './ReplyCard';
@@ -23,6 +23,7 @@ const Thread = () => {
     const [postType, setPostType] = useState("");
     const [hasRun, setHasRun] = useState(false);
     const [preOPEvents, setPreOPEvents] = useState(['']);
+    const [sortByPoW, setSortByPoW] = useState(false);
 
     // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
@@ -78,6 +79,17 @@ const Thread = () => {
         )
         .sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
+        const toggleSort = () => {
+            setSortByPoW(prev => !prev);
+          };
+
+          const eventsSortedByTime = [...uniqEvents].slice(1).sort((a, b) => a.created_at - b.created_at);
+
+          // Events sorted by PoW (assuming `getPow` returns a numerical representation of the PoW)
+          const eventsSortedByPow = [...uniqEvents].slice(1).sort((a, b) => getPow(b.id) - getPow(a.id));
+        
+          const displayedEvents = sortByPoW ? eventsSortedByPow : eventsSortedByTime;
+
     if (!uniqEvents[0]) {
         return (
             <>
@@ -132,12 +144,30 @@ const Thread = () => {
                 <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
                     <ThreadPost OPEvent={uniqEvents[0]} state={showForm} type={postType} />
                 </div>
+                <div className="flex items-center justify-center w-full py-4">
+                        <label htmlFor="toggleB" className="flex items-center cursor-pointer">
+                            <div className="relative">
+                                <input
+                                    id="toggleB"
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={sortByPoW}
+                                    onChange={toggleSort}
+                                />
+                                <div className="block bg-gray-600 w-10 h-6 rounded-full"></div>
+                                <div
+                                    className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${sortByPoW ? 'transform translate-x-full bg-blue-400' : ''
+                                        }`}
+                                ></div>
+                            </div>
+                            <div className={`ml-3 text-neutral-500 font-medium ${sortByPoW ? 'text-neutral-500' : ''}`}>
+                                {sortByPoW ? 'Sort by PoW' : 'Sort by age'}
+                            </div>
+                        </label>
+                    </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
-                    {uniqEvents
-                        .slice(1)
-                        .filter(event => event.kind === 1)
-                        .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
+                    {displayedEvents.map((event, index) => (
                             <ReplyCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
                         ))}
                 </div>

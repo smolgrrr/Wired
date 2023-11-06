@@ -44,8 +44,8 @@ const ContentPreview = ({ key, comment }: { key: string; comment: string }) => {
 
   return (
     <div className="gap-2 flex flex-col break-words text-sm">
-      {isExpanded ? finalComment : finalComment.slice(0, 240)}
-      {finalComment.length > 240 && (
+      {isExpanded ? finalComment : finalComment.slice(0, 350)}
+      {finalComment.length > 350 && (
         <button
           className="text-sm text-neutral-500"
           onClick={() => setIsExpanded(!isExpanded)}

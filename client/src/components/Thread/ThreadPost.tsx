@@ -21,13 +21,29 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
 
     const [messageFromWorker, setMessageFromWorker] = useState(null);
     const [doingWorkProp, setDoingWorkProp] = useState(false);
+    const [doingWorkProgress, setDoingWorkProgress] = useState(0);
+
     // Initialize the worker outside of any effects
-    const worker = useMemo(() => new Worker(new URL('../../powWorker', import.meta.url)), []);
+    const numCores = navigator.hardwareConcurrency || 4;
+
+    const workers = useMemo(
+        () => Array(numCores).fill(null).map(() => new Worker(new URL("../../powWorker", import.meta.url))),
+        []
+    );
 
     useEffect(() => {
-        worker.onmessage = (event) => {
-            setMessageFromWorker(event.data);
-        };
+        workers.forEach((worker) => {
+            worker.onmessage = (event) => {
+                if (event.data.status === 'progress') {
+                    console.log(`Worker progress: Checked ${event.data.currentNonce} nonces.`);
+                    setDoingWorkProgress(event.data.currentNonce);
+                } else if (event.data.found) {
+                    setMessageFromWorker(event.data.event);
+                    // Terminate all workers once a solution is found
+                    workers.forEach(w => w.terminate());
+                }
+            };
+        });
 
         const handleDifficultyChange = (event: Event) => {
             const customEvent = event as CustomEvent;
@@ -45,31 +61,36 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
         event.preventDefault();
         let id = decodeResult.data as string
 
-        let tags = [];
-        let modifiedComment = comment + " " + file;
-        if (type === 'r') {
-            tags.push(["e", id as string])
-            tags.push(["p", OPEvent.pubkey])
-        } else if (type === 'q') {
-            tags.push(["q", id as string])
-            tags.push(["p", OPEvent.pubkey])
-            modifiedComment += ' nostr:' + nip19.noteEncode(id);
-        }
+        workers.forEach((worker, index) => {
+            let tags = [];
+            let modifiedComment = comment + " " + file;
+            if (type === 'r') {
+                tags.push(["e", id as string])
+                tags.push(["p", OPEvent.pubkey])
+            } else if (type === 'q') {
+                tags.push(["q", id as string])
+                tags.push(["p", OPEvent.pubkey])
+                modifiedComment += ' nostr:' + nip19.noteEncode(id);
+            }
 
-        try {
-            worker.postMessage({
-                unsigned: {
-                    kind: 1,
-                    tags,
-                    content: modifiedComment,
-                    created_at: Math.floor(Date.now() / 1000),
-                    pubkey: getPublicKey(sk),
-                }, difficulty
-            });
+            try {
+                worker.postMessage({
+                    unsigned: {
+                        kind: 1,
+                        tags,
+                        content: modifiedComment,
+                        created_at: Math.floor(Date.now() / 1000),
+                        pubkey: getPublicKey(sk),
+                    },
+                    difficulty,
+                    nonceStart: index, // Each worker starts from its index
+                    nonceStep: numCores  // Each worker increments by the total number of workers
+                });
 
-        } catch (error) {
-            setComment(comment + " " + error);
-        }
+            } catch (error) {
+                setComment(comment + " " + error);
+            }
+        });
     };
 
     useEffect(() => {
@@ -83,10 +104,6 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                 setFile("");
                 setSk(generatePrivateKey())
                 setMessageFromWorker(null);
-
-                return () => {
-                    worker.terminate();
-                };
             } catch (error) {
                 setComment(error + ' ' + comment);
             }
@@ -191,15 +208,16 @@ const ThreadPost = ({ OPEvent, state, type }: { OPEvent: NostrEvent, state: Bool
                                         Submit
                                     </button>
                                 </div>
-                                {doingWorkProp ? (
-                                    <div className="flex animate-pulse text-sm text-gray-300">
-                                        <CpuChipIcon className="h-4 w-4 ml-auto" />
-                                        <span>Generating Proof-of-Work...</span>
-                                    </div>
-                                ) : null}
                             </div>
                         </div>
                     </div>
+                    {doingWorkProp ? (
+                        <div className="flex animate-pulse text-sm text-gray-300">
+                            <CpuChipIcon className="h-4 w-4 ml-auto" />
+                            <span>Generating Proof-of-Work:</span>
+                            <span>iteration {doingWorkProgress}</span>
+                        </div>
+                    ) : null}
                 </form>)}
         </>
     );

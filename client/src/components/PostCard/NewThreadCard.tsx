@@ -21,16 +21,30 @@ const NewThreadCard: React.FC = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [messageFromWorker, setMessageFromWorker] = useState(null);
   const [doingWorkProp, setDoingWorkProp] = useState(false);
+  const [doingWorkProgress, setDoingWorkProgress] = useState(0);
+
   // Initialize the worker outside of any effects
-  const worker = useMemo(
-    () => new Worker(new URL("../../powWorker", import.meta.url)),
+  const numCores = navigator.hardwareConcurrency || 4;
+
+  const workers = useMemo(
+    () => Array(numCores).fill(null).map(() => new Worker(new URL("../../powWorker", import.meta.url))),
     []
   );
 
+
   useEffect(() => {
-    worker.onmessage = (event) => {
-      setMessageFromWorker(event.data);
-    };
+    workers.forEach((worker) => {
+      worker.onmessage = (event) => {
+        if (event.data.status === 'progress') {
+          console.log(`Worker progress: Checked ${event.data.currentNonce} nonces.`);
+          setDoingWorkProgress(event.data.currentNonce);
+        } else if (event.data.found) {
+          setMessageFromWorker(event.data.event);
+          // Terminate all workers once a solution is found
+          workers.forEach(w => w.terminate());
+        }
+      };
+    });
 
     const handleDifficultyChange = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -47,17 +61,23 @@ const NewThreadCard: React.FC = () => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    worker.postMessage({
-      unsigned: {
-        kind: 1,
-        tags: [],
-        content: comment + " " + file,
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: getPublicKey(sk),
-      },
-      difficulty,
+
+    workers.forEach((worker, index) => {
+      worker.postMessage({
+        unsigned: {
+          kind: 1,
+          tags: [],
+          content: comment + " " + file,
+          created_at: Math.floor(Date.now() / 1000),
+          pubkey: getPublicKey(sk),
+        },
+        difficulty,
+        nonceStart: index, // Each worker starts from its index
+        nonceStep: numCores  // Each worker increments by the total number of workers
+      });
     });
   };
+
 
   useEffect(() => {
     setDoingWorkProp(false);
@@ -71,9 +91,6 @@ const NewThreadCard: React.FC = () => {
         setSk(generatePrivateKey());
         setMessageFromWorker(null);
 
-        return () => {
-          worker.terminate();
-        };
       } catch (error) {
         setComment(error + " " + comment);
       }
@@ -114,7 +131,7 @@ const NewThreadCard: React.FC = () => {
       <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
       <div
         id="togglePostFormLink"
-        className="text-lg text-neutral-700 text-center mb-2 font-semibold"
+        className="text-lg text-neutral-500 text-center mb-2 font-semibold"
       >
         Start a New Thread
       </div>
@@ -176,15 +193,16 @@ const NewThreadCard: React.FC = () => {
                 Submit
               </button>
             </div>
-            {doingWorkProp ? (
-              <div className="flex animate-pulse text-sm text-gray-300">
-                <CpuChipIcon className="h-4 w-4 ml-auto" />
-                <span>Generating Proof-of-Work...</span>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>
+      {doingWorkProp ? (
+        <div className="flex animate-pulse text-sm text-gray-300">
+          <CpuChipIcon className="h-4 w-4 ml-auto" />
+          <span>Generating Proof-of-Work:</span>
+          <span>iteration {doingWorkProgress}</span>
+        </div>
+      ) : null}
       <div id="postFormError" className="text-red-500" />
     </form>
   );
