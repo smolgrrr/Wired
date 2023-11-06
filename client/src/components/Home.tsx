@@ -11,7 +11,7 @@ const Home = () => {
   // State declarations
   const [events, setEvents] = useState<Event[]>([]);
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem("filterDifficulty") || "20");
-  const [sortByPoW, setSortByPoW] = useState(true);
+  const [sortByTime, setSortByTime] = useState(true);
   // const [inBrowser, setInBrowser] = useState(false); // Removed as it's not being used
 
   // Function to handle new events
@@ -50,7 +50,7 @@ const Home = () => {
     )
 
   const toggleSort = () => {
-    setSortByPoW(prev => !prev);
+    setSortByTime(prev => !prev);
   };
 
   // Events sorted by time
@@ -59,7 +59,7 @@ const Home = () => {
   // Events sorted by PoW (assuming `getPow` returns a numerical representation of the PoW)
   const eventsSortedByPow = [...filteredEvents].sort((a, b) => getPow(b.id) - getPow(a.id));
 
-  const displayedEvents = sortByPoW ? eventsSortedByPow : eventsSortedByTime;
+  const displayedEvents = sortByTime ? eventsSortedByTime : eventsSortedByPow;
 
   // Get metadata for an event
   const getMetadataEvent = (event: Event) => {
@@ -84,17 +84,17 @@ const Home = () => {
               id="toggleB"
               type="checkbox"
               className="sr-only"
-              checked={sortByPoW}
+              checked={sortByTime}
               onChange={toggleSort}
             />
             <div className="block bg-gray-600 w-10 h-6 rounded-full"></div>
             <div
-              className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${sortByPoW ? 'transform translate-x-full bg-blue-400' : ''
+              className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : ''
                 }`}
             ></div>
           </div>
-          <div className={`ml-3 text-neutral-500 font-medium ${sortByPoW ? 'text-neutral-500' : ''}`}>
-            {sortByPoW ? 'Sort by PoW' : 'Sort by recent'}
+          <div className={`ml-3 text-neutral-500 font-medium ${sortByTime ? 'text-neutral-500' : ''}`}>
+            {sortByTime ? 'Sort by recent' : 'Sort by PoW'}
           </div>
         </label>
       </div>
