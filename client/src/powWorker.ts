@@ -7,9 +7,9 @@ const ctx: Worker = self as any;
 ctx.addEventListener('message', (event) => {
     console.log("Received message in worker:", event.data);
     
-    const { unsigned, difficulty } = event.data;
+    const { unsigned, difficulty, nonceStart, nonceStep } = event.data;
     
-    const result = minePow(unsigned, difficulty);
+    const result = minePow(unsigned, difficulty, nonceStart, nonceStep);
     console.log("Mining result:", result);
     
     // Post the mined event back to the main thread
@@ -43,32 +43,32 @@ export function getPow(hex: string): number {
  *
  * Adapted from Snort: https://git.v0l.io/Kieran/snort/src/commit/4df6c19248184218c4c03728d61e94dae5f2d90c/packages/system/src/pow-util.ts#L14-L36
  */
-export function minePow<K extends number>(unsigned: UnsignedEvent<K>, difficulty: number): Omit<Event<K>, 'sig'> {
-    let count = 0
+export function minePow<K extends number>(unsigned: UnsignedEvent<K>, difficulty: number, nonceStart: number, nonceStep: number): { found: boolean, event?: Omit<Event<K>, 'sig'> } {
+    let nonce = nonceStart;
 
     const event = unsigned as Omit<Event<K>, 'sig'>
-    const tag = ['nonce', count.toString(), difficulty.toString()]
+    const tag = ['nonce', nonce.toString(), difficulty.toString()]
 
-    event.tags.push(tag)
+    event.tags.push(tag);
 
+    // We use a while loop that might run indefinitely until a solution is found.
+    // Consider adding a breaking condition if you want to limit the number of nonces each worker checks.
     while (true) {
-        const now = Math.floor(new Date().getTime() / 1000)
+        tag[1] = (nonce).toString();
 
-        if (now !== event.created_at) {
-            count = 0
-            event.created_at = now
-        }
-
-        tag[1] = (++count).toString()
-
-        event.id = getEventHash(event)
+        event.id = getEventHash(event);
 
         if (getPow(event.id) >= difficulty) {
-            break
+            return { found: true, event: event };
+        }
+
+        nonce += nonceStep;
+
+        if (nonce % (nonceStep * 10000) === 0) {
+            ctx.postMessage({ status: 'progress', currentNonce: nonce });
         }
     }
-
-    return event
+    return { found: false };
 }
 
 export default ctx;
