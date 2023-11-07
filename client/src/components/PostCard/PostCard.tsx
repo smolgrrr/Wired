@@ -1,12 +1,12 @@
 import CardContainer from "./CardContainer";
-import { FolderIcon } from "@heroicons/react/24/outline";
+import { FolderIcon, CpuChipIcon } from "@heroicons/react/24/outline";
 import { parseContent } from "../../utils/content";
-import { Event } from "nostr-tools";
-import { nip19 } from "nostr-tools";
+import { Event, nip19 } from "nostr-tools";
 import { getMetadata } from "../../utils/utils";
 import ContentPreview from "../Modals/TextModal";
 import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash } from "../../utils/deterministicProfileIcon";
+import { verifyPow } from "../../utils/mine";
 
 const timeAgo = (unixTime: number) => {
   const seconds = Math.floor(new Date().getTime() / 1000 - unixTime);
@@ -74,15 +74,15 @@ const PostCard = ({
               )}
             </div>
             <div className="flex items-center ml-auto gap-2.5">
-              <div className="text-xs text-neutral-600">
-                {event.id.match(/^0*([^\0]{2})/)?.[0] || 0}
+              <div className="inline-flex text-xs text-neutral-600 gap-0.5">
+              <CpuChipIcon className="h-4 w-4" /> {verifyPow(event)} 
               </div>
               <span className="text-neutral-700">·</span>
               <div className="text-xs font-semibold text-neutral-600">
                 {timeAgo(event.created_at)}
               </div>
               <span className="text-neutral-700">·</span>
-              <div className="inline-flex items-center gap-1.5">
+              <div className="inline-flex items-center gap-1">
                 <FolderIcon className="h-4 w-4 text-neutral-600" />
                 <span className="text-xs text-neutral-600">{replyCount}</span>
               </div>
