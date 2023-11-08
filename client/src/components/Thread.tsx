@@ -1,16 +1,14 @@
 import { useParams } from 'react-router-dom';
 import { useState } from "react";
 import { Event, nip19 } from "nostr-tools"
-import { subNote, subNotesOnce } from '../../utils/subscriptions';
+import { subNote, subNotesOnce } from '../utils/subscriptions';
 import { useEffect } from 'react';
-import { uniqBy } from '../../utils/utils';
+import { uniqBy } from '../utils/utils';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
-import { generatePrivateKey, getPublicKey, finishEvent } from 'nostr-tools';
-import { getPow } from '../../utils/mine';
-import { publish } from '../../utils/relays';
-import ThreadPost from './ThreadPost';
-import ReplyCard from './ReplyCard';
-import OPCard from './OPCard';
+import { getPow } from '../utils/mine';
+import ThreadPost from './Forms/ThreadPost';
+import PostCard from './Modals/Card';
+import Placeholder from './Modals/Placeholder';
 
 
 const difficulty = 20
@@ -18,13 +16,16 @@ const difficulty = 20
 const Thread = () => {
     const { id } = useParams();
     const [events, setEvents] = useState<Event[]>([]); // Initialize state
-    let decodeResult = nip19.decode(id as string);
+    const [OPEvent, setOPEvent] = useState<Event>()
     const [showForm, setShowForm] = useState(false);
     const [postType, setPostType] = useState("");
     const [hasRun, setHasRun] = useState(false);
     const [preOPEvents, setPreOPEvents] = useState(['']);
     const [sortByTime, setSortByTime] = useState(true);
-    const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem("filterDifficulty") || "20");
+    const filterDifficulty = useState(localStorage.getItem("filterDifficulty") || "20");
+
+    let decodeResult = nip19.decode(id as string);
+    let hexID = decodeResult.data as string;
 
     // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
@@ -32,28 +33,30 @@ const Thread = () => {
     };
 
     useEffect(() => {
+        setHasRun(false)
         if (decodeResult.type === 'note') {
-            let id_to_hex: string = decodeResult.data;
             // Call your subNote function or do whatever you need to do with id_to_hex
-            subNote(id_to_hex, onEvent);
+            subNote(hexID, onEvent);
         }
-        // Subscribe to global feed when the component mounts
-        // Optionally, return a cleanup function to unsubscribe when the component unmounts
 
         return () => {
             // Your cleanup code here
         };
-    }, []);  // Empty dependency array means this useEffect runs once when the component mounts
+    }, [id]);  // Empty dependency array means this useEffect runs once when the component mounts
 
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
 
     useEffect(() => {
         if (!hasRun && events.length > 0) {
-            let OPNoteEvents = events[0].tags.filter(tag => tag[0] === 'e').map(tag => tag[1]);
-            console.log(OPNoteEvents);
+            let OPEvent = events.find(e => e.id === hexID);
+
+            if (OPEvent) {
+            setOPEvent(OPEvent);
+            let OPNoteEvents = OPEvent.tags.filter(tag => tag[0] === 'e').map(tag => tag[1]);
             setHasRun(true);
             setPreOPEvents(OPNoteEvents)
             subNotesOnce(OPNoteEvents, onEvent)
+            }
         }
     }, [uniqEvents, hasRun]);
 
@@ -88,34 +91,16 @@ const Thread = () => {
 
     // Events sorted by PoW (assuming `getPow` returns a numerical representation of the PoW)
     const eventsSortedByPow = [...uniqEvents].slice(1)
-    .filter((event) =>
-        getPow(event.id) > Number(filterDifficulty) &&
-        event.kind === 1
-    ).sort((a, b) => getPow(b.id) - getPow(a.id));
+        .filter((event) =>
+            getPow(event.id) > Number(filterDifficulty) &&
+            event.kind === 1
+        ).sort((a, b) => getPow(b.id) - getPow(a.id));
 
     const displayedEvents = sortByTime ? eventsSortedByTime : eventsSortedByPow;
 
     if (!uniqEvents[0]) {
         return (
-            <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <div className="border border-blue-300 shadow rounded-md p-4 max-w-sm w-full mx-auto">
-                        <div className="animate-pulse flex space-x-4">
-                            <div className="rounded-full bg-slate-700 h-10 w-10"></div>
-                            <div className="flex-1 space-y-6 py-1">
-                                <div className="h-2 bg-slate-700 rounded"></div>
-                                <div className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="h-2 bg-slate-700 rounded col-span-2"></div>
-                                        <div className="h-2 bg-slate-700 rounded col-span-1"></div>
-                                    </div>
-                                    <div className="h-2 bg-slate-700 rounded"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </>
+            <Placeholder />
         );
     }
     return (
@@ -125,9 +110,9 @@ const Thread = () => {
                     {earlierEvents
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                            <OPCard event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} />
+                            <PostCard event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} />
                         ))}
-                    <OPCard event={uniqEvents[0]} metadata={getMetadataEvent(uniqEvents[0])} replyCount={countReplies(uniqEvents[0])} />
+                    {OPEvent && <PostCard event={OPEvent} metadata={getMetadataEvent(OPEvent)} replyCount={countReplies(OPEvent)} type={'OP'}/>}
                 </div>
                 <div className="col-span-full flex justify-center space-x-36">
                     <DocumentTextIcon
@@ -173,7 +158,7 @@ const Thread = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
                     {displayedEvents.map((event, index) => (
-                        <ReplyCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
+                        <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
                     ))}
                 </div>
             </main>

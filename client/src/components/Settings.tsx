@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 // import {publish} from './relays';
 import { addRelay } from '../utils/relays';
 import { CpuChipIcon } from '@heroicons/react/24/outline';
+
 const Settings = () => {
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);

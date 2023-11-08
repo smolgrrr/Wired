@@ -4,7 +4,7 @@ import Home from "./components/Home";
 import Settings from "./components/Settings";
 import SwipeableViews from "react-swipeable-views";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import Thread from "./components/Thread/Thread";
+import Thread from "./components/Thread";
 import Header from "./components/Header/Header";
 
 function App() {

@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
-import PostCard from "./PostCard/PostCard";
-import NewThreadCard from "./PostCard/NewThreadCard";
+import { useEffect, useState, useCallback } from "react";
+import PostCard from "./Modals/Card";
+import NewThreadCard from "./Forms/NewThreadCard";
 import { uniqBy } from "../utils/utils"; // Assume getPow is a correct import now
 import { subGlobalFeed } from "../utils/subscriptions";
 import { verifyPow } from "../utils/mine";
 import { Event } from "nostr-tools";
+
+const DEFAULT_DIFFICULTY = 20;
 
 const useUniqEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -20,7 +22,7 @@ const useUniqEvents = () => {
 };
 
 const Home = () => {
-  const filterDifficulty = localStorage.getItem("filterDifficulty") || 20;
+  const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
   const [sortByTime, setSortByTime] = useState(true);
   const uniqEvents = useUniqEvents();
 
@@ -35,9 +37,9 @@ const Home = () => {
     sortByTime ? b.created_at - a.created_at : verifyPow(b) - verifyPow(a)
   );
 
-  const toggleSort = () => {
+  const toggleSort = useCallback(() => {
     setSortByTime(prev => !prev);
-  };
+  }, []);
 
   const getMetadataEvent = (event: Event) => {
     return uniqEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null;

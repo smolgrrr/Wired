@@ -1,4 +1,4 @@
-import CardContainer from "./CardContainer";
+import CardContainer from "../Modals/CardContainer";
 import {
   ArrowUpTrayIcon,
   CpuChipIcon,
