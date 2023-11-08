@@ -15,6 +15,7 @@ const LinkModal = ({ url }: { url: string }) => {
       })
       .then((preview) => setLinkPreview(preview as LinkPreview))
       .catch((error) => console.error("Error fetching URL with proxy:", error));
+      
   }, [url]);
 
   if (!linkPreview) {

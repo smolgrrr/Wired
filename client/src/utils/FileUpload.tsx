@@ -59,6 +59,28 @@ export const renderMedia = (file: string) => {
   }
 };
 
+export async function attachFile(file_input: File | null): Promise<string> {
+  if (!file_input) {
+    throw new Error("No file provided");
+  }
+
+  try {
+    const rx = await FileUpload(file_input);
+
+    if (rx.error) {
+      throw new Error(rx.error);
+    }
+
+    return rx.url || "No URL returned from FileUpload";
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`File upload failed: ${error.message}`);
+    }
+
+    throw new Error("Unknown error occurred during file upload");
+  }
+}
+
 export interface UploadResult {
   url?: string;
   error?: string;

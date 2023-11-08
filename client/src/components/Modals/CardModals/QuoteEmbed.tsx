@@ -1,8 +1,8 @@
-import { parseContent } from "../../utils/content";
+import { parseContent } from "../../../utils/content";
 import { Event } from "nostr-tools";
-import { getMetadata, uniqBy } from "../../utils/utils";
+import { getMetadata, uniqBy } from "../../../utils/utils";
 import ContentPreview from "./TextModal";
-import { renderMedia } from "../../utils/FileUpload";
+import { renderMedia } from "../../../utils/FileUpload";
 
 const colorCombos = [
   "from-red-400 to-yellow-500",

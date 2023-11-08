@@ -3,7 +3,7 @@ import { FolderIcon, CpuChipIcon } from "@heroicons/react/24/outline";
 import { parseContent } from "../../utils/content";
 import { Event, nip19 } from "nostr-tools";
 import { getMetadata } from "../../utils/utils";
-import ContentPreview from "./TextModal";
+import ContentPreview from "./CardModals/TextModal";
 import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash } from "../../utils/deterministicProfileIcon";
 import { verifyPow } from "../../utils/mine";

@@ -1,7 +1,7 @@
 import QuoteEmbed from "./QuoteEmbed";
 import { Event } from "nostr-tools";
 import { useEffect, useState } from "react";
-import { subNoteOnce } from "../../utils/subscriptions";
+import { subNoteOnce } from "../../../utils/subscriptions";
 import { nip19 } from "nostr-tools";
 import LinkModal from "./LinkPreview";
 
