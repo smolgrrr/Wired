@@ -3,22 +3,21 @@ import { useState } from "react";
 import { Event, nip19 } from "nostr-tools"
 import { subNote, subNotesOnce } from '../utils/subscriptions';
 import { useEffect } from 'react';
-import { uniqBy } from '../utils/utils';
+import { uniqBy } from '../utils/otherUtils';
 import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
 import { getPow } from '../utils/mine';
-import ThreadPost from './Forms/ThreadPost';
 import PostCard from './Modals/Card';
 import Placeholder from './Modals/Placeholder';
+import NewNoteCard from './Forms/PostFormCard';
 
-
-const difficulty = 20
+type PostType = "" | "Reply" | "Quote" | undefined;
 
 const Thread = () => {
     const { id } = useParams();
     const [events, setEvents] = useState<Event[]>([]); // Initialize state
     const [OPEvent, setOPEvent] = useState<Event>()
     const [showForm, setShowForm] = useState(false);
-    const [postType, setPostType] = useState("");
+    const [postType, setPostType] = useState<PostType>("");
     const [hasRun, setHasRun] = useState(false);
     const [preOPEvents, setPreOPEvents] = useState(['']);
     const [sortByTime, setSortByTime] = useState(true);
@@ -48,7 +47,12 @@ const Thread = () => {
 
     useEffect(() => {
         if (!hasRun && events.length > 0) {
-            let OPEvent = events.find(e => e.id === hexID);
+            let OPEvent = uniqEvents[0];
+            setOPEvent(OPEvent);
+            
+            if (OPEvent && OPEvent.id !== hexID) {
+            OPEvent = events.find(e => e.id === hexID) as Event;
+            }
 
             if (OPEvent) {
             setOPEvent(OPEvent);
@@ -119,7 +123,7 @@ const Thread = () => {
                         className="h-5 w-5 text-gray-200"
                         onClick={() => {
                             setShowForm(prevShowForm => !prevShowForm);
-                            setPostType('r');
+                            setPostType('Reply');
                         }}
                     />
 
@@ -127,13 +131,13 @@ const Thread = () => {
                         className="h-5 w-5 text-gray-200"
                         onClick={() => {
                             setShowForm(prevShowForm => !prevShowForm);
-                            setPostType('q');
+                            setPostType('Quote');
                         }}
                     />
                 </div>
-                <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-                    <ThreadPost OPEvent={uniqEvents[0]} state={showForm} type={postType} />
-                </div>
+                {(showForm && postType) && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                    <NewNoteCard refEvent={uniqEvents[0]} tagType={postType}/>
+                </div>}
                 <div className="flex items-center justify-center w-full py-4">
                     <label htmlFor="toggleB" className="flex items-center cursor-pointer">
                         <div className="relative">

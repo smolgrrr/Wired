@@ -5,7 +5,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useMemo } from "react";
-import { generatePrivateKey, getPublicKey, finishEvent, UnsignedEvent } from "nostr-tools";
+import { generatePrivateKey, getPublicKey, finishEvent, UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { publish } from "../../utils/relays";
 import { renderMedia, attachFile } from "../../utils/FileUpload";
 
@@ -40,7 +40,20 @@ const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: strin
     return { startWork, messageFromWorker, doingWorkProgress };
 };
 
-const NewNoteCard: React.FC = () => {
+interface FormProps {
+    refEvent?: NostrEvent;
+    tagType?: 'Reply' | 'Quote' | '';
+}
+
+const tagMapping = {
+    'Reply': ['e', 'p'],
+    'Quote': ['q', 'p']
+};
+
+const NewNoteCard = ({ 
+    refEvent, 
+    tagType 
+    }: FormProps) => {
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
     const [sk, setSk] = useState(generatePrivateKey());
@@ -65,6 +78,17 @@ const NewNoteCard: React.FC = () => {
 
 
     useEffect(() => {
+        if (refEvent && tagType && unsigned.tags.length === 0) {
+            const tags = tagMapping[tagType];
+            if (tags) {
+                tags.forEach(tag => unsigned.tags.push([tag, refEvent[tag === 'p' ? 'pubkey' : 'id']]));
+            }
+        
+            if (tagType === 'Quote') {
+                setComment(comment + ' nostr:' + nip19.noteEncode(refEvent.id));
+            }
+        }
+
         const handleDifficultyChange = (event: Event) => {
             const customEvent = event as CustomEvent;
             const { difficulty } = customEvent.detail;
@@ -79,15 +103,12 @@ const NewNoteCard: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        setUnsigned(
-            {
-                kind: 1,
-                tags: [],
-                content: comment + " " + file,
-                created_at: Math.floor(Date.now() / 1000),
-                pubkey: getPublicKey(sk),
-            }
-        );
+        setUnsigned(prevUnsigned => ({
+            ...prevUnsigned,
+            content: `${comment} ${file}`,
+            created_at: Math.floor(Date.now() / 1000),
+            pubkey: getPublicKey(sk),
+        }));
     }, [comment, file]);
 
     useEffect(() => {
@@ -100,16 +121,12 @@ const NewNoteCard: React.FC = () => {
                 setComment("");
                 setFile("");
                 setSk(generatePrivateKey());
-                setUnsigned(
-                    {
-                        kind: 1,
-                        tags: [],
-                        content: "",
-                        created_at: Math.floor(Date.now() / 1000),
-                        pubkey: getPublicKey(sk),
-                    }
-                );
-                
+                setUnsigned(prevUnsigned => ({
+                    ...prevUnsigned,
+                    content: '',
+                    created_at: Math.floor(Date.now() / 1000),
+                    pubkey: getPublicKey(sk),
+                }));
             } catch (error) {
                 setComment(error + " " + comment);
             }

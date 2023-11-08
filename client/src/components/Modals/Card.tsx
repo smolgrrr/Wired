@@ -2,12 +2,12 @@ import CardContainer from "./CardContainer";
 import { FolderIcon, CpuChipIcon } from "@heroicons/react/24/outline";
 import { parseContent } from "../../utils/content";
 import { Event, nip19 } from "nostr-tools";
-import { getMetadata } from "../../utils/utils";
+import { getMetadata } from "../../utils/otherUtils";
 import ContentPreview from "./CardModals/TextModal";
 import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash } from "../../utils/deterministicProfileIcon";
 import { verifyPow } from "../../utils/mine";
-import { uniqBy } from "../../utils/utils";
+import { uniqBy } from "../../utils/otherUtils";
 import { useNavigate } from 'react-router-dom';
 
 const timeUnits = [

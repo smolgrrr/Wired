@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import PostCard from "./Modals/Card";
-import { uniqBy } from "../utils/utils"; // Assume getPow is a correct import now
+import { uniqBy } from "../utils/otherUtils"; // Assume getPow is a correct import now
 import { subGlobalFeed } from "../utils/subscriptions";
 import { verifyPow } from "../utils/mine";
 import { Event } from "nostr-tools";

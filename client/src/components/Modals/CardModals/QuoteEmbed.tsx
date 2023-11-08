@@ -1,6 +1,6 @@
 import { parseContent } from "../../../utils/content";
 import { Event } from "nostr-tools";
-import { getMetadata, uniqBy } from "../../../utils/utils";
+import { getMetadata, uniqBy } from "../../../utils/otherUtils";
 import ContentPreview from "./TextModal";
 import { renderMedia } from "../../../utils/FileUpload";
 
