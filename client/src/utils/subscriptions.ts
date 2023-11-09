@@ -24,7 +24,7 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
         ...(prefix && {ids: ['0'.repeat(prefix)]}),
         kinds: [1],
         since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
-        limit: 100,
+        limit: 350,
       },
       unsub: true
     });
