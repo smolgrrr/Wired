@@ -65,17 +65,15 @@ const PostCard = ({
                         <div className="flex items-center gap-2.5">
                             {metadataParsed ? 
                                 <img
-                                className={`h-8 w-8 rounded-full`}
+                                key = {key}
+                                className={`h-5 w-5 rounded-full`}
                                 src={metadataParsed?.picture ?? icon}
                                 alt=""
                                 loading="lazy"
                                 decoding="async"/>
                                 :
-                                <div className={`h-7 w-7 ${icon} rounded-full`} />
+                                <div className={`h-4 w-4 ${icon} rounded-full`} />
                             }
-                            <div className="text-md font-semibold">
-                                {metadataParsed?.name ?? 'Anonymous'}
-                            </div>
                         </div>
                         <div className="flex items-center ml-auto gap-2.5">
                             <div className="inline-flex text-xs text-neutral-600 gap-0.5">
@@ -96,7 +94,7 @@ const PostCard = ({
                         <span className="text-xs text-gray-500">Reply to: </span>
                         {uniqBy(repliedTo, 'pubkey').map((event, index) => (
                             <div key={index}>
-                                {event.kind == 0 ? (
+                                {event.kind === 0 ? (
                                     <img className={`h-5 w-5 rounded-full`} src={getMetadata(event)?.picture} />
                                 ) : (
                                     <div className={`h-5 w-5 ${getIconFromHash(event.pubkey)} rounded-full`} />
