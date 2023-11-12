@@ -71,7 +71,7 @@ const QuoteEmbed = ({
     <div className="p-3 rounded-lg border border-neutral-700 bg-neutral-800">
       <div className="flex flex-col">
         <div className="flex flex-col break-words">
-          <ContentPreview key={event.id} comment={comment} />
+          <ContentPreview key={event.id} eventdata={event} />
         </div>
         {renderMedia(file)}
         <div className="flex justify-between items-center">

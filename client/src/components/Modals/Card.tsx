@@ -62,7 +62,7 @@ const PostCard = ({
         <CardContainer>
                 <div className={`flex flex-col gap-2`}>
                     <div className={`flex flex-col break-words ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
-                        <ContentPreview key={event.id} comment={comment} />
+                        <ContentPreview key={event.id} eventdata={event} />
                     </div>
                     {renderMedia(file)}
                     {repliedTo && <div className="flex items-center mt-1" >

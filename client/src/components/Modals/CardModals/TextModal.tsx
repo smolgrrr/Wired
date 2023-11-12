@@ -5,12 +5,33 @@ import { useEffect, useState } from "react";
 import { subNoteOnce } from "../../../utils/subscriptions";
 import { nip19 } from "nostr-tools";
 import LinkModal from "./LinkPreview";
+import { parseContent } from "../../../utils/content";
 
-const ContentPreview = ({ key, comment }: { key: string; comment: string }) => {
+const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: boolean; emojiMap: Record<string, any> }) => {
+  const content = isExpanded ? text.split('\n') : text.slice(0, 350).split('\n');
+
+  return (
+    <>
+      {content.map((line, i) => (
+        <div key={i}>
+          {line.split(' ').map((word, j) =>
+            emojiMap[word]
+              ? <img className="w-8 h-8 mx-0.5 inline" src={emojiMap[word]} alt={word} key={j} />
+              : `${word} `
+          )}
+        </div>
+      ))}
+    </>
+  );
+};
+
+const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) => {
+  const { comment, file } = parseContent(eventdata);
   const [finalComment, setFinalComment] = useState(comment);
   const [quoteEvents, setQuoteEvents] = useState<Event[]>([]); // Initialize state
   const [isExpanded, setIsExpanded] = useState(false);
   const [url, setUrl] = useState("");
+  const [emojiMap, setEmojiMap] = useState<Record<string, any>>({});
 
   // Define your callback function for subGlobalFeed
   const onEvent = (event: Event, relay: string) => {
@@ -31,6 +52,16 @@ const ContentPreview = ({ key, comment }: { key: string; comment: string }) => {
       subNoteOnce(id_to_hex, onEvent);
       setFinalComment(finalComment.replace("nostr:" + nostrQuoteID, "").trim());
     }
+
+    let newEmojiMap: Record<string, any> = {};
+    eventdata.tags.forEach(tag => {
+      if (tag[0] === "emoji") {
+        newEmojiMap[`:${tag[1]}:`] = tag[2];
+      }
+    });
+    // Update the state variable
+    setEmojiMap(newEmojiMap);
+
   }, [comment, finalComment]);
 
   const getMetadataEvent = (event: Event) => {
@@ -44,11 +75,8 @@ const ContentPreview = ({ key, comment }: { key: string; comment: string }) => {
   };
 
   return (
-    <div className="gap-2 flex flex-col break-words text-sm">
-      {isExpanded 
-        ? finalComment.split('\n').map((line, i) => <React.Fragment key={i}>{line}<br/></React.Fragment>) 
-        : finalComment.slice(0, 350).split('\n').map((line, i) => <React.Fragment key={i}>{line}<br/></React.Fragment>)
-      }
+    <div className="gap-2 flex flex-col break-words font-normal">
+      <RichText text={finalComment} isExpanded={isExpanded} emojiMap={emojiMap} />
       {finalComment.length > 350 && (
         <button
           className="text-sm text-neutral-500"

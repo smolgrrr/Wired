@@ -2,12 +2,15 @@ import {
     ArrowUpTrayIcon,
     CpuChipIcon,
     ArrowPathIcon,
+    Square2StackIcon
 } from "@heroicons/react/24/outline";
 import { XCircleIcon } from "@heroicons/react/24/solid";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { generatePrivateKey, getPublicKey, finishEvent, UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { publish } from "../../utils/relays";
 import { renderMedia, attachFile } from "../../utils/FileUpload";
+import { EmojiPicker } from "./Emojis/emoji-picker";
+import customEmojis from './custom_emojis.json';
 
 const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: string, deps: any[]) => {
     const [messageFromWorker, setMessageFromWorker] = useState(null);
@@ -54,6 +57,7 @@ const NewNoteCard = ({
     refEvent,
     tagType
 }: FormProps) => {
+    const ref = useRef<HTMLDivElement | null>(null);
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
     const [sk, setSk] = useState(generatePrivateKey());
@@ -76,7 +80,6 @@ const NewNoteCard = ({
     const numCores = navigator.hardwareConcurrency || 4;
 
     const { startWork, messageFromWorker, doingWorkProgress } = useWorkers(numCores, unsigned, difficulty, [unsigned]);
-
 
     useEffect(() => {
         if (refEvent && tagType && unsigned.tags.length === 0) {
@@ -134,6 +137,43 @@ const NewNoteCard = ({
         }
     }, [messageFromWorker]);
 
+    //Emoji stuff
+    const emojiRef = useRef(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    interface Emoji {
+        native?: string;
+        id?: string;
+    }
+
+    const emojiNames = customEmojis.map(p => p.emojis).flat();
+    function getEmojiById(id: string) {
+        return emojiNames.find(e => e.shortcode === id);
+    }
+
+    async function onEmojiSelect(emoji: Emoji) {
+        setShowEmojiPicker(false);
+        try {
+            if (emoji.id) {
+            const e = getEmojiById(emoji.id);
+            if (e) {
+                setComment(comment + " :" + e.shortcode + ":");
+                unsigned.tags.push(['emoji', e.shortcode, e.url]);
+              };
+            }
+          } catch {
+          //ignore
+        }
+      }
+
+    const topOffset = ref.current?.getBoundingClientRect().top;
+    const leftOffset = ref.current?.getBoundingClientRect().left;
+
+    function pickEmoji(e: React.MouseEvent) {
+        e.stopPropagation();
+        setShowEmojiPicker(!showEmojiPicker);
+    }
+
     return (
         <form
             name="post"
@@ -151,7 +191,7 @@ const NewNoteCard = ({
                 id="togglePostFormLink"
                 className="text-lg text-neutral-500 text-center mb-2 font-semibold"
             >
-                {tagType === 'Reply' ? 'Reply to thread' : 'Start Thread'}
+                {tagType === 'Reply' ? 'Reply to thread' : 'Start New Thread'}
             </div>
             <div className="px-4 pt-4 flex flex-col bg-neutral-900 rounded-lg">
                 <textarea
@@ -181,6 +221,18 @@ const NewNoteCard = ({
                     </div>
                     <div>
                         <div className="flex items-center gap-4">
+                            <div className="items-center">
+                                {showEmojiPicker && (
+                                    <EmojiPicker
+                                        topOffset={topOffset || 0}
+                                        leftOffset={leftOffset || 0}
+                                        onEmojiSelect={onEmojiSelect}
+                                        onClickOutside={() => setShowEmojiPicker(false)}
+                                        ref={emojiRef}
+                                    />
+                                )}
+                                <Square2StackIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji}/>
+                            </div>
                             <div className="flex items-center">
                                 <ArrowUpTrayIcon
                                     className="h-4 w-4 text-neutral-400 cursor-pointer"
