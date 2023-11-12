@@ -60,8 +60,24 @@ const PostCard = ({
 
     return (
         <CardContainer>
-                <div className={`flex flex-col gap-2 ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
-                    <div className="flex justify-between items-center">
+                <div className={`flex flex-col gap-2`}>
+                    <div className={`flex flex-col break-words ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
+                        <ContentPreview key={event.id} comment={comment} />
+                    </div>
+                    {renderMedia(file)}
+                    {repliedTo && <div className="flex items-center mt-1" >
+                        <span className="text-xs text-gray-500">Reply to: </span>
+                        {uniqBy(repliedTo, 'pubkey').map((event, index) => (
+                            <div key={index}>
+                                {event.kind === 0 ? (
+                                    <img className={`h-5 w-5 rounded-full`} src={getMetadata(event)?.picture} />
+                                ) : (
+                                    <div className={`h-4 w-4 ${getIconFromHash(event.pubkey)} rounded-full`} />
+                                )}
+                            </div>
+                        ))}
+                    </div>}
+                    <div className={`flex justify-between items-center ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
                         <div className="flex items-center gap-2.5">
                             {metadataParsed ? 
                                 <img
@@ -90,23 +106,7 @@ const PostCard = ({
                             </div>
                         </div>
                     </div>
-                    {repliedTo && <div className="flex items-center my-1" >
-                        <span className="text-xs text-gray-500">Reply to: </span>
-                        {uniqBy(repliedTo, 'pubkey').map((event, index) => (
-                            <div key={index}>
-                                {event.kind === 0 ? (
-                                    <img className={`h-5 w-5 rounded-full`} src={getMetadata(event)?.picture} />
-                                ) : (
-                                    <div className={`h-5 w-5 ${getIconFromHash(event.pubkey)} rounded-full`} />
-                                )}
-                            </div>
-                        ))}
-                    </div>}
-                    <div className="flex flex-col break-words">
-                        <ContentPreview key={event.id} comment={comment} />
-                    </div>
                 </div>
-            {renderMedia(file)}
         </CardContainer>
     );
 };

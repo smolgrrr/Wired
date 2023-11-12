@@ -50,10 +50,10 @@ const tagMapping = {
     'Quote': ['q', 'p']
 };
 
-const NewNoteCard = ({ 
-    refEvent, 
-    tagType 
-    }: FormProps) => {
+const NewNoteCard = ({
+    refEvent,
+    tagType
+}: FormProps) => {
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
     const [sk, setSk] = useState(generatePrivateKey());
@@ -67,7 +67,8 @@ const NewNoteCard = ({
     const [difficulty, setDifficulty] = useState(
         localStorage.getItem("difficulty") || "21"
     );
-    
+    const [fileSizeError, setFileSizeError] = useState(false);
+
     const [uploadingFile, setUploadingFile] = useState(false);
     const [doingWorkProp, setDoingWorkProp] = useState(false);
 
@@ -83,7 +84,7 @@ const NewNoteCard = ({
             if (tags) {
                 tags.forEach(tag => unsigned.tags.push([tag, refEvent[tag === 'p' ? 'pubkey' : 'id']]));
             }
-        
+
             if (tagType === 'Quote') {
                 setComment(comment + ' nostr:' + nip19.noteEncode(refEvent.id));
             }
@@ -145,12 +146,12 @@ const NewNoteCard = ({
                 setDoingWorkProp(true);
             }}
         >
-            <input type="hidden" name="MAX_FILE_SIZE" defaultValue={4194304} />
+            <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
             <div
                 id="togglePostFormLink"
                 className="text-lg text-neutral-500 text-center mb-2 font-semibold"
             >
-                Start a New Thread
+                {tagType === 'Reply' ? 'Reply to thread' : 'Start Thread'}
             </div>
             <div className="px-4 pt-4 flex flex-col bg-neutral-900 rounded-lg">
                 <textarea
@@ -193,10 +194,16 @@ const NewNoteCard = ({
                                     onChange={async (e) => {
                                         const file_input = e.target.files?.[0];
                                         if (file_input) {
+                                            // Check if file size is greater than 2.5MB
+                                            if (file_input.size > 2.5 * 1024 * 1024) {
+                                                setFileSizeError(true);
+                                                return;
+                                            }
                                             setUploadingFile(true);
                                             const attachedFile = await attachFile(file_input);
                                             setFile(attachedFile);
                                             setUploadingFile(false);
+                                            setFileSizeError(false);
                                         }
                                     }}
                                 />
@@ -216,6 +223,9 @@ const NewNoteCard = ({
                     </div>
                 </div>
             </div>
+            {fileSizeError ? (
+                <span className="text-red-500">File size should not exceed 2.5MB</span>
+            ) : null}
             {doingWorkProp ? (
                 <div className="flex animate-pulse text-sm text-gray-300">
                     <CpuChipIcon className="h-4 w-4 ml-auto" />

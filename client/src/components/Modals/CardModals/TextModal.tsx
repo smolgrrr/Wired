@@ -1,3 +1,4 @@
+import React from "react";
 import QuoteEmbed from "./QuoteEmbed";
 import { Event } from "nostr-tools";
 import { useEffect, useState } from "react";
@@ -44,7 +45,10 @@ const ContentPreview = ({ key, comment }: { key: string; comment: string }) => {
 
   return (
     <div className="gap-2 flex flex-col break-words text-sm">
-      {isExpanded ? finalComment : finalComment.slice(0, 350)}
+      {isExpanded 
+        ? finalComment.split('\n').map((line, i) => <React.Fragment key={i}>{line}<br/></React.Fragment>) 
+        : finalComment.slice(0, 350).split('\n').map((line, i) => <React.Fragment key={i}>{line}<br/></React.Fragment>)
+      }
       {finalComment.length > 350 && (
         <button
           className="text-sm text-neutral-500"

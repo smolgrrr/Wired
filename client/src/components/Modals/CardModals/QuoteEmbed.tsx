@@ -70,6 +70,10 @@ const QuoteEmbed = ({
   return (
     <div className="p-3 rounded-lg border border-neutral-700 bg-neutral-800">
       <div className="flex flex-col">
+        <div className="flex flex-col break-words">
+          <ContentPreview key={event.id} comment={comment} />
+        </div>
+        {renderMedia(file)}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-1.5">
             {metadataParsed ? (
@@ -84,17 +88,13 @@ const QuoteEmbed = ({
             ) : (
               <>
                 <div
-                  className={`h-5 w-5 bg-gradient-to-r ${colorCombo} rounded-full`}
+                  className={`h-4 w-4 bg-gradient-to-r ${colorCombo} rounded-full`}
                 />
                 <div className="text-sm font-medium">Anonymous</div>
               </>
             )}
           </div>
         </div>
-        <div className="flex flex-col break-words">
-          <ContentPreview key={event.id} comment={comment} />
-        </div>
-        {renderMedia(file)}
       </div>
     </div>
   );

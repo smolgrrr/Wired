@@ -39,6 +39,7 @@ export const renderMedia = (file: string) => {
       <video
         controls
         muted
+        src={file + "#t=0.1"}
         preload="metadata"
         className="thumb mt-2 rounded-md w-full"
       >
