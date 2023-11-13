@@ -4,7 +4,7 @@ import { Event, nip19 } from "nostr-tools"
 import { subNote, subNotesOnce } from '../utils/subscriptions';
 import { useEffect } from 'react';
 import { uniqBy } from '../utils/otherUtils';
-import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftIcon, PlusCircleIcon } from '@heroicons/react/24/outline';
 import { getPow } from '../utils/mine';
 import PostCard from './Modals/Card';
 import Placeholder from './Modals/Placeholder';
@@ -119,16 +119,16 @@ const Thread = () => {
                     {OPEvent && <PostCard event={OPEvent} metadata={getMetadataEvent(OPEvent)} replyCount={countReplies(OPEvent)} type={'OP'}/>}
                 </div>
                 <div className="col-span-full flex justify-center space-x-36">
-                    <DocumentTextIcon
-                        className="h-5 w-5 text-gray-200"
+                    <ChatBubbleOvalLeftIcon
+                        className="h-5 w-5 text-gray-200 cursor-pointer"
                         onClick={() => {
                             setShowForm(prevShowForm => !prevShowForm);
                             setPostType('Reply');
                         }}
                     />
 
-                    <FolderPlusIcon
-                        className="h-5 w-5 text-gray-200"
+                    <PlusCircleIcon
+                        className="h-5 w-5 text-gray-200 cursor-pointer"
                         onClick={() => {
                             setShowForm(prevShowForm => !prevShowForm);
                             setPostType('Quote');

@@ -2,7 +2,7 @@ import {
     ArrowUpTrayIcon,
     CpuChipIcon,
     ArrowPathIcon,
-    Square2StackIcon
+    FaceSmileIcon
 } from "@heroicons/react/24/outline";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useRef } from "react";
@@ -231,7 +231,7 @@ const NewNoteCard = ({
                                         ref={emojiRef}
                                     />
                                 )}
-                                <Square2StackIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji}/>
+                                <FaceSmileIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji}/>
                             </div>
                             <div className="flex items-center">
                                 <ArrowUpTrayIcon
