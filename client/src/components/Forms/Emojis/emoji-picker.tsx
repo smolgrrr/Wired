@@ -32,7 +32,9 @@ export function EmojiPicker({
     return {
       id: pack.id,
       name: pack.name,
-      emojis: pack.emojis.map((e) => {
+      emojis: pack.emojis
+      .filter((e) => !e.static_url.endsWith('.svg'))
+      .map((e) => {
         return {
           id: e.shortcode,
           name: e.shortcode,
@@ -45,23 +47,17 @@ export function EmojiPicker({
   return (
     <>
       <div className="absolute z-25" ref={ref}>
-        <style>
-          {`
-              em-emoji-picker { max-height: ${height}px; }
-              `}
-        </style>
         <Picker
           autoFocus
-          data={data}
           custom={customEmojiList}
+          data = {data}
           perLine={7}
           previewPosition="none"
-          skinTonePosition="search"
+          skinTonePosition="none"
           theme="dark"
           onEmojiSelect={onEmojiSelect}
           onClickOutside={onClickOutside}
-          maxFrequentRows={3}
-          categoryIcons={customCategoryIcons}
+          categories={['poast']}
         />
       </div>
     </>

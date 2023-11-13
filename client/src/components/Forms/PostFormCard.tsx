@@ -155,16 +155,16 @@ const NewNoteCard = ({
         setShowEmojiPicker(false);
         try {
             if (emoji.id) {
-            const e = getEmojiById(emoji.id);
-            if (e) {
-                setComment(comment + " :" + e.shortcode + ":");
-                unsigned.tags.push(['emoji', e.shortcode, e.url]);
-              };
+                const e = getEmojiById(emoji.id);
+                if (e) {
+                    setComment(comment + " :" + e.shortcode + ":");
+                    unsigned.tags.push(['emoji', e.shortcode, e.url]);
+                };
             }
-          } catch {
-          //ignore
+        } catch {
+            //ignore
         }
-      }
+    }
 
     const topOffset = ref.current?.getBoundingClientRect().top;
     const leftOffset = ref.current?.getBoundingClientRect().left;
@@ -231,7 +231,7 @@ const NewNoteCard = ({
                                         ref={emojiRef}
                                     />
                                 )}
-                                <FaceSmileIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji}/>
+                                <FaceSmileIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji} />
                             </div>
                             <div className="flex items-center">
                                 <ArrowUpTrayIcon
@@ -267,7 +267,8 @@ const NewNoteCard = ({
                             </div>
                             <button
                                 type="submit"
-                                className="h-9 inline-flex items-center justify-center px-4 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-medium text-sm"
+                                className={`h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile || comment === "" ? 'bg-blue-900 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}
+                                disabled={doingWorkProp || uploadingFile || comment === ""}
                             >
                                 Submit
                             </button>

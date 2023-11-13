@@ -6,16 +6,6 @@
 [
     {
         "category": "",
-        "shortcode": "0",
-        "static_url": "https://poa.st/emoji/stolen/0.png",
-        "tags": [
-            "Custom"
-        ],
-        "url": "https://poa.st/emoji/stolen/0.png",
-        "visible_in_picker": true
-    },
-    {
-        "category": "",
         "shortcode": "00",
         "static_url": "https://poa.st/emoji/custom/00.png",
         "tags": [
