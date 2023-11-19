@@ -1,5 +1,5 @@
 {
-  "short_name": "wired",
+  "short_name": "The Wired",
   "name": "The Wired",
   "icons": [
     {
@@ -30,5 +30,11 @@
       "url": "http://localhost:3000/manifest.json"
     }
   ],
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "splash": {
+    "image": "icon.png",
+    "background_color": "#000000",
+    "resize_mode": "contain",
+    "image_size": "512x512"
+  }
 }
