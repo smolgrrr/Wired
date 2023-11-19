@@ -1,25 +1,34 @@
 {
-  "short_name": "TAO",
-  "name": "The Anon Operation",
+  "short_name": "wired",
+  "name": "The Wired",
   "icons": [
     {
-      "src": "favicon.ico",
+      "src": "favicon.gif",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
-      "src": "192_tao.png",
+      "src": "192_icon.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
-      "src": "512_tao.png",
+      "src": "icon.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
-  "background_color": "#000000"
+  "background_color": "#000000",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "http://localhost:3000/manifest.json"
+    }
+  ],
+  "orientation": "portrait"
 }
