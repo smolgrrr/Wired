@@ -20,9 +20,6 @@ export default function Header() {
           className="text-neutral-300 inline-flex gap-4 items-center"
         >
           <button>
-            <QuestionMarkCircleIcon className="h-5 w-5" />
-          </button>
-          <button>
             <Cog6ToothIcon className="h-5 w-5" />
           </button>
         </a>

@@ -4,6 +4,7 @@ import Settings from "./components/Settings";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Thread from "./components/Thread";
 import Header from "./components/Header/Header";
+import AddToHomeScreenPrompt from "./components/Modals/CheckMobile/CheckMobile";
 
 function App() {
 
@@ -15,6 +16,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/thread/:id" element={<Thread />} />
       </Routes>
+      <AddToHomeScreenPrompt/>
     </Router>
   );
 }

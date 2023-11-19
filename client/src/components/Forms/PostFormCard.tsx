@@ -267,7 +267,7 @@ const NewNoteCard = ({
                             </div>
                             <button
                                 type="submit"
-                                className={`h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile || comment === "" ? 'bg-blue-900 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}
+                                className={`h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'bg-blue-900 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}
                                 disabled={doingWorkProp || uploadingFile}
                             >
                                 Submit
