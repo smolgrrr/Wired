@@ -187,17 +187,11 @@ const NewNoteCard = ({
             }}
         >
             <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
-            <div
-                id="togglePostFormLink"
-                className="text-lg text-neutral-500 text-center mb-2 font-semibold"
-            >
-                {tagType === 'Reply' ? 'Reply to thread' : 'Start New Thread'}
-            </div>
-            <div className="px-4 pt-4 flex flex-col bg-neutral-900 rounded-lg">
+            <div className="px-4 flex flex-col rounded-lg">
                 <textarea
                     name="com"
                     wrap="soft"
-                    className="shadow-lg w-full px-4 py-3 h-28 rounded-md outline-none focus:outline-none bg-neutral-800 border border-neutral-700 text-white placeholder:text-neutral-500"
+                    className="shadow-lg w-full px-4 py-3 h-28 rounded-md outline-none focus:outline-none bg-black border border-neutral-700 text-white placeholder:text-neutral-500"
                     placeholder="Shitpost here..."
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
@@ -267,7 +261,7 @@ const NewNoteCard = ({
                             </div>
                             <button
                                 type="submit"
-                                className={`h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'bg-blue-900 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}
+                                className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'cursor-not-allowed' : ''}`}
                                 disabled={doingWorkProp || uploadingFile}
                             >
                                 Submit

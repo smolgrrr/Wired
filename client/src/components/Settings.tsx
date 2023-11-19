@@ -37,7 +37,7 @@ const Settings = () => {
               type="number"
               value={filterDifficulty}
               onChange={e => setFilterDifficulty(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md text-black"
+              className="w-full px-3 py-2 border rounded-md bg-black"
             />
           </div>
 
@@ -52,11 +52,11 @@ const Settings = () => {
               type="number"
               value={difficulty}
               onChange={e => setDifficulty(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md text-black"
+              className="w-full px-3 py-2 border rounded-md bg-black"
             />
           </div>
         </div>
-        <button className="bg-gradient-to-r from-blue-900 to-cyan-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        <button className="bg-black border text-white font-bold py-2 px-4 rounded">
           Save Settings
         </button>
       </form>
@@ -80,7 +80,6 @@ const Settings = () => {
           </div>
         </div>
       </div>
-      <img className="block sm:hidden h-20 mx-auto mt-auto" src="/pepe.png"/>
     </div>
 
   );

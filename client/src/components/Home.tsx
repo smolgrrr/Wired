@@ -55,7 +55,7 @@ const Home = () => {
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewNoteCard />
       </div>
-      <div className="flex items-center justify-center w-full py-4 z-2">
+      <div className="flex w-full px-8 z-2">
         <label htmlFor="toggleB" className="flex items-center cursor-pointer">
           <div className="relative">
             <input
@@ -65,11 +65,11 @@ const Home = () => {
               checked={sortByTime}
               onChange={toggleSort}
             />
-            <div className="block bg-gray-600 w-10 h-6 rounded-full"></div>
-            <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : '' }`} ></div>
+            <div className="block bg-gray-600 w-8 h-4 rounded-full"></div>
+            <div className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : '' }`} ></div>
           </div>
-          <div className={`ml-3 text-neutral-500 font-medium ${sortByTime ? 'text-neutral-500' : ''}`}>
-            {sortByTime ? 'Sort by recent' : 'Sort by PoW'}
+          <div className={`ml-2 text-neutral-500 text-sm ${sortByTime ? 'text-neutral-500' : ''}`}>
+            {sortByTime ? 'Time' : 'PoW'}
           </div>
         </label>
       </div>

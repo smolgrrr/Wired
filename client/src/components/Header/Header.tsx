@@ -10,8 +10,8 @@ export default function Header() {
         <a href="/">
           <div className="flex items-center gap-2">
             <img src="/icon.png" className="h-12" alt="logo" />
-            <span className="font-semibold text-white text-sm">
-              The Wired
+            <span className="font-semibold text-white">
+              {'>'}.. Wired
             </span>
           </div>
         </a>
