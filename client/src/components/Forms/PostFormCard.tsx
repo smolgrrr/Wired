@@ -11,37 +11,7 @@ import { publish } from "../../utils/relays";
 import { renderMedia, attachFile } from "../../utils/FileUpload";
 import { EmojiPicker } from "./Emojis/emoji-picker";
 import customEmojis from './custom_emojis.json';
-
-const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: string, deps: any[]) => {
-    const [messageFromWorker, setMessageFromWorker] = useState(null);
-    const [doingWorkProgress, setDoingWorkProgress] = useState(0);
-
-    const startWork = () => {
-        const workers = Array(numCores).fill(null).map(() => new Worker(new URL("../../powWorker", import.meta.url)));
-
-        workers.forEach((worker, index) => {
-            worker.onmessage = (event) => {
-                if (event.data.status === 'progress') {
-                    console.log(`Worker progress: Checked ${event.data.currentNonce} nonces.`);
-                    setDoingWorkProgress(event.data.currentNonce);
-                } else if (event.data.found) {
-                    setMessageFromWorker(event.data.event);
-                    // Terminate all workers once a solution is found
-                    workers.forEach(w => w.terminate());
-                }
-            };
-
-            worker.postMessage({
-                unsigned,
-                difficulty,
-                nonceStart: index, // Each worker starts from its index
-                nonceStep: numCores  // Each worker increments by the total number of workers
-            });
-        });
-    };
-
-    return { startWork, messageFromWorker, doingWorkProgress };
-};
+import { useSubmitForm } from "./handleSubmit";
 
 interface FormProps {
     refEvent?: NostrEvent;
@@ -60,26 +30,18 @@ const NewNoteCard = ({
     const ref = useRef<HTMLDivElement | null>(null);
     const [comment, setComment] = useState("");
     const [file, setFile] = useState("");
-    const [sk, setSk] = useState(generatePrivateKey());
     const [unsigned, setUnsigned] = useState<UnsignedEvent>({
         kind: 1,
         tags: [],
         content: "",
         created_at: Math.floor(Date.now() / 1000),
-        pubkey: getPublicKey(sk),
+        pubkey: "",
     });
     const [difficulty, setDifficulty] = useState(
         localStorage.getItem("difficulty") || "21"
     );
     const [fileSizeError, setFileSizeError] = useState(false);
-
     const [uploadingFile, setUploadingFile] = useState(false);
-    const [doingWorkProp, setDoingWorkProp] = useState(false);
-
-    // Initialize the worker outside of any effects
-    const numCores = navigator.hardwareConcurrency || 4;
-
-    const { startWork, messageFromWorker, doingWorkProgress } = useWorkers(numCores, unsigned, difficulty, [unsigned]);
 
     useEffect(() => {
         if (refEvent && tagType && unsigned.tags.length === 0) {
@@ -111,31 +73,21 @@ const NewNoteCard = ({
             ...prevUnsigned,
             content: `${comment} ${file}`,
             created_at: Math.floor(Date.now() / 1000),
-            pubkey: getPublicKey(sk),
         }));
     }, [comment, file]);
 
-    useEffect(() => {
-        setDoingWorkProp(false);
-        if (messageFromWorker) {
-            try {
-                const signedEvent = finishEvent(messageFromWorker, sk);
-                publish(signedEvent);
+    const { handleSubmit: originalHandleSubmit, doingWorkProp, doingWorkProgress } = useSubmitForm(unsigned, difficulty);
 
-                setComment("");
-                setFile("");
-                setSk(generatePrivateKey());
-                setUnsigned(prevUnsigned => ({
-                    ...prevUnsigned,
-                    content: '',
-                    created_at: Math.floor(Date.now() / 1000),
-                    pubkey: getPublicKey(sk),
-                }));
-            } catch (error) {
-                setComment(error + " " + comment);
-            }
-        }
-    }, [messageFromWorker]);
+    const handleSubmit = async (event: React.FormEvent) => {
+        await originalHandleSubmit(event);
+        setComment("");
+        setFile("");
+        setUnsigned(prevUnsigned => ({
+            ...prevUnsigned,
+            content: '',
+            created_at: Math.floor(Date.now() / 1000)
+        }));
+    };
 
     //Emoji stuff
     const emojiRef = useRef(null);
@@ -180,11 +132,7 @@ const NewNoteCard = ({
             method="post"
             encType="multipart/form-data"
             className=""
-            onSubmit={(event) => {
-                event.preventDefault();
-                startWork();
-                setDoingWorkProp(true);
-            }}
+            onSubmit={handleSubmit}
         >
             <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
             <div className="px-4 flex flex-col rounded-lg">
@@ -276,8 +224,8 @@ const NewNoteCard = ({
             {doingWorkProp ? (
                 <div className="flex animate-pulse text-sm text-gray-300">
                     <CpuChipIcon className="h-4 w-4 ml-auto" />
-                    <span>Generating Proof-of-Work:</span>
-                    <span>iteration {doingWorkProgress}</span>
+                    <span>Generating Proof-of-Work.</span>
+                    {doingWorkProgress && <span>Current iteration {doingWorkProgress}</span>}
                 </div>
             ) : null}
             <div id="postFormError" className="text-red-500" />

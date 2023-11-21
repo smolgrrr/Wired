@@ -1,24 +1,60 @@
-import React, { useEffect, useState } from 'react';
-// import {powEvent} from './system';
-// import {publish} from './relays';
-import { addRelay } from '../utils/relays';
+import React, { useState } from 'react';
 import { CpuChipIcon } from '@heroicons/react/24/outline';
+
+type TestResponse = {
+  timeTaken: string;
+  hashrate: string;
+};
 
 const Settings = () => {
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [powServer, setPowServer] = useState(localStorage.getItem('powserver') || '');
+  const [testDiff, setTestDiff] = useState('21')
+  const [testResult, setTestResult] = useState<TestResponse>()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     localStorage.setItem('filterDifficulty', String(filterDifficulty));
     localStorage.setItem('difficulty', String(difficulty));
+    localStorage.setItem('powserver', String(powServer));
 
     const eventData = {
       difficulty: String(difficulty),
       filterDifficulty: String(filterDifficulty),
+      powServer: String(powServer),
     };
     const event = new CustomEvent('settingsChanged', { detail: eventData });
     window.dispatchEvent(event);
+  };
+  console.log(powServer)
+
+  const handleTest = () => {
+    setTestResult({ timeTaken: '...', hashrate: '...' });
+    console.log(powServer[0])
+    if (powServer[0]) {
+      const testRequest = {
+        Difficulty: testDiff
+      };
+
+      fetch(`${powServer}/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testRequest)
+      })
+        .then(response => response.json())
+        .then(data => {
+          console.log(data);
+          // handle the response data
+          setTestResult(data)
+        })
+        .catch(error => {
+          console.error('Error:', error);
+        });
+    }
   };
 
   return (
@@ -56,7 +92,47 @@ const Settings = () => {
             />
           </div>
         </div>
-        <button className="bg-black border text-white font-bold py-2 px-4 rounded">
+        <div className='pb-4'>
+          <span onClick={() => setShowAdvancedSettings(!showAdvancedSettings)} className="">
+            {">"} Advanced Settings
+          </span>
+          {showAdvancedSettings && (
+            <><div className={`transition-height duration-200 ease-in-out overflow-hidden ${showAdvancedSettings ? 'h-auto' : 'h-0'} w-full md:w-1/3 px-2 mb-4 md:mb-0`}>
+              <label className="block text-xs mb-2" htmlFor="powServer">
+                Remote PoW Server:
+              </label>
+              <input
+                id="powServer"
+                type="text"
+                value={powServer}
+                onChange={e => setPowServer(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md bg-black"
+              />
+            </div>
+              <div className="px-2">
+                <label className="block text-xs mb-2" htmlFor="powServer">
+                  Test Your PoW Server (difficulty):
+                </label>
+                <input
+                  id="testAPI"
+                  type="text"
+                  value={testDiff}
+                  onChange={e => setTestDiff(e.target.value)}
+                  className="w-12 px-3 py-2 border rounded-md bg-black"
+                />
+                <button type="button" onClick={handleTest} className="bg-black border text-white font-bold py-2 px-4 rounded">
+                  Test
+                </button>
+                {testResult && (
+                  <span>Time: {testResult.timeTaken}s with a hashrate of {testResult.hashrate}</span>
+                )}
+              </div>
+              </>
+              )}
+        </div>
+        <button
+          type="submit"
+          className="bg-black border text-white font-bold py-2 px-4 rounded">
           Save Settings
         </button>
       </form>
@@ -76,7 +152,7 @@ const Settings = () => {
           </a>
           <div>
             <span>Found a bug? dm me: <a className="underline" href="https://njump.me/npub13azv2cf3kd3xdzcwqxlgcudjg7r9nzak37usnn7h374lkpvd6rcq4k8m54">doot</a> or <a className="underline" href="mailto:smolgrrr@protonmail.com">smolgrrr@protonmail.com</a></span>
-            <img className="h-16" src="doot.jpeg"/>
+            <img className="h-16" src="doot.jpeg" />
           </div>
         </div>
       </div>
