@@ -17,5 +17,6 @@ FROM nginx:alpine AS production
 COPY --from=build /app/build /usr/share/nginx/html
 # Optional: If you have a custom nginx.conf, you can copy it to the container
 # COPY nginx.conf /etc/nginx/nginx.conf
-EXPOSE 80
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 42069
 CMD ["nginx", "-g", "daemon off;"]

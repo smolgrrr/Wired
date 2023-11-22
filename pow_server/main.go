@@ -133,5 +133,5 @@ func main() {
 	http.Handle("/powgen", corsMiddleware(http.HandlerFunc(handlePOW)))
 	http.Handle("/test", corsMiddleware(http.HandlerFunc(handleTest)))
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
+	log.Fatal(http.ListenAndServe("0.0.0.0:42068", nil))
 }

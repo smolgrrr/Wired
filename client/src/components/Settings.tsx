@@ -10,7 +10,7 @@ const Settings = () => {
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [powServer, setPowServer] = useState(localStorage.getItem('powserver') || '');
+  const [powServer, setPowServer] = useState(process.env.REACT_APP_POWSERVER || localStorage.getItem('powserver') || '');
   const [testDiff, setTestDiff] = useState('21')
   const [testResult, setTestResult] = useState<TestResponse>()
 
@@ -28,7 +28,6 @@ const Settings = () => {
     const event = new CustomEvent('settingsChanged', { detail: eventData });
     window.dispatchEvent(event);
   };
-  console.log(powServer)
 
   const handleTest = () => {
     setTestResult({ timeTaken: '...', hashrate: '...' });
@@ -152,7 +151,6 @@ const Settings = () => {
           </a>
           <div>
             <span>Found a bug? dm me: <a className="underline" href="https://njump.me/npub13azv2cf3kd3xdzcwqxlgcudjg7r9nzak37usnn7h374lkpvd6rcq4k8m54">doot</a> or <a className="underline" href="mailto:smolgrrr@protonmail.com">smolgrrr@protonmail.com</a></span>
-            <img className="h-16" src="doot.jpeg" />
           </div>
         </div>
       </div>
