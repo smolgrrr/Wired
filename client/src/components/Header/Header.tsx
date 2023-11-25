@@ -1,6 +1,5 @@
 import {
-  Cog6ToothIcon,
-  QuestionMarkCircleIcon,
+  Cog6ToothIcon
 } from "@heroicons/react/24/outline";
 
 export default function Header() {

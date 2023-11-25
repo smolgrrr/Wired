@@ -12,14 +12,6 @@ interface EmojiPickerProps {
   ref: RefObject<HTMLDivElement>;
 }
 
-const customCategoryIcons = {
-  categoryIcons: {
-    poast: {
-      src: "https://poa.st/emoji/custom/poast_hat.png",
-    },
-  },
-};
-
 export function EmojiPicker({
   topOffset,
   leftOffset,

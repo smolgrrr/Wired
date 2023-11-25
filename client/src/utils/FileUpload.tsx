@@ -1,3 +1,6 @@
+import { generatePrivateKey, getPublicKey, finishEvent } from "nostr-tools";
+import { base64 } from "@scure/base";
+
 export interface UploadResult {
   url?: string;
   error?: string;
@@ -10,7 +13,21 @@ export interface UploadResult {
 
 export default async function FileUpload(file: File): Promise<UploadResult> {
   const buf = await file.arrayBuffer();
-
+  const sk = generatePrivateKey();
+  const auth = async () => {
+    const authEvent = {
+      kind: 27235,
+      tags: [
+        ["u", "https://void.cat/upload"],
+        ["method", "POST"]
+      ],
+      content: "",
+      created_at: Math.floor(Date.now() / 1000),
+      pubkey: getPublicKey(sk),
+    }
+    return `Nostr ${base64.encode(new TextEncoder().encode(JSON.stringify(finishEvent(authEvent, sk))))}`;
+  };
+  
   const req = await fetch("https://void.cat/upload", {
     body: buf,
     method: "POST",
@@ -20,6 +37,7 @@ export default async function FileUpload(file: File): Promise<UploadResult> {
       "V-Filename": file.name, // Extracting the filename
       "V-Description": "Upload from https://tao-green.vercel.app/",
       "V-Strip-Metadata": "true", // Here's the new header
+      "authorization": await auth()
     },
   });
   if (req.ok) {

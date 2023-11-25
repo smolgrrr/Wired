@@ -80,12 +80,6 @@ export const unsubAll = () => {
   currentSubList.length = 0;
 };
 
-type PublishCallback = (
-  relay: string,
-  errorMessage?: string,
-) => void;
-
-
 export const publish = (event: Event) => {
     relayMap.forEach(async (relay, url) => {
       try {

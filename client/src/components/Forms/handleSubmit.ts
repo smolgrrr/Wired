@@ -52,6 +52,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
             setDoingWorkProp(false);
             const signedEvent = finishEvent(unsignedPoWEvent, sk);
             publish(signedEvent);
+            setSk(generatePrivateKey())
         } 
     }, [unsignedPoWEvent]);
 

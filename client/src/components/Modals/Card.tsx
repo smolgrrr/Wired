@@ -5,30 +5,10 @@ import { Event, nip19 } from "nostr-tools";
 import { getMetadata } from "../../utils/otherUtils";
 import ContentPreview from "./CardModals/TextModal";
 import { renderMedia } from "../../utils/FileUpload";
-import { getIconFromHash } from "../../utils/deterministicProfileIcon";
+import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
 import { verifyPow } from "../../utils/mine";
 import { uniqBy } from "../../utils/otherUtils";
 import { useNavigate } from 'react-router-dom';
-
-const timeUnits = [
-    { unit: 'w', value: 60 * 60 * 24 * 7 },
-    { unit: 'd', value: 60 * 60 * 24 },
-    { unit: 'h', value: 60 * 60 },
-    { unit: 'm', value: 60 },
-];
-
-const timeAgo = (unixTime: number) => {
-    let seconds = Math.floor(new Date().getTime() / 1000 - unixTime);
-
-    if (seconds < 60) return `now`;
-
-    for (let unit of timeUnits) {
-        if (seconds >= unit.value) {
-            return `${Math.floor(seconds / unit.value)}${unit.unit}`;
-        }
-        seconds %= unit.value;
-    }
-};
 
 interface CardProps {
     key?: string | number;
@@ -47,7 +27,7 @@ const PostCard = ({
     repliedTo,
     type
 }: CardProps) => {
-    const { comment, file } = parseContent(event);
+    const { file } = parseContent(event);
     const icon = getIconFromHash(event.pubkey);
     const metadataParsed = metadata ? getMetadata(metadata) : null;
     const navigate = useNavigate();
@@ -78,7 +58,6 @@ const PostCard = ({
                         ))}
                     </div>}
                     <div className={`flex justify-between items-center ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
-                        <div className="flex items-center gap-2.5">
                             {metadataParsed ? 
                                 <img
                                 key = {key}
@@ -90,7 +69,6 @@ const PostCard = ({
                                 :
                                 <div className={`h-4 w-4 ${icon} rounded-full`} />
                             }
-                        </div>
                         <div className="flex items-center ml-auto gap-2.5">
                             <div className="inline-flex text-xs text-neutral-600 gap-0.5">
                                 <CpuChipIcon className="h-4 w-4" /> {verifyPow(event)}

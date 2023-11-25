@@ -26,7 +26,7 @@ const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: bo
 };
 
 const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) => {
-  const { comment, file } = parseContent(eventdata);
+  const { comment } = parseContent(eventdata);
   const [finalComment, setFinalComment] = useState(comment);
   const [quoteEvents, setQuoteEvents] = useState<Event[]>([]); // Initialize state
   const [isExpanded, setIsExpanded] = useState(false);

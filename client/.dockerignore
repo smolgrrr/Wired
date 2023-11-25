@@ -6,3 +6,5 @@ README.md
 .next
 .git
 build
+.env
+bun.lockb

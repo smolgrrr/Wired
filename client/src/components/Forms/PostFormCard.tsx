@@ -6,8 +6,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useRef } from "react";
-import { generatePrivateKey, getPublicKey, finishEvent, UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
-import { publish } from "../../utils/relays";
+import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { renderMedia, attachFile } from "../../utils/FileUpload";
 import { EmojiPicker } from "./Emojis/emoji-picker";
 import customEmojis from './custom_emojis.json';

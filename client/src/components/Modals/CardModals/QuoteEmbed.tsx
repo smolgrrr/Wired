@@ -1,66 +1,23 @@
 import { parseContent } from "../../../utils/content";
 import { Event } from "nostr-tools";
-import { getMetadata, uniqBy } from "../../../utils/otherUtils";
+import { getMetadata } from "../../../utils/otherUtils";
 import ContentPreview from "./TextModal";
 import { renderMedia } from "../../../utils/FileUpload";
-
-const colorCombos = [
-  "from-red-400 to-yellow-500",
-  "from-green-400 to-blue-500",
-  "from-purple-400 to-pink-500",
-  "from-yellow-400 to-orange-500",
-  "from-indigo-400 to-purple-500",
-  "from-pink-400 to-red-500",
-  "from-blue-400 to-indigo-500",
-  "from-orange-400 to-red-500",
-  "from-teal-400 to-green-500",
-  "from-cyan-400 to-teal-500",
-  "from-lime-400 to-green-500",
-  "from-amber-400 to-orange-500",
-  "from-rose-400 to-pink-500",
-  "from-violet-400 to-purple-500",
-  "from-sky-400 to-cyan-500",
-];
-
-const getColorFromHash = (id: string, colors: string[]): string => {
-  // Create a simple hash from the event.id
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash << 5) - hash + id.charCodeAt(i);
-  }
-
-  // Use the hash to pick a color from the colors array
-  const index = Math.abs(hash) % colors.length;
-  return colors[index];
-};
-
-const timeAgo = (unixTime: number) => {
-  const seconds = Math.floor(new Date().getTime() / 1000 - unixTime);
-
-  if (seconds < 60) return `now`;
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w`;
-};
+import { getIconFromHash, timeAgo } from "../../../utils/cardUtils";
+import { CpuChipIcon } from "@heroicons/react/24/outline";
+import { verifyPow } from "../../../utils/mine";
 
 const QuoteEmbed = ({
+  key,
   event,
   metadata,
 }: {
+  key?: string | number;
   event: Event;
   metadata: Event | null;
 }) => {
-  const { comment, file } = parseContent(event);
-  const colorCombo = getColorFromHash(event.pubkey, colorCombos);
+  const { file } = parseContent(event);
+  const icon = getIconFromHash(event.pubkey);
 
   let metadataParsed = null;
   if (metadata !== null) {
@@ -68,31 +25,33 @@ const QuoteEmbed = ({
   }
 
   return (
-    <div className="p-3 rounded-lg border border-neutral-700 bg-neutral-800">
-      <div className="flex flex-col">
+    <div className="p-3 rounded-lg border border-neutral-700">
+      <div className="flex flex-col gap-2">
         <div className="flex flex-col break-words">
           <ContentPreview key={event.id} eventdata={event} />
         </div>
         {renderMedia(file)}
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-1.5">
-            {metadataParsed ? (
-              <>
-                <img
-                  className={`h-5 w-5 rounded-full`}
-                  src={metadataParsed.picture}
-                  alt=""
-                />
-                <div className="text-sm font-medium">{metadataParsed.name}</div>
-              </>
-            ) : (
-              <>
-                <div
-                  className={`h-4 w-4 bg-gradient-to-r ${colorCombo} rounded-full`}
-                />
-                <div className="text-sm font-medium">Anonymous</div>
-              </>
-            )}
+            {metadataParsed ?
+              <img
+                key={key}
+                className={`h-5 w-5 rounded-full`}
+                src={metadataParsed?.picture ?? icon}
+                alt=""
+                loading="lazy"
+                decoding="async" />
+              :
+              <div className={`h-4 w-4 ${icon} rounded-full`} />
+            }
+          <div className="flex items-center ml-auto gap-2.5">
+            <div className="inline-flex text-xs text-neutral-600 gap-0.5">
+              <CpuChipIcon className="h-4 w-4" /> {verifyPow(event)}
+            </div>
+            <span className="text-neutral-700">·</span>
+            <div className="text-xs font-semibold text-neutral-600">
+              {timeAgo(event.created_at)}
+            </div>
+            <span className="text-neutral-700">·</span>
           </div>
         </div>
       </div>
