@@ -75,7 +75,7 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
   };
 
   return (
-    <div className="gap-2 flex flex-col break-words font-normal">
+    <div className="gap-2 flex flex-col break-words text-xs">
       <RichText text={finalComment} isExpanded={isExpanded} emojiMap={emojiMap} />
       {finalComment.length > 350 && (
         <button

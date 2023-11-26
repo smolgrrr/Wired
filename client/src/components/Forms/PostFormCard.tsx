@@ -11,6 +11,7 @@ import { renderMedia, attachFile } from "../../utils/FileUpload";
 import { EmojiPicker } from "./Emojis/emoji-picker";
 import customEmojis from './custom_emojis.json';
 import { useSubmitForm } from "./handleSubmit";
+import "./Form.css";
 
 interface FormProps {
     refEvent?: NostrEvent;
@@ -48,9 +49,8 @@ const NewNoteCard = ({
             if (tags) {
                 tags.forEach(tag => unsigned.tags.push([tag, refEvent[tag === 'p' ? 'pubkey' : 'id']]));
             }
-
             if (tagType === 'Quote') {
-                setComment(comment + ' nostr:' + nip19.noteEncode(refEvent.id));
+                setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
             }
         }
 
@@ -135,11 +135,11 @@ const NewNoteCard = ({
         >
             <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
             <div className="px-4 flex flex-col rounded-lg">
+                {"C:\\WIRE>"}
                 <textarea
                     name="com"
                     wrap="soft"
-                    className="shadow-lg w-full px-4 py-3 h-28 rounded-md outline-none focus:outline-none bg-black border border-neutral-700 text-white placeholder:text-neutral-500"
-                    placeholder="Shitpost here..."
+                    className="shadow-lg w-full px-4 py-3 h-28 border-none bg-black text-white"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                 />

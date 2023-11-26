@@ -3,6 +3,10 @@ module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        'sf-mono': ['SFMono-Regular', 'monospace'],
+        'body': ['SFMono-Regular', 'monospace'],
+      },
       animation: {
         'fade-in': 'fadeIn 0.25s ease-in-out',
         'slide-up': 'slideUp 0.25s ease-in-out',
