@@ -1,8 +1,8 @@
 import {
-    ArrowUpTrayIcon,
+    ServerIcon,
     CpuChipIcon,
     ArrowPathIcon,
-    FaceSmileIcon
+    PlusCircleIcon
 } from "@heroicons/react/24/outline";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useRef } from "react";
@@ -135,13 +135,13 @@ const NewNoteCard = ({
         >
             <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
             <div className="px-4 flex flex-col rounded-lg">
-                {"C:\\WIRE>"}
                 <textarea
                     name="com"
                     wrap="soft"
-                    className="shadow-lg w-full px-4 py-3 h-28 border-none bg-black text-white"
+                    className="shadow-lg w-full px-4 py-3 border-blue-500 bg-black text-white"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
+                    rows={comment.split('\n').length || 1}
                 />
                 <div className="relative">
                     {file !== "" && (
@@ -172,10 +172,10 @@ const NewNoteCard = ({
                                         ref={emojiRef}
                                     />
                                 )}
-                                <FaceSmileIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji} />
+                                <PlusCircleIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji} />
                             </div>
                             <div className="flex items-center">
-                                <ArrowUpTrayIcon
+                                <ServerIcon
                                     className="h-4 w-4 text-neutral-400 cursor-pointer"
                                     onClick={() => document.getElementById("file_input")?.click()}
                                 />

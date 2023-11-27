@@ -1,95 +1,95 @@
-import {sub, subOnce, unsubAll} from './relays';
+import { sub, subOnce, unsubAll } from './relays';
 import { Event } from 'nostr-tools';
 
 type SubCallback = (
-    event: Event,
-    relay: string,
-) => void;  
+  event: Event,
+  relay: string,
+) => void;
 
 /** subscribe to global feed */
 export const subGlobalFeed = (onEvent: SubCallback) => {
-    console.info('subscribe to global feed');
-    unsubAll();
-    const now = Math.floor(Date.now() * 0.001);
-    const pubkeys = new Set<string>();
-    const notes = new Set<string>();
-    const prefix = Math.floor(16 / 4); //  4 bits in each '0' character
-    sub({ // get past events
-      cb: (evt, relay) => {
-        pubkeys.add(evt.pubkey);
-        notes.add(evt.id);
-        onEvent(evt, relay);
-      },
-      filter: {
-        ...(prefix && {ids: ['0'.repeat(prefix)]}),
-        kinds: [1],
-        since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
-        limit: 500,
-      },
-      unsub: true
-    });
-  
-    // // New Callback to only add events that pass the PoW requirement
-    // const powFilteredCallback = (evt: Event, relay: string) => {
-    //     if (getPow(evt.id) > 2) { // Replace '5' with your actual PoW requirement
-    //     pubkeys.add(evt.pubkey);
-    //     notes.add(evt.id);
-    //     onEvent(evt, relay);
-    //     }
-    // };
+  console.info('subscribe to global feed');
+  unsubAll();
+  const now = Math.floor(Date.now() * 0.001);
+  const pubkeys = new Set<string>();
+  const notes = new Set<string>();
+  const prefix = Math.floor(16 / 4); //  4 bits in each '0' character
+  sub({ // get past events
+    cb: (evt, relay) => {
+      pubkeys.add(evt.pubkey);
+      notes.add(evt.id);
+      onEvent(evt, relay);
+    },
+    filter: {
+      ...(prefix && { ids: ['0'.repeat(prefix)] }),
+      kinds: [1],
+      since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
+      limit: 500,
+    },
+    unsub: true
+  });
 
-    setTimeout(() => {
-      // get profile info
-      sub({
-        cb: onEvent,
-        filter: {
-          authors: Array.from(pubkeys),
-          kinds: [0],
-          limit: pubkeys.size,
-        },
-        unsub: true,
-      });
-      pubkeys.clear();
-      
-      sub({
-        cb: onEvent,
-        filter: {
-          '#e': Array.from(notes),
-          kinds: [1],
-        },
-        unsub: true,
-      });
+  // // New Callback to only add events that pass the PoW requirement
+  // const powFilteredCallback = (evt: Event, relay: string) => {
+  //     if (getPow(evt.id) > 2) { // Replace '5' with your actual PoW requirement
+  //     pubkeys.add(evt.pubkey);
+  //     notes.add(evt.id);
+  //     onEvent(evt, relay);
+  //     }
+  // };
 
-      notes.clear();
-    }, 2000);
-  
-    // subscribe to future notes, reactions and profile updates
+  setTimeout(() => {
+    // get profile info
     sub({
-      cb: (evt, relay) => {
-        onEvent(evt, relay);
-        if (
-          evt.kind !== 1
-          || pubkeys.has(evt.pubkey)
-        ) {
-          return;
-        }
-        subOnce({ // get profile data
-          relay,
-          cb: onEvent,
-          filter: {
-            authors: [evt.pubkey],
-            kinds: [0],
-            limit: 1,
-          }
-        });
-      },
+      cb: onEvent,
       filter: {
-        ...(prefix && {ids: ['0'.repeat(prefix)]}),
-        kinds: [1],
-        since: now,
+        authors: Array.from(pubkeys),
+        kinds: [0],
+        limit: pubkeys.size,
       },
+      unsub: true,
     });
-  };
+    pubkeys.clear();
+
+    sub({
+      cb: onEvent,
+      filter: {
+        '#e': Array.from(notes),
+        kinds: [1],
+      },
+      unsub: true,
+    });
+
+    notes.clear();
+  }, 2000);
+
+  // subscribe to future notes, reactions and profile updates
+  sub({
+    cb: (evt, relay) => {
+      onEvent(evt, relay);
+      if (
+        evt.kind !== 1
+        || pubkeys.has(evt.pubkey)
+      ) {
+        return;
+      }
+      subOnce({ // get profile data
+        relay,
+        cb: onEvent,
+        filter: {
+          authors: [evt.pubkey],
+          kinds: [0],
+          limit: 1,
+        }
+      });
+    },
+    filter: {
+      ...(prefix && { ids: ['0'.repeat(prefix)] }),
+      kinds: [1],
+      since: now,
+    },
+  });
+};
 
 /** subscribe to global feed */
 export const simpleSub24hFeed = (onEvent: SubCallback) => {
@@ -158,16 +158,14 @@ export const subNote = (
   }, 2000);
 
   replies.add(eventId);
-  setTimeout(() => {
-    sub({
-      cb: onReply,
-      filter: {
-        '#e': [eventId],
-        kinds: [1],
-      },
-      unsub: true, // TODO: probably keep this subscription also after onReply/unsubAll
-    });
-  }, 200);
+  // subscribe to future replies
+  sub({
+    cb: onReply,
+    filter: {
+      '#e': [eventId],
+      kinds: [1],
+    },
+  });
 };
 
 /** quick subscribe to a note id (nip-19) */

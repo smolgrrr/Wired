@@ -10,7 +10,7 @@ export default function Header() {
           <div className="flex items-center gap-2">
             <img src="/icon.png" className="h-12" alt="logo" />
             <span className="font-semibold text-white">
-              {'>'}.. Wired
+            {"~\\WIRED>"}
             </span>
           </div>
         </a>
