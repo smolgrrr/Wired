@@ -1,7 +1,7 @@
 const Placeholder = () => {
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+        <div className="mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
             <div className="border border-blue-300 shadow rounded-md p-4 max-w-sm w-full mx-auto">
                 <div className="animate-pulse flex space-x-4">
                     <div className="rounded-full bg-slate-700 h-10 w-10"></div>

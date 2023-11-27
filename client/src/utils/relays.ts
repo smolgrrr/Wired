@@ -98,3 +98,5 @@ addRelay('wss://nostr.mom');
 addRelay('wss://relay.nostr.bg');
 addRelay('wss://nos.lol');
 addRelay('wss://powrelay.xyz');
+addRelay('wss://relay.damus.io');
+addRelay('wss://nostr.mutinywallet.com');

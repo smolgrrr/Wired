@@ -4,7 +4,7 @@ import {
 
 export default function Header() {
   return (
-    <header className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <header className="mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center h-16">
         <a href="/">
           <div className="flex items-center gap-2">

@@ -81,23 +81,29 @@ const Thread = () => {
     }
 
     const earlierEvents = uniqEvents
-        .filter(event =>
+    .filter(event =>
             event.kind === 1 &&
             preOPEvents.includes(event.id)
-        )
-        .sort((a, b) => (b.created_at as any) - (a.created_at as any));
+    ).sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
     const toggleSort = () => {
         setSortByTime(prev => !prev);
     };
 
-    const eventsSortedByTime = [...uniqEvents].slice(1).filter(event => event.kind === 1).sort((a, b) => a.created_at - b.created_at);
+    const eventsSortedByTime = [...uniqEvents].slice(1)
+    .filter(event => 
+        event.kind === 1 &&
+        !earlierEvents.map(e => e.id).includes(event.id) &&
+        (OPEvent ? OPEvent.id !== event.id : true)
+    ).sort((a, b) => a.created_at - b.created_at);
 
     // Events sorted by PoW (assuming `getPow` returns a numerical representation of the PoW)
     const eventsSortedByPow = [...uniqEvents].slice(1)
         .filter((event) =>
             getPow(event.id) > Number(filterDifficulty) &&
-            event.kind === 1
+            event.kind === 1 &&
+            !earlierEvents.map(e => e.id).includes(event.id) &&
+            (OPEvent ? OPEvent.id !== event.id : true)
         ).sort((a, b) => getPow(b.id) - getPow(a.id));
 
     const displayedEvents = sortByTime ? eventsSortedByTime : eventsSortedByPow;
