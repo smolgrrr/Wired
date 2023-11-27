@@ -1,15 +1,89 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log"
+	"math/bits"
 	"net/http"
+	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
-	"github.com/nbd-wtf/go-nostr/nip13"
 )
+
+var (
+	ErrDifficultyTooLow = errors.New("nip13: insufficient difficulty")
+	ErrGenerateTimeout  = errors.New("nip13: generating proof of work took too long")
+)
+
+// Difficulty counts the number of leading zero bits in an event ID.
+// It returns a negative number if the event ID is malformed.
+func Difficulty(eventID string) int {
+	if len(eventID) != 64 {
+		return -1
+	}
+	var zeros int
+	for i := 0; i < 64; i += 2 {
+		if eventID[i:i+2] == "00" {
+			zeros += 8
+			continue
+		}
+		var b [1]byte
+		if _, err := hex.Decode(b[:], []byte{eventID[i], eventID[i+1]}); err != nil {
+			return -1
+		}
+		zeros += bits.LeadingZeros8(b[0])
+		break
+	}
+	return zeros
+}
+
+// Generate performs proof of work on the specified event until either the target
+// difficulty is reached or the function runs for longer than the timeout.
+// The latter case results in ErrGenerateTimeout.
+//
+// Upon success, the returned event always contains a "nonce" tag with the target difficulty
+// commitment, and an updated event.CreatedAt.
+func Generate(event *nostr.Event, targetDifficulty int, nonceStart int, nonceStep int) (*nostr.Event, error) {
+	nonce := nonceStart
+	tag := nostr.Tag{"nonce", strconv.Itoa(nonceStep), strconv.Itoa(targetDifficulty)}
+	event.Tags = append(event.Tags, tag)
+
+	for {
+		nonce += nonceStep
+		tag[1] = strconv.Itoa(nonce)
+		event.CreatedAt = nostr.Now()
+		if Difficulty(event.GetID()) >= targetDifficulty {
+			return event, nil
+		}
+	}
+}
+
+func generatePOW(event *nostr.Event, difficulty int, numCores int) (*nostr.Event, error) {
+	resultChan := make(chan *nostr.Event)
+	errorChan := make(chan error)
+
+	for i := 0; i < numCores; i++ {
+		go func(nonceStart int, nonceStep int) {
+			generatedEvent, err := Generate(event, difficulty, nonceStart, nonceStep)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+			resultChan <- generatedEvent
+		}(i, numCores)
+	}
+
+	select {
+	case result := <-resultChan:
+		return result, nil
+	case err := <-errorChan:
+		return nil, err
+	}
+}
 
 // PowRequest struct for the POST request
 type PowRequest struct {
@@ -18,7 +92,7 @@ type PowRequest struct {
 }
 
 // handlePOW is the handler function for the "/powgen" endpoint
-func handlePOW(w http.ResponseWriter, r *http.Request) {
+func handlePOW(w http.ResponseWriter, r *http.Request, numCores int) {
 	if r.Method != "POST" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -39,7 +113,7 @@ func handlePOW(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate proof of work for the event
-	generatedEvent, err := nip13.Generate(powReq.ReqEvent, difficulty, 3*time.Hour)
+	generatedEvent, err := generatePOW(powReq.ReqEvent, difficulty, numCores)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -61,7 +135,7 @@ type TestRequest struct {
 }
 
 // handlePOW is the handler function for the "/powgen" endpoint
-func handleTest(w http.ResponseWriter, r *http.Request) {
+func handleTest(w http.ResponseWriter, r *http.Request, numCores int) {
 	if r.Method != "POST" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -89,7 +163,7 @@ func handleTest(w http.ResponseWriter, r *http.Request) {
 		Content: "It's just me mining my own business",
 		PubKey:  "a48380f4cfcc1ad5378294fcac36439770f9c878dd880ffa94bb74ea54a6f243",
 	}
-	pow, err := nip13.Generate(event, difficulty, 3*time.Hour)
+	pow, err := generatePOW(event, difficulty, numCores)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -129,9 +203,23 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func main() {
-	http.Handle("/powgen", corsMiddleware(http.HandlerFunc(handlePOW)))
-	http.Handle("/test", corsMiddleware(http.HandlerFunc(handleTest)))
+func handlePOWWithCores(numCores int) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		handlePOW(w, r, numCores)
+	}
+}
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:42068", nil))
+func handleTestWithCores(numCores int) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		handleTest(w, r, numCores)
+	}
+}
+
+func main() {
+	numCores := runtime.NumCPU()
+
+	http.Handle("/powgen", corsMiddleware(handlePOWWithCores(numCores)))
+	http.Handle("/test", corsMiddleware(handleTestWithCores(numCores)))
+
+	log.Fatal(http.ListenAndServe("127.0.0.1:42068", nil))
 }
