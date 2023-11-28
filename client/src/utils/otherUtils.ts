@@ -36,6 +36,7 @@ export interface Metadata {
 }
 
 export const getMetadata = (event: Event) => {
-  const metadata: Metadata = JSON.parse(event.content)
+  const content = event.content.replace(/[\n\r\t]/g, '')
+  const metadata: Metadata = JSON.parse(content)
   return metadata
 }
