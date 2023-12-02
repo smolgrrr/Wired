@@ -51,31 +51,42 @@ export default async function FileUpload(file: File): Promise<UploadResult> {
   };
 }
 
-export const renderMedia = (file: string) => {
-  if (file && (file.endsWith(".mp4") || file.endsWith(".webm"))) {
-    return (
-      <video
-        controls
-        muted
-        src={file + "#t=0.1"}
-        preload="metadata"
-        className="thumb mt-2 rounded-md w-full"
-      >
-        <source src={file} type="video/mp4" />
-      </video>
-    );
-  } else if (!file.includes("http")) {
-    return <></>;
-  } else {
-    return (
-      <img
-        alt="Invalid thread"
-        loading="lazy"
-        className="thumb mt-2 rounded-md w-full"
-        src={file}
-      />
-    );
-  }
+export const renderMedia = (files: string[]) => {
+  const gridTemplateColumns = files.length > 1 ? 'repeat(2, 1fr)' : 'repeat(1, 1fr)';
+  const gridTemplateRows = files.length > 2 ? 'repeat(2, 1fr)' : 'repeat(1, 1fr)';
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns, gridTemplateRows, gap: '2px' }}>
+      {files.map((file, index) => {
+        if (file && (file.endsWith(".mp4") || file.endsWith(".webm"))) {
+          return (
+            <video
+              key={index}
+              controls
+              muted
+              src={file + "#t=0.1"}
+              preload="metadata"
+              className="thumb mt-1 rounded-md w-full"
+            >
+              <source src={file} type="video/mp4" />
+            </video>
+          );
+        } else if (!file.includes("http")) {
+          return null;
+        } else {
+          return (
+            <img
+              key={index}
+              alt="Invalid thread"
+              loading="lazy"
+              className="thumb mt-2 rounded-md w-full"
+              src={file}
+            />
+          );
+        }
+      })}
+    </div>
+  );
 };
 
 export async function attachFile(file_input: File | null): Promise<string> {

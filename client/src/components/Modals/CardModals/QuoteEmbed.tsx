@@ -16,7 +16,7 @@ const QuoteEmbed = ({
   event: Event;
   metadata: Event | null;
 }) => {
-  const { file } = parseContent(event);
+  const { files } = parseContent(event);
   const icon = getIconFromHash(event.pubkey);
 
   let metadataParsed = null;
@@ -30,7 +30,7 @@ const QuoteEmbed = ({
         <div className="flex flex-col break-words">
           <ContentPreview key={event.id} eventdata={event} />
         </div>
-        {renderMedia(file)}
+        {renderMedia(files)}
         <div className="flex justify-between items-center">
             {metadataParsed ?
               <img

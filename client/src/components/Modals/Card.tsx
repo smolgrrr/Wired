@@ -27,7 +27,7 @@ const PostCard = ({
     repliedTo,
     type
 }: CardProps) => {
-    const { file } = parseContent(event);
+    const { files } = parseContent(event);
     const icon = getIconFromHash(event.pubkey);
     const metadataParsed = metadata ? getMetadata(metadata) : null;
     const navigate = useNavigate();
@@ -44,7 +44,7 @@ const PostCard = ({
                     <div className={`flex flex-col break-words ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
                         <ContentPreview key={event.id} eventdata={event} />
                     </div>
-                    {renderMedia(file)}
+                    {renderMedia(files)}
                     {repliedTo && <div className="flex items-center mt-1" >
                         <span className="text-xs text-gray-500">Reply to: </span>
                         {uniqBy(repliedTo, 'pubkey').map((event, index) => (

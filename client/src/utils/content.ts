@@ -1,22 +1,21 @@
 import { Event } from 'nostr-tools'
 
-function extractMediaUrl(content: string){
-    const regex = /(https?:\/\/\S+\.(?:jpg|png|jpeg|gif|mp4|webm|mov|webp))/i;
-    const match = content.match(regex);
-    if (match) {
-      return match[0];
-       
-    } else {
-      return '' ;
-    }
-  }
+function extractMediaUrls(content: string): string[] {
+  const regex = /(https?:\/\/\S+\.(?:jpg|png|jpeg|gif|mp4|webm|mov|webp))/gi;
+  const matches = content.match(regex);
+  return matches || [];
+}
 
 export function parseContent(event: Event) {
-    const file = extractMediaUrl(event.content) as string;
-    const contentWithoutFile = event.content.replace(file, '');
+  const files = extractMediaUrls(event.content);
+  let contentWithoutFiles = event.content;
 
-    return {
-        comment: contentWithoutFile.trim(),
-        file
-    };
+  files.forEach(file => {
+      contentWithoutFiles = contentWithoutFiles.replace(file, '');
+  });
+
+  return {
+      comment: contentWithoutFiles.trim(),
+      files
+  };
 }

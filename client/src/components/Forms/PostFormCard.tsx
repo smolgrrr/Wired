@@ -149,7 +149,7 @@ const NewNoteCard = ({
                             <XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" />
                         </button>
                     )}
-                    {renderMedia(file)}
+                    {renderMedia([file])}
                 </div>
                 <div className="h-14 flex items-center justify-between">
                     <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
