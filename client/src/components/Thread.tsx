@@ -4,11 +4,12 @@ import { Event, nip19 } from "nostr-tools"
 import { subNote, subNotesOnce } from '../utils/subscriptions';
 import { useEffect } from 'react';
 import { uniqBy } from '../utils/otherUtils';
-import { DocumentTextIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, FolderPlusIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
 import { getPow } from '../utils/mine';
-import PostCard from './Modals/Card';
+import PostCard from './Modals/NoteCard';
 import Placeholder from './Modals/Placeholder';
 import NewNoteCard from './Forms/PostFormCard';
+import RepostNote from './Forms/RepostNote';
 
 type PostType = "" | "Reply" | "Quote" | undefined;
 
@@ -17,6 +18,7 @@ const Thread = () => {
     const [events, setEvents] = useState<Event[]>([]); // Initialize state
     const [OPEvent, setOPEvent] = useState<Event>()
     const [showForm, setShowForm] = useState(false);
+    const [showRepost, setShowRepost] = useState(false);
     const [postType, setPostType] = useState<PostType>("");
     const [hasRun, setHasRun] = useState(false);
     const [preOPEvents, setPreOPEvents] = useState(['']);
@@ -130,19 +132,33 @@ const Thread = () => {
                         onClick={() => {
                             setShowForm(prevShowForm => !prevShowForm);
                             setPostType('Reply');
+                            setShowRepost(false)
                         }}
                     />
-
+                    <DocumentDuplicateIcon
+                        className="h-5 w-5 text-gray-200 cursor-pointer"
+                        onClick={() => {
+                            setShowRepost(prevShowRepost => !prevShowRepost);
+                            setShowForm(false);
+                        }}
+                    />
                     <FolderPlusIcon
                         className="h-5 w-5 text-gray-200 cursor-pointer"
                         onClick={() => {
                             setShowForm(prevShowForm => !prevShowForm);
                             setPostType('Quote');
+                            setShowRepost(false)
                         }}
                     />
                 </div>
-                {(showForm && postType) && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                {(showForm && postType) && 
+                <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                    <span className='text-center'>{postType}-post</span>
                     <NewNoteCard refEvent={uniqEvents[0]} tagType={postType}/>
+                </div>}
+                {showRepost && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                    <span className='text-center'>Repost note</span>
+                    <RepostNote refEvent={uniqEvents[0]}/>
                 </div>}
                 <div className="flex items-center justify-center w-full py-4">
                     <label htmlFor="toggleB" className="flex items-center cursor-pointer">

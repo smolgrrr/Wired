@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import PostCard from "./Modals/Card";
+import PostCard from "./Modals/NoteCard";
 import { uniqBy } from "../utils/otherUtils"; // Assume getPow is a correct import now
 import { subGlobalFeed } from "../utils/subscriptions";
 import { verifyPow } from "../utils/mine";
 import { Event } from "nostr-tools";
 import NewNoteCard from "./Forms/PostFormCard";
+import RepostCard from "./Modals/RepostCard";
 
 const DEFAULT_DIFFICULTY = 20;
 
@@ -29,8 +30,8 @@ const Home = () => {
   const postEvents = uniqEvents
     .filter((event) =>
       verifyPow(event) >= Number(filterDifficulty) &&
-      event.kind === 1 &&
-      !event.tags.some((tag) => tag[0] === "e")
+      event.kind !== 0 &&
+      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e"))
     )
 
   const sortedEvents = [...postEvents].sort((a, b) =>
@@ -49,6 +50,11 @@ const Home = () => {
     return uniqEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id)).length;
   };
 
+  useEffect(() => {
+    const kind6Events = sortedEvents.filter(event => event.kind === 6);
+    console.log('Kind 6 events:', kind6Events);
+  }, [uniqEvents]);
+
   // Render the component
   return (
     <main className="text-white mb-20">
@@ -66,7 +72,7 @@ const Home = () => {
               onChange={toggleSort}
             />
             <div className="block bg-gray-600 w-8 h-4 rounded-full"></div>
-            <div className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : '' }`} ></div>
+            <div className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : ''}`} ></div>
           </div>
           <div className={`ml-2 text-neutral-500 text-sm ${sortByTime ? 'text-neutral-500' : ''}`}>
             {sortByTime ? 'Time' : 'PoW'}
@@ -75,12 +81,16 @@ const Home = () => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
         {sortedEvents.map((event) => (
-          <PostCard
-            key={event.id}
+          event.kind === 1 ?
+            <PostCard
+              event={event}
+              metadata={getMetadataEvent(event)}
+              replyCount={countReplies(event)}
+            />
+            :
+            <RepostCard
             event={event}
-            metadata={getMetadataEvent(event)}
-            replyCount={countReplies(event)}
-          />
+            />
         ))}
       </div>
     </main>

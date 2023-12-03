@@ -45,8 +45,6 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
 
     const { startWork, messageFromWorker, doingWorkProgress } = useWorkers(numCores, unsignedWithPubkey, difficulty, [unsignedWithPubkey]);
 
-    console.log(powServer[0])
-
     useEffect(() => {
         if (unsignedPoWEvent) {
             setDoingWorkProp(false);

@@ -22,7 +22,7 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
     },
     filter: {
       ...(prefix && { ids: ['0'.repeat(prefix)] }),
-      kinds: [1],
+      kinds: [1, 6],
       since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
       limit: 500,
     },
