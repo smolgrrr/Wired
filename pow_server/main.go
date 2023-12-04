@@ -221,5 +221,5 @@ func main() {
 	http.Handle("/powgen", corsMiddleware(handlePOWWithCores(numCores)))
 	http.Handle("/test", corsMiddleware(handleTestWithCores(numCores)))
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:42068", nil))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
 }
