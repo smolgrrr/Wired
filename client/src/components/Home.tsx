@@ -50,11 +50,6 @@ const Home = () => {
     return uniqEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id)).length;
   };
 
-  useEffect(() => {
-    const kind6Events = sortedEvents.filter(event => event.kind === 6);
-    console.log('Kind 6 events:', kind6Events);
-  }, [uniqEvents]);
-
   // Render the component
   return (
     <main className="text-white mb-20">
