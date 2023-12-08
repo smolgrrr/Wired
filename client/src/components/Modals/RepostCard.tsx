@@ -21,7 +21,7 @@ const RepostCard = ({
     event
 }: RepostProps) => {
     const repostedEvent = JSON.parse(event.content);
-    const { files } = parseContent(event);
+    const { files } = parseContent(repostedEvent);
     const icon = getIconFromHash(event.pubkey);
     const navigate = useNavigate();
     const [metadata, setMetadata] = useState<Metadata>()
