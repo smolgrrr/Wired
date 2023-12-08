@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CpuChipIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 
 type TestResponse = {
   timeTaken: string;
@@ -13,6 +14,8 @@ const Settings = () => {
   const [powServer, setPowServer] = useState(localStorage.getItem('powserver') || '');
   const [testDiff, setTestDiff] = useState('21')
   const [testResult, setTestResult] = useState<TestResponse>()
+  const [noteLink, setNoteLink] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +139,32 @@ const Settings = () => {
           Save Settings
         </button>
       </form>
-
+      <div className="settings-page pt-10">
+        <h1 className="text-lg font-semibold mb-4">Open Note</h1>
+        <form onSubmit={(e) => {e.preventDefault(); navigate(`/thread/${noteLink}`);}}>
+        <div className="flex flex-wrap -mx-2 mb-4">
+          <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
+            <label className="block text-xs mb-2" htmlFor="filterDifficulty">
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                Note ID:
+              </span>
+            </label>
+            <input
+              id="noteIDinput"
+              type="string"
+              value={noteLink}
+              onChange={e => setNoteLink(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md bg-black"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="bg-black border text-white font-bold py-2 px-4 rounded">
+          Open
+        </button>
+      </form>
+      </div>
       <div className="settings-page py-10">
         <h1 className="text-lg font-semibold mb-4">About</h1>
         <div className="flex flex-col">

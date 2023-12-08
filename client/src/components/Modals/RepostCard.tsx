@@ -28,7 +28,7 @@ const RepostCard = ({
 
     // Define your callback function for subGlobalFeed
     const onEvent = (event: NostrEvent, relay: string) => {
-        if (event.kind === 0 && event.pubkey === repostedEvent.pubkey) {
+        if (event.kind === 0 && event.pubkey === repostedEvent.pubkey && metadata == null) {
             setMetadata(getMetadata(event))
         }
     };
