@@ -29,8 +29,8 @@ const useUniqEvents = () => {
 
 const Home = () => {
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
-  const [sortByTime, setSortByTime] = useState(true);
-  const [setAnon, setSetAnon] = useState(true);
+  const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
+  const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
   const { noteEvents, metadataEvents } = useUniqEvents();
 
   const postEvents = noteEvents
@@ -49,11 +49,19 @@ const Home = () => {
   );
 
   const toggleSort = useCallback(() => {
-    setSortByTime(prev => !prev);
+    setSortByTime(prev => {
+      const newValue = !prev;
+      localStorage.setItem('sortBy', String(newValue));
+      return newValue;
+    });
   }, []);
 
   const toggleAnon = useCallback(() => {
-    setSetAnon(prev => !prev);
+    setSetAnon(prev => {
+      const newValue = !prev;
+      localStorage.setItem('anonMode', String(newValue));
+      return newValue;
+    });
   }, []);
 
   const countReplies = (event: Event) => {

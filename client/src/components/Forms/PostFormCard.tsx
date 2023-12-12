@@ -47,7 +47,8 @@ const NewNoteCard = ({
         if (refEvent && tagType && unsigned.tags.length === 0) {
             const tags = tagMapping[tagType];
             if (tags) {
-                tags.forEach(tag => unsigned.tags.push([tag, refEvent[tag === 'p' ? 'pubkey' : 'id']]));
+                tags.forEach(tag => unsigned.tags.push([tag, refEvent[tag === 'p' ? 'pubkey' : 'id']])); 
+                // Ref event should be the latest event they're replying to, and their event should include prev replies
             }
             if (tagType === 'Quote') {
                 setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
