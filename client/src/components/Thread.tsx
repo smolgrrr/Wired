@@ -49,9 +49,10 @@ const Thread = () => {
 
     useEffect(() => {
         if (!hasRun && events.length > 0) {
-            let OPEvent = uniqEvents[0];
+            let OPEvent = uniqEvents.find(event => event.id === hexID);
             setOPEvent(OPEvent);
             
+            console.log(OPEvent)
             if (OPEvent && OPEvent.id !== hexID) {
             OPEvent = events.find(e => e.id === hexID) as Event;
             }
@@ -154,11 +155,11 @@ const Thread = () => {
                 {(showForm && postType) && 
                 <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
                     <span className='text-center'>{postType}-post</span>
-                    <NewNoteCard refEvent={uniqEvents[0]} tagType={postType}/>
+                    <NewNoteCard refEvent={OPEvent} tagType={postType}/>
                 </div>}
-                {showRepost && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                {showRepost && OPEvent && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
                     <span className='text-center'>Repost note</span>
-                    <RepostNote refEvent={uniqEvents[0]}/>
+                    <RepostNote refEvent={OPEvent}/>
                 </div>}
                 <div className="flex items-center justify-center w-full py-4">
                     <label htmlFor="toggleB" className="flex items-center cursor-pointer">

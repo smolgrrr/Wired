@@ -21,12 +21,7 @@ const useUniqEvents = () => {
 
   const uniqEvents = uniqBy(events, "id");
 
-  const noteEvents = uniqEvents.filter(event => {
-    if (event.kind === 6) {
-      console.log(event);
-    }
-    return event.kind === 1 || event.kind === 6;
-  });
+  const noteEvents = uniqEvents.filter(event => event.kind === 1 || event.kind === 6);
   const metadataEvents = uniqEvents.filter(event => event.kind === 0);
 
   return { noteEvents, metadataEvents };
