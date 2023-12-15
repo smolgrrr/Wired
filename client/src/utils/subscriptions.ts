@@ -235,3 +235,38 @@ export const subNotesOnce = (
     pubkeys.clear();
   }, 2000);
 };  
+
+/** quick subscribe to a note id (nip-19) */
+export const subNotifications = (
+  pubkeys: string[],
+  onEvent: SubCallback,
+) => {
+  const replyPubkeys = new Set<string>();
+  sub({
+    cb: (evt, relay) => {
+      replyPubkeys.add(evt.pubkey);
+      onEvent(evt, relay);
+    },
+    filter: {
+      "#p": pubkeys,
+      kinds: [1],
+      limit: 50,
+    },
+    unsub: true,
+  });
+
+  setTimeout(() => {
+    // get profile info
+    sub({
+      cb: onEvent,
+      filter: {
+        authors: Array.from(replyPubkeys),
+        kinds: [0],
+        limit: replyPubkeys.size,
+      },
+      unsub: true,
+    });
+    replyPubkeys.clear();
+  }, 2000);
+};  
+
