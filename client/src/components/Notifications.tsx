@@ -7,15 +7,16 @@ import { Event } from "nostr-tools";
 import NewNoteCard from "./Forms/PostFormCard";
 import RepostCard from "./Modals/RepostCard";
 import OptionsBar from "./Modals/OptionsBar";
-
-const DEFAULT_DIFFICULTY = 20;
+import { subNotifications } from "../utils/subscriptions";
 
 const useUniqEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  let storedKeys = JSON.parse(localStorage.getItem('usedKeys') || '[]');
+  let storedPubkeys = storedKeys.map((key: any[]) => key[1]);
 
   useEffect(() => {
     const onEvent = (event: Event) => setEvents((prevEvents) => [...prevEvents, event]);
-    const unsubscribe = subGlobalFeed(onEvent);
+    const unsubscribe = subNotifications(storedPubkeys, onEvent);
 
     return unsubscribe;
   }, []);
@@ -28,17 +29,15 @@ const useUniqEvents = () => {
   return { noteEvents, metadataEvents };
 };
 
-const Home = () => {
-  const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
+const Notifications = () => {
   const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
   const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
   const { noteEvents, metadataEvents } = useUniqEvents();
 
   const postEvents = noteEvents
     .filter((event) =>
-      verifyPow(event) >= Number(filterDifficulty) &&
       event.kind !== 0 &&
-      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e"))
+      (event.kind !== 1)
     )
 
   const sortedEvents = [...postEvents]
@@ -72,9 +71,6 @@ const Home = () => {
   // Render the component
   return (
     <main className="text-white mb-20">
-      <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-        <NewNoteCard />
-      </div>
       <OptionsBar sortByTime={sortByTime} setAnon={setAnon} toggleSort={toggleSort} toggleAnon={toggleAnon} />
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
         {sortedEvents.map((event) => (
@@ -94,4 +90,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default Notifications;

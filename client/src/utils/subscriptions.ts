@@ -29,15 +29,6 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
     unsub: true
   });
 
-  // // New Callback to only add events that pass the PoW requirement
-  // const powFilteredCallback = (evt: Event, relay: string) => {
-  //     if (getPow(evt.id) > 2) { // Replace '5' with your actual PoW requirement
-  //     pubkeys.add(evt.pubkey);
-  //     notes.add(evt.id);
-  //     onEvent(evt, relay);
-  //     }
-  // };
-
   setTimeout(() => {
     // get profile info
     sub({
@@ -88,20 +79,6 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
       kinds: [1],
       since: now,
     },
-  });
-};
-
-/** subscribe to global feed */
-export const simpleSub24hFeed = (onEvent: SubCallback) => {
-  unsubAll();
-  sub({
-    cb: onEvent,
-    filter: {
-      kinds: [1],
-      //until: Math.floor(Date.now() * 0.001),
-      since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
-      limit: 1,
-    }
   });
 };
 
@@ -236,6 +213,40 @@ export const subNotesOnce = (
   }, 2000);
 };  
 
+// /** quick subscribe to a note id (nip-19) */
+// export const subNotifications = (
+//   pubkeys: string[],
+//   onEvent: SubCallback,
+// ) => {
+//   const replyPubkeys = new Set<string>();
+//   sub({
+//     cb: (evt, relay) => {
+//       replyPubkeys.add(evt.pubkey);
+//       onEvent(evt, relay);
+//     },
+//     filter: {
+//       "#p": pubkeys,
+//       kinds: [1],
+//       limit: 50,
+//     },
+//     unsub: true,
+//   });
+
+//   setTimeout(() => {
+//     // get profile info
+//     sub({
+//       cb: onEvent,
+//       filter: {
+//         authors: Array.from(replyPubkeys),
+//         kinds: [0],
+//         limit: replyPubkeys.size,
+//       },
+//       unsub: true,
+//     });
+//     replyPubkeys.clear();
+//   }, 2000);
+// };  
+
 /** quick subscribe to a note id (nip-19) */
 export const subNotifications = (
   pubkeys: string[],
@@ -243,12 +254,9 @@ export const subNotifications = (
 ) => {
   const replyPubkeys = new Set<string>();
   sub({
-    cb: (evt, relay) => {
-      replyPubkeys.add(evt.pubkey);
-      onEvent(evt, relay);
-    },
+    cb: onEvent,
     filter: {
-      "#p": pubkeys,
+      authors: Array.from(pubkeys),
       kinds: [1],
       limit: 50,
     },
@@ -270,3 +278,68 @@ export const subNotifications = (
   }, 2000);
 };  
 
+// const hasEventTag = (tag: string[]) => tag[0] === 'e';
+// const isReply = ([tag, , , marker]: string[]) => tag === 'e' && marker !== 'mention';
+
+// export const getReplyTo = (evt: Event): string | null => {
+//   const eventTags = evt.tags.filter(isReply);
+//   const withReplyMarker = eventTags.filter(([, , , marker]) => marker === 'reply');
+//   if (withReplyMarker.length === 1) {
+//     return withReplyMarker[0][1];
+//   }
+//   const withRootMarker = eventTags.filter(([, , , marker]) => marker === 'root');
+//   if (withReplyMarker.length === 0 && withRootMarker.length === 1) {
+//     return withRootMarker[0][1];
+//   }
+//   // fallback to deprecated positional 'e' tags (nip-10)
+//   const lastTag = eventTags.at(-1);
+//   return lastTag ? lastTag[1] : null;
+// };
+
+// export const subNotifications = (
+//   pubkeys: string[],
+//   onEvent: SubCallback,
+// ) => {
+//   const authorsPrefixes = pubkeys.map(pubkey => pubkey.slice(0, 32));
+//   console.info(`subscribe to homefeed ${authorsPrefixes}`);
+//   unsubAll();
+
+//   const repliesTo = new Set<string>();
+//   sub({
+//     cb: (evt, relay) => {
+//       if (
+//         evt.tags.some(hasEventTag)
+//       ) {
+//         const note = getReplyTo(evt); // get all reply to events instead?
+//         if (note && !repliesTo.has(note)) {
+//           repliesTo.add(note);
+//           subOnce({
+//             cb: onEvent,
+//             filter: {
+//               ids: [note],
+//               kinds: [1],
+//               limit: 1,
+//             },
+//             relay,
+//           });
+//         }
+//       }
+//       onEvent(evt, relay);
+//     },
+//     filter: {
+//       authors: authorsPrefixes,
+//       kinds: [1],
+//       limit: 20,
+//     },
+//   });
+//   // get metadata
+//   sub({
+//     cb: onEvent,
+//     filter: {
+//       authors: pubkeys,
+//       kinds: [0],
+//       limit: pubkeys.length,
+//     },
+//     unsub: true,
+//   });
+// };

@@ -10,6 +10,7 @@ import PostCard from './Modals/NoteCard';
 import Placeholder from './Modals/Placeholder';
 import NewNoteCard from './Forms/PostFormCard';
 import RepostNote from './Forms/RepostNote';
+import OptionsBar from './Modals/OptionsBar';
 
 type PostType = "" | "Reply" | "Quote" | undefined;
 
@@ -49,9 +50,10 @@ const Thread = () => {
 
     useEffect(() => {
         if (!hasRun && events.length > 0) {
-            let OPEvent = uniqEvents[0];
+            let OPEvent = uniqEvents.find(event => event.id === hexID);
             setOPEvent(OPEvent);
             
+            console.log(OPEvent)
             if (OPEvent && OPEvent.id !== hexID) {
             OPEvent = events.find(e => e.id === hexID) as Event;
             }
@@ -126,7 +128,7 @@ const Thread = () => {
                         ))}
                     {OPEvent && <PostCard event={OPEvent} metadata={getMetadataEvent(OPEvent)} replyCount={countReplies(OPEvent)} type={'OP'}/>}
                 </div>
-                <div className="col-span-full flex justify-center space-x-36">
+                <div className="col-span-full flex justify-center space-x-36 pb-4">
                     <DocumentTextIcon
                         className="h-5 w-5 text-gray-200 cursor-pointer"
                         onClick={() => {
@@ -153,36 +155,20 @@ const Thread = () => {
                 </div>
                 {(showForm && postType) && 
                 <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-                    <span className='text-center'>{postType}-post</span>
-                    <NewNoteCard refEvent={uniqEvents[0]} tagType={postType}/>
+                    <div className='text-center'>
+                    <span >{postType}-post</span>
+                    </div>
+                    <NewNoteCard refEvent={OPEvent} tagType={postType}/>
                 </div>}
-                {showRepost && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-                    <span className='text-center'>Repost note</span>
-                    <RepostNote refEvent={uniqEvents[0]}/>
+                {showRepost && OPEvent && <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                    <div className='text-center'>
+                    <span>Repost note</span>
+                    </div>
+                    <RepostNote refEvent={OPEvent}/>
                 </div>}
-                <div className="flex items-center justify-center w-full py-4">
-                    <label htmlFor="toggleB" className="flex items-center cursor-pointer">
-                        <div className="relative">
-                            <input
-                                id="toggleB"
-                                type="checkbox"
-                                className="sr-only"
-                                checked={sortByTime}
-                                onChange={toggleSort}
-                            />
-                            <div className="block bg-gray-600 w-10 h-6 rounded-full"></div>
-                            <div
-                                className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : ''
-                                    }`}
-                            ></div>
-                        </div>
-                        <div className={`ml-3 text-neutral-500 font-medium ${sortByTime ? 'text-neutral-500' : ''}`}>
-                            {sortByTime ? 'Sort by oldest' : 'Sort by PoW'}
-                        </div>
-                    </label>
-                </div>
+                <div className="col-span-full h-0.5 bg-neutral-900"/> {/* This is the white line separator */}
+                <OptionsBar sortByTime={sortByTime} toggleSort={toggleSort} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <div className="col-span-full h-0.5 bg-neutral-900"></div>  {/* This is the white line separator */}
                     {displayedEvents.map((event, index) => (
                         <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
                     ))}

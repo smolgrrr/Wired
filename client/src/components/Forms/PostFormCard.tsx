@@ -45,10 +45,13 @@ const NewNoteCard = ({
 
     useEffect(() => {
         if (refEvent && tagType && unsigned.tags.length === 0) {
-            const tags = tagMapping[tagType];
-            if (tags) {
-                tags.forEach(tag => unsigned.tags.push([tag, refEvent[tag === 'p' ? 'pubkey' : 'id']])); 
-                // Ref event should be the latest event they're replying to, and their event should include prev replies
+            if (tagType === 'Reply' && unsigned.tags.length === 0) {
+                unsigned.tags.push(['p', refEvent.pubkey]); 
+                unsigned.tags.push(['e', refEvent.id, 'root']); 
+            } else {
+                unsigned.tags = refEvent.tags
+                unsigned.tags.push(['p', refEvent.pubkey]); 
+                unsigned.tags.push(['e', refEvent.id]); 
             }
             if (tagType === 'Quote') {
                 setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
