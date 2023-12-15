@@ -6,6 +6,7 @@ import { verifyPow } from "../utils/mine";
 import { Event } from "nostr-tools";
 import NewNoteCard from "./Forms/PostFormCard";
 import RepostCard from "./Modals/RepostCard";
+import OptionsBar from "./Modals/OptionsBar";
 
 const DEFAULT_DIFFICULTY = 20;
 
@@ -74,40 +75,7 @@ const Home = () => {
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewNoteCard />
       </div>
-      <div className="flex w-full px-8 z-2">
-        <label htmlFor="toggleA" className="flex items-center cursor-pointer">
-          <div className="relative">
-            <input
-              id="toggleA"
-              type="checkbox"
-              className="sr-only"
-              checked={sortByTime}
-              onChange={toggleSort}
-            />
-            <div className="block bg-gray-600 w-8 h-4 rounded-full"></div>
-            <div className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : ''}`} ></div>
-          </div>
-          <div className={`ml-2 text-neutral-500 text-sm ${sortByTime ? 'text-neutral-500' : ''}`}>
-            {sortByTime ? 'Time' : 'PoW'}
-          </div>
-        </label>
-        <label htmlFor="toggleB" className="flex items-center cursor-pointer ml-4"> {/* Add margin-left here */}
-          <div className="relative">
-            <input
-              id="toggleB"
-              type="checkbox"
-              className="sr-only"
-              checked={setAnon}
-              onChange={toggleAnon}
-            />
-            <div className="block bg-gray-600 w-8 h-4 rounded-full"></div>
-            <div className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${setAnon ? 'transform translate-x-full bg-blue-400' : ''}`} ></div>
-          </div>
-          <div className={`ml-2 text-neutral-500 text-sm ${setAnon ? 'text-neutral-500' : ''}`}>
-            {setAnon ? 'Namefags' : 'Anon'}
-          </div>
-        </label>
-      </div>
+      <OptionsBar sortByTime={sortByTime} setAnon={setAnon} toggleSort={toggleSort} toggleAnon={toggleAnon} />
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
         {sortedEvents.map((event) => (
           event.kind === 1 ?
