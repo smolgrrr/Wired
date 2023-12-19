@@ -1,4 +1,4 @@
-# TAO (The Anon Operation): unstoppable free speech
+# The Wire: unstoppable free speech
 An app to facilitate unstoppable free speech on the internet.
 
 ## Overview
