@@ -247,99 +247,51 @@ export const subNotesOnce = (
 //   }, 2000);
 // };  
 
-/** quick subscribe to a note id (nip-19) */
+const hasEventTag = (tag: string[]) => tag[0] === 'e';
+const isReply = ([tag, , , marker]: string[]) => tag === 'e' && marker !== 'mention';
+
+export const getReplyTo = (evt: Event): string | null => {
+  const eventTags = evt.tags.filter(isReply);
+  const withReplyMarker = eventTags.filter(([, , , marker]) => marker === 'reply');
+  if (withReplyMarker.length === 1) {
+    return withReplyMarker[0][1];
+  }
+  const withRootMarker = eventTags.filter(([, , , marker]) => marker === 'root');
+  if (withReplyMarker.length === 0 && withRootMarker.length === 1) {
+    return withRootMarker[0][1];
+  }
+  // fallback to deprecated positional 'e' tags (nip-10)
+  const lastTag = eventTags.at(-1);
+  return lastTag ? lastTag[1] : null;
+};
+
 export const subNotifications = (
   pubkeys: string[],
   onEvent: SubCallback,
 ) => {
-  const replyPubkeys = new Set<string>();
+  unsubAll();
+
   sub({
-    cb: onEvent,
+    cb: (evt, relay) => {
+      onEvent(evt, relay);
+    },
     filter: {
-      authors: Array.from(pubkeys),
+      authors: pubkeys,
+      kinds: [1, 7],
+      limit: 25,
+    },
+    unsub: true,
+  });
+
+  sub({
+    cb: (evt, relay) => {
+      onEvent(evt, relay);
+    },
+    filter: {
+      '#p': pubkeys,
       kinds: [1],
       limit: 50,
     },
     unsub: true,
   });
-
-  setTimeout(() => {
-    // get profile info
-    sub({
-      cb: onEvent,
-      filter: {
-        authors: Array.from(replyPubkeys),
-        kinds: [0],
-        limit: replyPubkeys.size,
-      },
-      unsub: true,
-    });
-    replyPubkeys.clear();
-  }, 2000);
-};  
-
-// const hasEventTag = (tag: string[]) => tag[0] === 'e';
-// const isReply = ([tag, , , marker]: string[]) => tag === 'e' && marker !== 'mention';
-
-// export const getReplyTo = (evt: Event): string | null => {
-//   const eventTags = evt.tags.filter(isReply);
-//   const withReplyMarker = eventTags.filter(([, , , marker]) => marker === 'reply');
-//   if (withReplyMarker.length === 1) {
-//     return withReplyMarker[0][1];
-//   }
-//   const withRootMarker = eventTags.filter(([, , , marker]) => marker === 'root');
-//   if (withReplyMarker.length === 0 && withRootMarker.length === 1) {
-//     return withRootMarker[0][1];
-//   }
-//   // fallback to deprecated positional 'e' tags (nip-10)
-//   const lastTag = eventTags.at(-1);
-//   return lastTag ? lastTag[1] : null;
-// };
-
-// export const subNotifications = (
-//   pubkeys: string[],
-//   onEvent: SubCallback,
-// ) => {
-//   const authorsPrefixes = pubkeys.map(pubkey => pubkey.slice(0, 32));
-//   console.info(`subscribe to homefeed ${authorsPrefixes}`);
-//   unsubAll();
-
-//   const repliesTo = new Set<string>();
-//   sub({
-//     cb: (evt, relay) => {
-//       if (
-//         evt.tags.some(hasEventTag)
-//       ) {
-//         const note = getReplyTo(evt); // get all reply to events instead?
-//         if (note && !repliesTo.has(note)) {
-//           repliesTo.add(note);
-//           subOnce({
-//             cb: onEvent,
-//             filter: {
-//               ids: [note],
-//               kinds: [1],
-//               limit: 1,
-//             },
-//             relay,
-//           });
-//         }
-//       }
-//       onEvent(evt, relay);
-//     },
-//     filter: {
-//       authors: authorsPrefixes,
-//       kinds: [1],
-//       limit: 20,
-//     },
-//   });
-//   // get metadata
-//   sub({
-//     cb: onEvent,
-//     filter: {
-//       authors: pubkeys,
-//       kinds: [0],
-//       limit: pubkeys.length,
-//     },
-//     unsub: true,
-//   });
-// };
+};
