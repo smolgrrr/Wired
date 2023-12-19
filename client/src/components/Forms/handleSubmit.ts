@@ -39,6 +39,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
     const powServer = useState(localStorage.getItem('powserver') || '');
     const [unsignedPoWEvent, setUnsignedPoWEvent] = useState<UnsignedEvent>()
+    let storedKeys = JSON.parse(localStorage.getItem('usedKeys') || '[]');
 
     // Initialize the worker outside of any effects
     const numCores = navigator.hardwareConcurrency || 4;
@@ -85,6 +86,11 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
         } else {
             startWork();
         }
+
+        // Add the logic here
+        storedKeys.push([sk, getPublicKey(sk)]);
+        // Stringify the array and store it back to localStorage
+        localStorage.setItem('usedKeys', JSON.stringify(storedKeys));
     };
 
     useEffect(() => {
