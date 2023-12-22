@@ -19,6 +19,7 @@ const RepostNote = ({
     const [unsigned] = useState<UnsignedEvent>({
         kind: 6,
         tags: [
+            ['client', 'getwired.app'],
             ['e', refEvent.id, 'wss://relay.damus.io'],
             ['p', refEvent.pubkey]
         ],

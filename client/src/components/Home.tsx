@@ -32,23 +32,38 @@ const Home = () => {
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
   const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
   const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
-  const { noteEvents, metadataEvents } = useUniqEvents();
+  const {noteEvents, metadataEvents } = useUniqEvents();
+  const [delayedSort, setDelayedSort] = useState(false)
 
-  const postEvents = noteEvents
+  const postEvents: Event[] = noteEvents
     .filter((event) =>
       verifyPow(event) >= Number(filterDifficulty) &&
       event.kind !== 0 &&
       (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e"))
     )
+  
+  // Delayed filtering
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDelayedSort(true);
+    }, 3000);
 
-  const sortedEvents = [...postEvents]
+    return () => clearTimeout(timer);
+  }, []);
+
+  let sortedEvents = [...postEvents]
   .sort((a, b) =>
     sortByTime ? b.created_at - a.created_at : verifyPow(b) - verifyPow(a)
   )
-  .filter(
-    !setAnon ? (e) => !metadataEvents.some((metadataEvent) => metadataEvent.pubkey === e.pubkey) : () => true
-  );
 
+  if (delayedSort) {
+    sortedEvents = sortedEvents.filter(
+      !setAnon ? (e) => !metadataEvents.some((metadataEvent) => metadataEvent.pubkey === e.pubkey) : () => true
+    );
+  } else {
+    sortedEvents = sortedEvents.filter((e) => setAnon || e.tags.some((tag) => tag[0] === "client" && tag[1] === 'getwired.app'));
+  }
+  
   const toggleSort = useCallback(() => {
     setSortByTime(prev => {
       const newValue = !prev;

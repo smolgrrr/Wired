@@ -32,7 +32,12 @@ const NewNoteCard = ({
     const [file, setFile] = useState("");
     const [unsigned, setUnsigned] = useState<UnsignedEvent>({
         kind: 1,
-        tags: [],
+        tags: [
+            [
+                "client",
+                "getwired.app"
+            ]
+        ],
         content: "",
         created_at: Math.floor(Date.now() / 1000),
         pubkey: "",
