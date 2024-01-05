@@ -1,6 +1,7 @@
 import {
   Cog6ToothIcon,
-  BellIcon
+  BellIcon,
+  ArchiveBoxIcon
 } from "@heroicons/react/24/outline";
 
 export default function Header() {
@@ -17,8 +18,16 @@ export default function Header() {
         </a>
         <div>
         <a
-          href="/notifications"
+          href="/boards"
           className="text-neutral-300 inline-flex gap-4 items-center"
+        >
+          <button>
+            <ArchiveBoxIcon className="h-5 w-5" />
+          </button>
+        </a>
+        <a
+          href="/notifications"
+          className="text-neutral-300 inline-flex gap-4 items-center pl-4"
         >
           <button>
             <BellIcon className="h-5 w-5" />

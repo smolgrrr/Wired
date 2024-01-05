@@ -295,3 +295,50 @@ export const subNotifications = (
     unsub: true,
   });
 };
+
+/** subscribe to global feed */
+export const subBoardFeed = (
+  board: string,
+  onEvent: SubCallback,
+  ) => {
+  console.info('subscribe to board');
+  unsubAll();
+  const now = Math.floor(Date.now() * 0.001);
+  const pubkeys = new Set<string>();
+  const notes = new Set<string>();
+  const prefix = Math.floor(16 / 4); //  4 bits in each '0' character
+  sub({ // get past events
+    cb: (evt, relay) => {
+      pubkeys.add(evt.pubkey);
+      notes.add(evt.id);
+      onEvent(evt, relay);
+    },
+    filter: {
+      ...(prefix && { ids: ['0'.repeat(prefix)] }),
+      "#d": [board],
+      kinds: [1, 6],
+      since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
+      limit: 500,
+    },
+    unsub: true
+  });
+
+  // subscribe to future notes, reactions and profile updates
+  sub({
+    cb: (evt, relay) => {
+      onEvent(evt, relay);
+      if (
+        evt.kind !== 1
+        || pubkeys.has(evt.pubkey)
+      ) {
+        return;
+      }
+    },
+    filter: {
+      ...(prefix && { ids: ['0'.repeat(prefix)] }),
+      "#d": [board],
+      kinds: [1],
+      since: now,
+    },
+  });
+};

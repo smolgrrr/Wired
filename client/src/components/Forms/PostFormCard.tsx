@@ -16,6 +16,7 @@ import "./Form.css";
 interface FormProps {
     refEvent?: NostrEvent;
     tagType?: 'Reply' | 'Quote' | '';
+    board?: string;
 }
 
 const tagMapping = {
@@ -25,7 +26,8 @@ const tagMapping = {
 
 const NewNoteCard = ({
     refEvent,
-    tagType
+    tagType,
+    board
 }: FormProps) => {
     const ref = useRef<HTMLDivElement | null>(null);
     const [comment, setComment] = useState("");
@@ -49,8 +51,8 @@ const NewNoteCard = ({
     const [uploadingFile, setUploadingFile] = useState(false);
 
     useEffect(() => {
-        if (refEvent && tagType && unsigned.tags.length === 0) {
-            if (tagType === 'Reply' && unsigned.tags.length === 0) {
+        if (refEvent && tagType && unsigned.tags.length === 1) {
+            if (tagType === 'Reply') {
                 unsigned.tags.push(['p', refEvent.pubkey]); 
                 unsigned.tags.push(['e', refEvent.id, 'root']); 
             } else {
@@ -64,6 +66,10 @@ const NewNoteCard = ({
                     unsigned.tags.push(['e', refEvent.id]); 
                 }
             }
+        }
+
+        if (board) {
+            unsigned.tags.push(['d', nip19.decode(board).data as string]);
         }
 
         const handleDifficultyChange = (event: Event) => {
