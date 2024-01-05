@@ -1,4 +1,4 @@
-import { generatePrivateKey, getPublicKey, finishEvent } from "nostr-tools";
+import { generateSecretKey, getPublicKey, finalizeEvent } from "nostr-tools";
 import { base64 } from "@scure/base";
 
 export interface UploadResult {
@@ -13,7 +13,7 @@ export interface UploadResult {
 
 export default async function FileUpload(file: File): Promise<UploadResult> {
   const buf = await file.arrayBuffer();
-  const sk = generatePrivateKey();
+  const sk = generateSecretKey();
   const auth = async () => {
     const authEvent = {
       kind: 27235,
@@ -25,7 +25,7 @@ export default async function FileUpload(file: File): Promise<UploadResult> {
       created_at: Math.floor(Date.now() / 1000),
       pubkey: getPublicKey(sk),
     }
-    return `Nostr ${base64.encode(new TextEncoder().encode(JSON.stringify(finishEvent(authEvent, sk))))}`;
+    return `Nostr ${base64.encode(new TextEncoder().encode(JSON.stringify(finalizeEvent(authEvent, sk))))}`;
   };
   
   const req = await fetch("https://void.cat/upload", {

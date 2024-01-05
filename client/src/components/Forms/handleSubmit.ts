@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { generatePrivateKey, getPublicKey, finishEvent, UnsignedEvent } from "nostr-tools";
+import { generateSecretKey, getPublicKey, finalizeEvent, UnsignedEvent } from "nostr-tools";
 import { publish } from "../../utils/relays";
 
 const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: string, deps: any[]) => {
@@ -35,7 +35,7 @@ const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: strin
 
 export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     const [doingWorkProp, setDoingWorkProp] = useState(false);
-    const [sk, setSk] = useState(generatePrivateKey());
+    const [sk, setSk] = useState(generateSecretKey());
     const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
     const powServer = useState(localStorage.getItem('powserver') || '');
     const [unsignedPoWEvent, setUnsignedPoWEvent] = useState<UnsignedEvent>()
@@ -49,9 +49,9 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     useEffect(() => {
         if (unsignedPoWEvent) {
             setDoingWorkProp(false);
-            const signedEvent = finishEvent(unsignedPoWEvent, sk);
+            const signedEvent = finalizeEvent(unsignedPoWEvent, sk);
             publish(signedEvent);
-            setSk(generatePrivateKey())
+            setSk(generateSecretKey())
         } 
     }, [unsignedPoWEvent]);
 

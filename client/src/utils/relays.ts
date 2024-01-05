@@ -1,4 +1,4 @@
-import {Event, Filter, relayInit, Relay, Sub} from 'nostr-tools';
+import {Event, Filter, Relay, Subscription} from 'nostr-tools';
 
 type SubCallback = (
   event: Readonly<Event>,
@@ -11,18 +11,18 @@ type Subscribe = {
   unsub?: boolean;
 };
 
-const subList: Array<Sub> = [];
+const subList: Array<Subscription> = [];
 const currentSubList: Array<Subscribe> = [];
 const relayMap = new Map<string, Relay>();
 
 export const addRelay = async (url: string) => {
-  const relay = relayInit(url);
-  relay.on('connect', () => {
-    console.info(`connected to ${relay.url}`);
-  });
-  relay.on('error', () => {
-    console.warn(`failed to connect to ${relay.url}`);
-  });
+  const relay = await Relay.connect(url);
+  // relay.on('connect', () => {
+  //   console.info(`connected to ${relay.url}`);
+  // });
+  // relay.on('error', () => {
+  //   console.warn(`failed to connect to ${relay.url}`);
+  // });
   try {
     await relay.connect();
     currentSubList.forEach(({cb, filter}) => subscribe(cb, filter, relay));
@@ -32,8 +32,8 @@ export const addRelay = async (url: string) => {
   }
 };
 
-export const unsubscribe = (sub: Sub) => {
-  sub.unsub();
+export const unsubscribe = (sub: Subscription) => {
+  sub.close();
   subList.splice(subList.indexOf(sub), 1);
 };
 
@@ -43,17 +43,18 @@ const subscribe = (
   relay: Relay,
   unsub?: boolean
 ) => {
-  const sub = relay.sub([filter]);
-  subList.push(sub);
-  sub.on('event', (event: Event) => {
-    cb(event, relay.url);
-  });
-  if (unsub) {
-    sub.on('eose', () => {
-      // console.log('eose', relay.url);
-      unsubscribe(sub);
+  const sub = relay.subscribe([filter],
+    {
+      onevent(event) {
+        cb(event, relay.url);
+      },
+      oneose() {
+        if (unsub) {
+        unsubscribe(sub);
+        }
+      }
     });
-  }
+  subList.push(sub);
   return sub;
 };
 
@@ -68,10 +69,6 @@ export const subOnce = (
   const relay = relayMap.get(obj.relay);
   if (relay) {
     const sub = subscribe(obj.cb, obj.filter, relay);
-    sub.on('eose', () => {
-      // console.log('eose', obj.relay);
-      unsubscribe(sub);
-    });
   }
 };
 

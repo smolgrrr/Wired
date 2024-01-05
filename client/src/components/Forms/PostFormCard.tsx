@@ -56,10 +56,13 @@ const NewNoteCard = ({
             } else {
                 unsigned.tags = refEvent.tags
                 unsigned.tags.push(['p', refEvent.pubkey]); 
-                unsigned.tags.push(['e', refEvent.id]); 
-            }
-            if (tagType === 'Quote') {
-                setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
+
+                if (tagType === 'Quote') {
+                    setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
+                    unsigned.tags.push(['q', refEvent.id]); 
+                } else {
+                    unsigned.tags.push(['e', refEvent.id]); 
+                }
             }
         }
 
