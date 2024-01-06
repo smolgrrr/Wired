@@ -1,18 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+
+export const DefaultBoards = [
+    ['Politically Incorrect', 'npub19znf32s8s7qpkpfrck0suyym3m3wtrwpnldj76u0qwjtms3dcftsqs6r87'],
+    ['Bitcoin', 'npub19nrn4l0s39kpwww7pgk9jddj8lzekqxmtrll8r2a57chtq3zx6sq00vetn'],
+    ['Vidya', 'npub19t2dt6deqaleq59fdaq576tnqdzwkyzwptxfa2tck0v66w29xagqe7yqll'],
+    ['Television & Film', 'npub1cpeuaea3cymx42fmmx2ur82t5qnckqv85qy5q2nhzhxwzael5v4sksfe29'],
+    ['Technology', 'npub1qd7pdtkrdgd0239d7jtvjcdjtryy4vn98cnqhzl8pt9pcnt3u2eqll2sdz']
+];
 
 const Boards = () => {
-    const navigate = useNavigate();
-    const addedBoards = JSON.parse(localStorage.getItem('addedBoards') as string) || [];
+    const [addedBoards, setAddedBoards] = useState<string[][]>(JSON.parse(localStorage.getItem('addedBoards') as string) || []);
     const [boardName, setBoardName] = useState('');
     const [boardPubkey, setboardPubkey] = useState('')
 
-    const DefaultBoards = [['bitcoin', 'npub19nrn4l0s39kpwww7pgk9jddj8lzekqxmtrll8r2a57chtq3zx6sq00vetn']];
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        addedBoards.push([boardName, boardPubkey])
-        localStorage.setItem('addedBoards', String(addedBoards));
+        const newBoards = [...addedBoards, [boardName, boardPubkey]];
+        setAddedBoards(newBoards);
+        localStorage.setItem('addedBoards', JSON.stringify(newBoards));
+    };
+
+    const clearBoards = () => {
+        localStorage.setItem('addedBoards', JSON.stringify([]));
+        setAddedBoards([]);
     };
 
     return (
@@ -22,10 +32,10 @@ const Boards = () => {
                 {/* Map over DefaultBoards and addedBoards and display them */}
                 <ul className='py-4'>
                     {DefaultBoards.map((board, index) => (
-                        <li key={index}><a href={`/board/${board[1]}`}>/{board[0]}/</a></li>
+                        <li key={index}><a href={`/board/${board[1]}`} className='hover:underline'>/{board[0]}/</a></li>
                     ))}
-                    {addedBoards.map((board: string, index: number) => (
-                        <li key={index}><a href={`/board/${board[1]}`}>/{board[0]}/</a></li>
+                    {addedBoards.map((board: string[], index: number) => (
+                        <li key={index}><a href={`/board/${board[1]}`} className='hover:underline'>/{board[0]}/</a></li>
                     ))}
                 </ul>
 
@@ -59,6 +69,12 @@ const Boards = () => {
                         type="submit"
                         className="bg-black border text-white font-bold py-2 px-4 rounded">
                         Add Board
+                    </button>
+                    <button
+                        type="button"
+                        onClick={clearBoards}
+                        className="bg-black border text-white font-bold py-2 px-4 rounded mx-4">
+                        Clear
                     </button>
                 </form>
             </div>

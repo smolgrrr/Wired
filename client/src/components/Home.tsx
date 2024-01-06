@@ -39,7 +39,7 @@ const Home = () => {
     .filter((event) =>
       verifyPow(event) >= Number(filterDifficulty) &&
       event.kind !== 0 &&
-      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e"))
+      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e" || tag[0] === "a"))
     )
   
   // Delayed filtering
