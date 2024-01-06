@@ -16,15 +16,10 @@ const currentSubList: Array<Subscribe> = [];
 const relayMap = new Map<string, Relay>();
 
 export const addRelay = async (url: string) => {
-  const relay = await Relay.connect(url);
-  // relay.on('connect', () => {
-  //   console.info(`connected to ${relay.url}`);
-  // });
-  // relay.on('error', () => {
-  //   console.warn(`failed to connect to ${relay.url}`);
-  // });
+  const relay = await Relay.connect(url)
+  console.log(`connected to ${relay.url}`)
   try {
-    await relay.connect();
+    
     currentSubList.forEach(({cb, filter}) => subscribe(cb, filter, relay));
     relayMap.set(url, relay);
   } catch {
@@ -43,18 +38,21 @@ const subscribe = (
   relay: Relay,
   unsub?: boolean
 ) => {
-  const sub = relay.subscribe([filter],
-    {
-      onevent(event) {
-        cb(event, relay.url);
-      },
-      oneose() {
-        if (unsub) {
-        unsubscribe(sub);
-        }
-      }
-    });
+  const sub = relay.subscribe([filter], {
+    onevent(event) {
+      cb(event, relay.url);
+    },
+  });
   subList.push(sub);
+
+  if (unsub) {
+    if (typeof sub.oneose === 'function') {
+      sub.oneose = () => {
+        // console.log('eose', relay.url);
+        unsubscribe(sub);
+      };
+    }
+  }
   return sub;
 };
 
@@ -69,6 +67,10 @@ export const subOnce = (
   const relay = relayMap.get(obj.relay);
   if (relay) {
     const sub = subscribe(obj.cb, obj.filter, relay);
+    sub.oneose = () => {
+      // console.log('eose', relay.url);
+      unsubscribe(sub);
+    };
   }
 };
 
