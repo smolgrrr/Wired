@@ -40,10 +40,6 @@ const Thread = () => {
             // Call your subNote function or do whatever you need to do with id_to_hex
             subNote(hexID, onEvent);
         }
-
-        return () => {
-            // Your cleanup code here
-        };
     }, [id]);  // Empty dependency array means this useEffect runs once when the component mounts
 
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
@@ -112,7 +108,7 @@ const Thread = () => {
 
     const displayedEvents = sortByTime ? eventsSortedByTime : eventsSortedByPow;
 
-    if (!uniqEvents[0]) {
+    if (uniqEvents.length === 0) {
         return (
             <Placeholder />
         );

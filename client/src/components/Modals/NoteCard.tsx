@@ -8,7 +8,6 @@ import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
 import { verifyPow } from "../../utils/mine";
 import { uniqBy } from "../../utils/otherUtils";
-import { useNavigate } from 'react-router-dom';
 
 interface CardProps {
     key?: string | number;
@@ -30,11 +29,10 @@ const PostCard = ({
     const { files } = parseContent(event);
     const icon = getIconFromHash(event.pubkey);
     const metadataParsed = metadata ? getMetadata(metadata) : null;
-    const navigate = useNavigate();
 
     const handleClick = () => {
         if (type !== "OP") {
-            navigate(`/thread/${nip19.noteEncode(event.id)}`);
+            window.location.href = `/thread/${nip19.noteEncode(event.id)}`;
         }
     };
 
