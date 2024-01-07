@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 
 export const DefaultBoards = [
-    ['Politically Incorrect', 'npub19znf32s8s7qpkpfrck0suyym3m3wtrwpnldj76u0qwjtms3dcftsqs6r87'],
-    ['Bitcoin', 'npub19nrn4l0s39kpwww7pgk9jddj8lzekqxmtrll8r2a57chtq3zx6sq00vetn'],
-    ['Vidya', 'npub19t2dt6deqaleq59fdaq576tnqdzwkyzwptxfa2tck0v66w29xagqe7yqll'],
-    ['Television & Film', 'npub1cpeuaea3cymx42fmmx2ur82t5qnckqv85qy5q2nhzhxwzael5v4sksfe29'],
-    ['Technology', 'npub1qd7pdtkrdgd0239d7jtvjcdjtryy4vn98cnqhzl8pt9pcnt3u2eqll2sdz']
+    ['Politically Incorrect', 'npub19znf32s8s7qpkpfrck0suyym3m3wtrwpnldj76u0qwjtms3dcftsqs6r87', 'pol'],
+    ['Bitcoin', 'npub19nrn4l0s39kpwww7pgk9jddj8lzekqxmtrll8r2a57chtq3zx6sq00vetn', 'btc'],
+    ['Vidya', 'npub19t2dt6deqaleq59fdaq576tnqdzwkyzwptxfa2tck0v66w29xagqe7yqll', 'v'],
+    ['Television & Film', 'npub1cpeuaea3cymx42fmmx2ur82t5qnckqv85qy5q2nhzhxwzael5v4sksfe29', 'tv'],
+    ['Technology', 'npub1qd7pdtkrdgd0239d7jtvjcdjtryy4vn98cnqhzl8pt9pcnt3u2eqll2sdz', 'g']
 ];
 
 const Boards = () => {

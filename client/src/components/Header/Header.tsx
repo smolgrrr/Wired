@@ -3,11 +3,12 @@ import {
   BellIcon,
   ArchiveBoxIcon
 } from "@heroicons/react/24/outline";
+import { DefaultBoards } from "../Boards";
 
 export default function Header() {
   return (
-    <header className="mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center h-16">
+    <header className="mx-auto px-4 sm:px-6 lg:px-8 py-2">
+      <div className="flex justify-between items-center">
         <a href="/">
           <div className="flex items-center gap-2">
             <img src="/icon.png" className="h-12" alt="logo" />
@@ -16,6 +17,11 @@ export default function Header() {
             </span>
           </div>
         </a>
+        <div className="hidden md:block">
+          {DefaultBoards.map((board) => (
+                        <a href={`/board/${board[1]}`} className='hover:underline text-neutral-600 text-xs pr-4'>/{board[2]}/</a>
+                    ))}
+      </div>
         <div>
         <a
           href="/boards"
@@ -42,6 +48,11 @@ export default function Header() {
           </button>
         </a>
         </div>
+      </div>
+      <div className="block md:hidden flex justify-center ">
+          {DefaultBoards.map((board) => (
+                        <a href={`/board/${board[1]}`} className='hover:underline text-neutral-600 text-xs pr-4'>/{board[2]}/</a>
+                    ))}
       </div>
     </header>
   );
