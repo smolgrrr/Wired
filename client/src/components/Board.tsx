@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import PostCard from "./Modals/NoteCard";
 import { uniqBy } from "../utils/otherUtils"; // Assume getPow is a correct import now
-import { subBoardFeed } from "../utils/subscriptions";
+import { subBoardFeed, subProfile} from "../utils/subscriptions";
 import { verifyPow } from "../utils/mine";
 import { Event, nip19 } from "nostr-tools";
 import NewNoteCard from "./Forms/PostFormCard";
@@ -26,8 +26,9 @@ const Board = () => {
 
   useEffect(() => {
     const onEvent = (event: Event) => setEvents((prevEvents) => [...prevEvents, event]);
-    console.log(events[events.length])
+    console.log(events)
     const unsubscribe = subBoardFeed(pubkey, onEvent);
+    subProfile(pubkey, onEvent)
 
     return unsubscribe;
   }, [pubkey]);
@@ -57,6 +58,8 @@ const Board = () => {
   .sort((a, b) =>
     sortByTime ? b.created_at - a.created_at : verifyPow(b) - verifyPow(a)
   )
+
+  const pinnedEvents = uniqEvents.filter(event => event.pubkey === pubkey && !event.tags.some((tag) => tag[0] === "e"));
 
   if (delayedSort) {
     sortedEvents = sortedEvents.filter(
@@ -94,6 +97,15 @@ const Board = () => {
       </div>
       <OptionsBar sortByTime={sortByTime} setAnon={setAnon} toggleSort={toggleSort} toggleAnon={toggleAnon} />
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
+        {pinnedEvents.map((event) => (
+          <div className="rounded-lg border border-red-900">
+          <PostCard
+            event={event}
+            metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
+            replyCount={countReplies(event)}
+          />
+          </div>
+        ))}
         {sortedEvents.map((event) => (
           event.kind === 1 ?
             <PostCard

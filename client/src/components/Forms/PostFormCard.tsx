@@ -19,11 +19,6 @@ interface FormProps {
     board?: string;
 }
 
-const tagMapping = {
-    'Reply': ['e', 'p'],
-    'Quote': ['q', 'p']
-};
-
 const NewNoteCard = ({
     refEvent,
     tagType,
@@ -51,19 +46,18 @@ const NewNoteCard = ({
     const [uploadingFile, setUploadingFile] = useState(false);
 
     useEffect(() => {
-        if (refEvent && tagType && unsigned.tags.length === 1) {
+        if (refEvent && tagType) {
+            unsigned.tags = Array.from(new Set(unsigned.tags.concat(refEvent.tags)));
+            unsigned.tags.push(['p', refEvent.pubkey]);
+        
             if (tagType === 'Reply') {
-                unsigned.tags.push(['p', refEvent.pubkey]); 
-                unsigned.tags.push(['e', refEvent.id, 'root']); 
+                unsigned.tags.push(['e', refEvent.id, refEvent.tags.some(tag => tag[0] === 'e') ? 'root' : '']);
             } else {
-                unsigned.tags = refEvent.tags
-                unsigned.tags.push(['p', refEvent.pubkey]); 
-
                 if (tagType === 'Quote') {
                     setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
-                    unsigned.tags.push(['q', refEvent.id]); 
+                    unsigned.tags.push(['q', refEvent.id]);
                 } else {
-                    unsigned.tags.push(['e', refEvent.id]); 
+                    unsigned.tags.push(['e', refEvent.id]);
                 }
             }
         }
