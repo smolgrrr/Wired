@@ -11,25 +11,14 @@ import { useParams } from "react-router-dom";
 
 const DEFAULT_DIFFICULTY = 20;
 
-
-const Board = () => {
-  const { id } = useParams();
-  const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
-  const age = Number(localStorage.getItem("age")) || 24;
-  const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
-  const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
-
-  let decodeResult = nip19.decode(id as string);
-  let pubkey = decodeResult.data as string;
-
-  const [delayedSort, setDelayedSort] = useState(false)
+const useUniqEvents = (pubkey: string) => {
   const [events, setEvents] = useState<Event[]>([]);
+  const age = Number(localStorage.getItem("age")) || 24;
 
   useEffect(() => {
     const onEvent = (event: Event) => setEvents((prevEvents) => [...prevEvents, event]);
     console.log(events)
     const unsubscribe = subBoardFeed(pubkey, onEvent, age);
-    subProfile(pubkey, onEvent)
 
     return unsubscribe;
   }, [pubkey]);
@@ -38,6 +27,22 @@ const Board = () => {
 
   const noteEvents = uniqEvents.filter(event => event.kind === 1 || event.kind === 6);
   const metadataEvents = uniqEvents.filter(event => event.kind === 0);
+  const pinnedEvents = uniqEvents.filter(event => event.pubkey === pubkey && !event.tags.some((tag) => tag[0] === "e"));
+
+  return { pinnedEvents, noteEvents, metadataEvents };
+};
+
+const Board = () => {
+  const { id } = useParams();
+  const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
+  const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
+  const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
+
+  let decodeResult = nip19.decode(id as string);
+  let pubkey = decodeResult.data as string;
+  const {pinnedEvents, noteEvents, metadataEvents } = useUniqEvents(pubkey);
+
+  const [delayedSort, setDelayedSort] = useState(false)
 
   const postEvents: Event[] = noteEvents
     .filter((event) =>
@@ -59,8 +64,6 @@ const Board = () => {
   .sort((a, b) =>
     sortByTime ? b.created_at - a.created_at : verifyPow(b) - verifyPow(a)
   )
-
-  const pinnedEvents = uniqEvents.filter(event => event.pubkey === pubkey && !event.tags.some((tag) => tag[0] === "e"));
 
   if (delayedSort) {
     sortedEvents = sortedEvents.filter(
