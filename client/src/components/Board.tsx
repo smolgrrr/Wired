@@ -15,6 +15,7 @@ const DEFAULT_DIFFICULTY = 20;
 const Board = () => {
   const { id } = useParams();
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
+  const age = Number(localStorage.getItem("age")) || 24;
   const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
   const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
 
@@ -27,7 +28,7 @@ const Board = () => {
   useEffect(() => {
     const onEvent = (event: Event) => setEvents((prevEvents) => [...prevEvents, event]);
     console.log(events)
-    const unsubscribe = subBoardFeed(pubkey, onEvent);
+    const unsubscribe = subBoardFeed(pubkey, onEvent, age);
     subProfile(pubkey, onEvent)
 
     return unsubscribe;

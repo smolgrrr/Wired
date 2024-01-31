@@ -12,10 +12,11 @@ const DEFAULT_DIFFICULTY = 20;
 
 const useUniqEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const age = Number(localStorage.getItem("age")) || 24;
 
   useEffect(() => {
     const onEvent = (event: Event) => setEvents((prevEvents) => [...prevEvents, event]);
-    const unsubscribe = subGlobalFeed(onEvent);
+    const unsubscribe = subGlobalFeed(onEvent, age);
 
     return unsubscribe;
   }, []);

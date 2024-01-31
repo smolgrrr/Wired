@@ -10,6 +10,7 @@ type TestResponse = {
 const Settings = () => {
   const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
+  const [age, setAge] = useState(localStorage.getItem('age') || 24);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [powServer, setPowServer] = useState(localStorage.getItem('powserver') || '');
   const [testDiff, setTestDiff] = useState('21')
@@ -22,11 +23,13 @@ const Settings = () => {
     localStorage.setItem('filterDifficulty', String(filterDifficulty));
     localStorage.setItem('difficulty', String(difficulty));
     localStorage.setItem('powserver', String(powServer));
+    localStorage.setItem('age', String(age));
 
     const eventData = {
       difficulty: String(difficulty),
       filterDifficulty: String(filterDifficulty),
       powServer: String(powServer),
+      age: String(age),
     };
     const event = new CustomEvent('settingsChanged', { detail: eventData });
     window.dispatchEvent(event);
@@ -68,7 +71,7 @@ const Settings = () => {
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
             <label className="block text-xs mb-2" htmlFor="filterDifficulty">
               <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                Proof-of-Work Difficulty Filter {'('}<CpuChipIcon className="h-4 w-4" />{'>'}X to appear on feed{')'}:
+                Proof-of-Work Filter:
               </span>
             </label>
             <input
@@ -79,7 +82,6 @@ const Settings = () => {
               className="w-full px-3 py-2 border rounded-md bg-black"
             />
           </div>
-
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
             <label className="block text-xs mb-2" htmlFor="difficulty">
               <span style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -91,6 +93,20 @@ const Settings = () => {
               type="number"
               value={difficulty}
               onChange={e => setDifficulty(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md bg-black"
+            />
+          </div>
+          <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
+            <label className="block text-xs mb-2" htmlFor="difficulty">
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                Thread Age Limit (hrs):
+              </span>
+            </label>
+            <input
+              id="age"
+              type="number"
+              value={age}
+              onChange={e => setAge(e.target.value)}
               className="w-full px-3 py-2 border rounded-md bg-black"
             />
           </div>

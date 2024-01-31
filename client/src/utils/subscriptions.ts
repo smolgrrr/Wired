@@ -7,7 +7,7 @@ type SubCallback = (
 ) => void;
 
 /** subscribe to global feed */
-export const subGlobalFeed = (onEvent: SubCallback) => {
+export const subGlobalFeed = (onEvent: SubCallback, age: number) => {
   console.info('subscribe to global feed');
   unsubAll();
   const now = Math.floor(Date.now() * 0.001);
@@ -23,7 +23,7 @@ export const subGlobalFeed = (onEvent: SubCallback) => {
     filter: {
       ...(prefix && { ids: ['0'.repeat(prefix)] }),
       kinds: [1, 6],
-      since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
+      since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
       limit: 500,
     },
     unsub: true
@@ -266,6 +266,7 @@ export const subNotifications = (
 export const subBoardFeed = (
   board: string,
   onEvent: SubCallback,
+  age: number
   ) => {
   console.info('subscribe to board');
   unsubAll();
@@ -283,7 +284,7 @@ export const subBoardFeed = (
       ...(prefix && { ids: ['0'.repeat(prefix)] }),
       "#d": [board],
       kinds: [1, 6],
-      since: Math.floor((Date.now() * 0.001) - (24 * 60 * 60)),
+      since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
       limit: 500,
     },
     unsub: true
