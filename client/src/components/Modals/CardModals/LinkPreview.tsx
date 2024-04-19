@@ -4,19 +4,31 @@ import { useState, useEffect } from 'react';
 
 const LinkModal = ({ url }: { url: string }) => {
   const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWithProxy = (url: string) => {
+    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    return getLinkPreview(proxyUrl + url)
+      .then((preview) => setLinkPreview(preview as LinkPreview))
+      .catch((error) => {
+        console.error("Error fetching URL with proxy:", error);
+        setError('Unable to fetch URL with proxy.');
+      });
+  };
 
   useEffect(() => {
-    const proxyUrl = 'https://api.allorigins.win/raw?url=';
     getLinkPreview(url)
       .then((preview) => setLinkPreview(preview as LinkPreview))
       .catch(error => {
         console.error("Error fetching original URL, trying with proxy:", error);
-        return getLinkPreview(proxyUrl + url);
-      })
-      .then((preview) => setLinkPreview(preview as LinkPreview))
-      .catch((error) => console.error("Error fetching URL with proxy:", error));
-      
+        setError('Error fetching original URL. Trying with proxy...');
+        return fetchWithProxy(url);
+      });
   }, [url]);
+
+  if (error) {
+    return <div>Error: {error}</div>; // Display a user-friendly error message
+  }
 
   if (!linkPreview) {
     return <a className='hover:underline text-xs text-neutral-500' href={url}>{url}</a>; // or some loading state
