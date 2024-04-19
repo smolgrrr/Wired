@@ -8,7 +8,7 @@ type TestResponse = {
 };
 
 const Settings = () => {
-  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 20);
+  const [filterDifficulty, setFilterDifficulty] = useState(localStorage.getItem('filterDifficulty') || 21);
   const [difficulty, setDifficulty] = useState(localStorage.getItem('difficulty') || 21);
   const [age, setAge] = useState(localStorage.getItem('age') || 24);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);

@@ -3,7 +3,6 @@ import {
   BellIcon,
   ArchiveBoxIcon
 } from "@heroicons/react/24/outline";
-import { DefaultBoards } from "../Boards";
 
 export default function Header() {
   return (
@@ -17,11 +16,6 @@ export default function Header() {
             </span>
           </div>
         </a>
-        <div className="hidden md:block">
-          {DefaultBoards.map((board) => (
-                        <a href={`/board/${board[1]}`} className='hover:underline text-neutral-600 text-xs pr-4'>/{board[2]}/</a>
-                    ))}
-      </div>
         <div>
         <a
           href="/boards"
@@ -48,11 +42,6 @@ export default function Header() {
           </button>
         </a>
         </div>
-      </div>
-      <div className="block md:hidden flex justify-center ">
-          {DefaultBoards.map((board) => (
-                        <a href={`/board/${board[1]}`} className='hover:underline text-neutral-600 text-xs pr-4'>/{board[2]}/</a>
-                    ))}
       </div>
     </header>
   );

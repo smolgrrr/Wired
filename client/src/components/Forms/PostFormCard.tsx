@@ -16,13 +16,11 @@ import "./Form.css";
 interface FormProps {
     refEvent?: NostrEvent;
     tagType?: 'Reply' | 'Quote' | '';
-    board?: string;
 }
 
 const NewNoteCard = ({
     refEvent,
-    tagType,
-    board
+    tagType
 }: FormProps) => {
     const ref = useRef<HTMLDivElement | null>(null);
     const [comment, setComment] = useState("");
@@ -60,10 +58,6 @@ const NewNoteCard = ({
                     unsigned.tags.push(['e', refEvent.id]);
                 }
             }
-        }
-
-        if (board) {
-            unsigned.tags.push(['d', nip19.decode(board).data as string]);
         }
 
         const handleDifficultyChange = (event: Event) => {
