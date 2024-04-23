@@ -32,7 +32,7 @@ const useUniqEvents = () => {
 const Home = () => {
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
   const [sortByTime, setSortByTime] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
-  const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'false');
+  const [setAnon, setSetAnon] = useState<boolean>(localStorage.getItem('anonMode') !== 'true');
   const {noteEvents, metadataEvents } = useUniqEvents();
   const [delayedSort, setDelayedSort] = useState(false)
 
