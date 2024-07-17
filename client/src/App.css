@@ -1,3 +1,11 @@
+.blur {
+  filter: blur(12px);
+}
+
+.no-blur {
+  filter: none;
+}
+
 .App {
   text-align: center;
 }

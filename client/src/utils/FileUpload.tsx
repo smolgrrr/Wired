@@ -55,9 +55,17 @@ export const renderMedia = (files: string[]) => {
   const gridTemplateColumns = files.length > 1 ? 'repeat(2, 1fr)' : 'repeat(1, 1fr)';
   const gridTemplateRows = files.length > 2 ? 'repeat(2, 1fr)' : 'repeat(1, 1fr)';
 
+  // Function to toggle blur on click
+  const toggleBlur = (event: React.MouseEvent<HTMLImageElement>) => {
+    event.currentTarget.classList.toggle('no-blur');
+  };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns, gridTemplateRows, gap: '2px' }}>
       {files.map((file, index) => {
+        // Check if the file is from allowed domains
+        const isFromAllowedDomain = file.includes("i.nostr.build") || file.includes("void.cat");
+
         if (file && (file.endsWith(".mp4") || file.endsWith(".webm"))) {
           return (
             <video
@@ -79,8 +87,9 @@ export const renderMedia = (files: string[]) => {
               key={index}
               alt="Invalid thread"
               loading="lazy"
-              className="thumb mt-2 rounded-md w-full"
+              className={`thumb mt-2 rounded-md w-full ${!isFromAllowedDomain ? "blur" : ""}`}
               src={file}
+              onClick={isFromAllowedDomain ? undefined : toggleBlur} // Only add onClick if blur is applied
             />
           );
         }
