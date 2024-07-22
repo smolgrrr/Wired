@@ -6,6 +6,7 @@ export interface UploadResult {
   error?: string;
 }
 
+const whitelistImageURL = ["nostr.build", "void.cat", "blossom.oxtr"];
 /**
  * Upload file to void.cat
  * https://void.cat/swagger/index.html
@@ -64,7 +65,7 @@ export const renderMedia = (files: string[]) => {
     <div style={{ display: 'grid', gridTemplateColumns, gridTemplateRows, gap: '2px' }}>
       {files.map((file, index) => {
         // Check if the file is from allowed domains
-        const isFromAllowedDomain = file.includes("i.nostr.build") || file.includes("void.cat");
+        const isFromAllowedDomain = whitelistImageURL.some(domain => file.includes(domain));
 
         if (file && (file.endsWith(".mp4") || file.endsWith(".webm"))) {
           return (
