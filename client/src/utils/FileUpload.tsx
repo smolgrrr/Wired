@@ -19,26 +19,28 @@ export default async function FileUpload(file: File): Promise<UploadResult> {
     const authEvent = {
       kind: 27235,
       tags: [
-        ["u", "https://void.cat/upload"],
+        ["u", "https://files.v0l.io/upload"],
         ["method", "POST"]
       ],
       content: "",
       created_at: Math.floor(Date.now() / 1000),
       pubkey: getPublicKey(sk),
     }
-    return `Nostr ${base64.encode(new TextEncoder().encode(JSON.stringify(finalizeEvent(authEvent, sk))))}`;
+    const authString = JSON.stringify(finalizeEvent(authEvent, sk));
+    const authBase64 = base64.encode(new TextEncoder().encode(authString));
+    return `Nostr ${authBase64}`;
   };
   
-  const req = await fetch("https://void.cat/upload", {
+  const req = await fetch("https://files.v0l.io/upload", {
     body: buf,
     method: "POST",
     headers: {
       "Content-Type": "application/octet-stream",
-      "V-Content-Type": file.type, // Extracting the mime type
-      "V-Filename": file.name, // Extracting the filename
+      "V-Content-Type": encodeURIComponent(file.type),
+      "V-Filename": encodeURIComponent(file.name),
       "V-Description": "Upload from https://tao-green.vercel.app/",
-      "V-Strip-Metadata": "true", // Here's the new header
-      "authorization": await auth()
+      "V-Strip-Metadata": "true",
+      "authorization": await auth() // Use the encoded authorization header
     },
   });
   if (req.ok) {
