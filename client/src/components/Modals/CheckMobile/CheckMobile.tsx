@@ -15,10 +15,14 @@ const AddToHomeScreenPrompt: React.FC = () => {
 
     useEffect(() => {
         const checkPWA = () => {
-            return (
-                !window.navigator.standalone ||
-                !window.matchMedia('(display-mode: standalone)').matches
-            );
+            // Check if the app is running as a PWA on Android
+            const isAndroidPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                window.matchMedia('(display-mode: minimal-ui)').matches;
+
+            // Check if the app is running as a PWA on other platforms
+            const isOtherPWA = window.navigator.standalone;
+
+            return !isAndroidPWA && !isOtherPWA;
         };
 
         // Function to detect mobile browser
