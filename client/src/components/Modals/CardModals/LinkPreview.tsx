@@ -27,7 +27,7 @@ const LinkModal = ({ url }: { url: string }) => {
   }, [url]);
 
   if (error) {
-    return <div>Error: {error}</div>; // Display a user-friendly error message
+    return <a className='hover:underline text-xs text-neutral-500' href={url}>{url}</a>; // or some loading state
   }
 
   if (!linkPreview) {
