@@ -11,7 +11,7 @@ type Subscribe = {
   unsub?: boolean;
 };
 
-const blacklistUrl = ["lain.la", "casualcrypto.date", "files.catbox.moe", "m.primal.net", "i.ibb.co"];
+const blacklistUrl = ["lain.la", "casualcrypto.date", "files.catbox.moe", "i.ibb.co", "matrix"];
 
 const subList: Array<Subscription> = [];
 const currentSubList: Array<Subscribe> = [];

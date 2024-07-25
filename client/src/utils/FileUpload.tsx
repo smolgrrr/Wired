@@ -13,16 +13,21 @@ const whitelistImageURL = ["nostr.build", "void.cat", "blossom.oxtr"];
  */
 
 export default async function FileUpload(file: File): Promise<UploadResult> {
-  const buf = await file.arrayBuffer();
   const sk = generateSecretKey();
+  const fileBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', fileBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
   const auth = async () => {
     const authEvent = {
-      kind: 27235,
+      kind: 24242,
+      content: "Upload " + file.name + " from getwired.app",
       tags: [
-        ["u", "https://files.v0l.io/upload"],
-        ["method", "POST"]
+        ["t", "upload"],
+        ["x", hashHex],
+        ["expiration", (Math.floor(Date.now() / 1000) + 24 * 60 * 60).toString()]
       ],
-      content: "",
       created_at: Math.floor(Date.now() / 1000),
       pubkey: getPublicKey(sk),
     }
@@ -31,22 +36,16 @@ export default async function FileUpload(file: File): Promise<UploadResult> {
     return `Nostr ${authBase64}`;
   };
   
-  const req = await fetch("https://files.v0l.io/upload", {
-    body: buf,
-    method: "POST",
+  const req = await fetch("https://blossom.oxtr.dev/upload", {
+    body: file,
+    method: "PUT",
     headers: {
-      "Content-Type": "application/octet-stream",
-      "V-Content-Type": encodeURIComponent(file.type),
-      "V-Filename": encodeURIComponent(file.name),
-      "V-Description": "Upload from https://tao-green.vercel.app/",
-      "V-Strip-Metadata": "true",
       "authorization": await auth() // Use the encoded authorization header
     },
   });
   if (req.ok) {
-    let rsp: VoidUploadResponse = await req.json();
     const fileExtension = file.name.split(".").pop(); // Extracting the file extension
-    const resultUrl = `https://void.cat/d/${rsp.file?.id}.${fileExtension}`;
+    const resultUrl = `https://blossom.oxtr.dev/${hashHex}.${fileExtension}`;
     return { url: resultUrl };
   }
   return {
@@ -127,29 +126,3 @@ export interface UploadResult {
   url?: string;
   error?: string;
 }
-
-export type VoidUploadResponse = {
-  ok: boolean;
-  file?: VoidFile;
-  errorMessage?: string;
-};
-
-export type VoidFile = {
-  id: string;
-  meta?: VoidFileMeta;
-};
-
-export type VoidFileMeta = {
-  version: number;
-  id: string;
-  name?: string;
-  size: number;
-  uploaded: Date;
-  description?: string;
-  mimeType?: string;
-  digest?: string;
-  url?: string;
-  expires?: Date;
-  storage?: string;
-  encryptionParams?: string;
-};
