@@ -30,7 +30,6 @@ const QuoteEmbed = ({
         <div className="flex flex-col break-words">
           <ContentPreview key={event.id} eventdata={event} />
         </div>
-        {renderMedia(files)}
         <div className="flex justify-between items-center">
             {metadataParsed ?
               <img

@@ -7,12 +7,12 @@ function extractMediaUrls(content: string): string[] {
 }
 
 export function parseContent(event: Event) {
-  const files = extractMediaUrls(event.content);
+  const files: string[] = []; // extractMediaUrls(event.content);
   let contentWithoutFiles = event.content;
 
-  files.forEach(file => {
-      contentWithoutFiles = contentWithoutFiles.replace(file, '');
-  });
+  // files.forEach(file => {
+  //     contentWithoutFiles = contentWithoutFiles.replace(file, '');
+  // });
 
   return {
       comment: contentWithoutFiles.trim(),

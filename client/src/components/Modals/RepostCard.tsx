@@ -56,7 +56,6 @@ const RepostCard = ({
                             <div className={`flex flex-col break-words hover:cursor-pointer`} onClick={handleClick}>
                                 <ContentPreview key={repostedEvent.id} eventdata={repostedEvent} />
                             </div>
-                            {renderMedia(files)}
                             <div className={`flex justify-between items-center hover:cursor-pointer`} onClick={handleClick}>
                                 {metadata ? 
                                     <img
