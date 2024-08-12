@@ -110,7 +110,11 @@ const Thread = () => {
 
     if (uniqEvents.length === 0) {
         return (
-            <Placeholder />
+            <>
+                <Placeholder />
+                <div className="col-span-full h-0.5 bg-neutral-900"/> {/* This is the white line separator */}
+                <OptionsBar sortByTime={sortByTime} toggleSort={toggleSort} />
+            </>
         );
     }
     return (

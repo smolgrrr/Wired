@@ -163,7 +163,7 @@ const NewNoteCard = ({
                             <CpuChipIcon className="h-4 w-4" />
                         </div>
                         <p className="text-xs font-medium text-neutral-400">
-                            {difficulty} PoW
+                            {difficulty} Work
                         </p>
                     </div>
                     <div>
