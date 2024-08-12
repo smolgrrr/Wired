@@ -180,38 +180,6 @@ const NewNoteCard = ({
                                 )}
                                 <PlusCircleIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji} />
                             </div>
-                            <div className="flex items-center">
-                                <ServerIcon
-                                    className="h-4 w-4 text-neutral-400 cursor-pointer"
-                                    onClick={() => document.getElementById("file_input")?.click()}
-                                />
-                                <input
-                                    type="file"
-                                    name="file_input"
-                                    id="file_input"
-                                    style={{ display: "none" }}
-                                    onChange={async (e) => {
-                                        const file_input = e.target.files?.[0];
-                                        if (file_input) {
-                                            // Check if file size is greater than 2.5MB
-                                            if (file_input.size > 2.5 * 1024 * 1024) {
-                                                setFileSizeError(true);
-                                                return;
-                                            }
-                                            setUploadingFile(true);
-                                            const attachedFile = await attachFile(file_input);
-                                            setFile(attachedFile);
-                                            setUploadingFile(false);
-                                            setFileSizeError(false);
-                                        }
-                                    }}
-                                />
-                                {uploadingFile ? (
-                                    <div className="flex animate-spin text-sm text-gray-300">
-                                        <ArrowPathIcon className="h-4 w-4 ml-auto" />
-                                    </div>
-                                ) : null}
-                            </div>
                             <button
                                 type="submit"
                                 className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'cursor-not-allowed' : ''}`}

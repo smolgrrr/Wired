@@ -11,8 +11,6 @@ type Subscribe = {
   unsub?: boolean;
 };
 
-const blacklistUrl = ["lain.la", "casualcrypto.date", "files.catbox.moe", "i.ibb.co", "matrix", "dump.li", "files.v0l.io"];
-
 const subList: Array<Subscription> = [];
 const currentSubList: Array<Subscribe> = [];
 const relayMap = new Map<string, Relay>();
@@ -42,9 +40,7 @@ const subscribe = (
 ) => {
   const sub = relay.subscribe([filter], {
     onevent(event) {
-      if (!blacklistUrl.some(blacklistedUrl => event.content.includes(blacklistedUrl))) {
-        cb(event, relay.url);
-      }
+      cb(event, relay.url);
     },
   });
   subList.push(sub);
