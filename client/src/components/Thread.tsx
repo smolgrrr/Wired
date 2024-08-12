@@ -25,6 +25,10 @@ const Thread = () => {
     const [preOPEvents, setPreOPEvents] = useState(['']);
     const [sortByTime, setSortByTime] = useState(true);
     const filterDifficulty = useState(localStorage.getItem("filterDifficulty") || "20");
+        // Load cached metadataEvents from localStorage
+    const [cachedMetadataEvents, setCachedMetadataEvents] = useState<Event[]>(
+        JSON.parse(localStorage.getItem("cachedMetadataEvents") || "[]")
+    );
 
     let decodeResult = nip19.decode(id as string);
     let hexID = decodeResult.data as string;
@@ -32,6 +36,27 @@ const Thread = () => {
     // Define your callback function for subGlobalFeed
     const onEvent = (event: Event, relay: string) => {
         setEvents((prevEvents) => [...prevEvents, event]);
+
+        // If the new event is a metadata event, add it to the cached metadata events
+        if (event.kind === 0) {
+            setCachedMetadataEvents((prevMetadataEvents) => {
+            // Check if the event already exists in the cached metadata events
+            const existingEvent = prevMetadataEvents.find((e) => e.id === event.id || e.pubkey === event.pubkey)
+            if (!existingEvent) {
+                // If the event doesn't exist, add it to the cached metadata events
+                return [...prevMetadataEvents, event];
+            } else if (existingEvent && existingEvent.created_at < event.created_at) {
+                // Remove any existing metadata event with the same pubkey and id
+                const updatedMetadataEvents = prevMetadataEvents.filter(
+                (e) => e.id !== existingEvent.id
+                );
+                // Add the new metadata event
+                return [...updatedMetadataEvents, event];
+            }
+            // If the event already exists, return the previous cached metadata events
+            return prevMetadataEvents;
+            });
+        }
     };
 
     useEffect(() => {
@@ -42,7 +67,13 @@ const Thread = () => {
         }
     }, [id]);  // Empty dependency array means this useEffect runs once when the component mounts
 
+    // Save the cached metadataEvents to localStorage
+    useEffect(() => {
+        localStorage.setItem("cachedMetadataEvents", JSON.stringify(cachedMetadataEvents));
+    }, [cachedMetadataEvents]);
+
     const uniqEvents = events.length > 0 ? uniqBy(events, "id") : [];
+    const metadataEvents = [...cachedMetadataEvents, ...uniqEvents.filter(event => event.kind === 0)];
 
     useEffect(() => {
         if (!hasRun && events.length > 0) {
@@ -63,14 +94,6 @@ const Thread = () => {
             }
         }
     }, [uniqEvents, hasRun]);
-
-    const getMetadataEvent = (event: Event) => {
-        const metadataEvent = uniqEvents.find(e => e.pubkey === event.pubkey && e.kind === 0);
-        if (metadataEvent) {
-            return metadataEvent;
-        }
-        return null;
-    }
 
     const countReplies = (event: Event) => {
         return uniqEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id)).length;
@@ -124,9 +147,9 @@ const Thread = () => {
                     {earlierEvents
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                            <PostCard event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} />
+                            <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replyCount={countReplies(event)} />
                         ))}
-                    {OPEvent && <PostCard event={OPEvent} metadata={getMetadataEvent(OPEvent)} replyCount={countReplies(OPEvent)} type={'OP'}/>}
+                    {OPEvent && <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replyCount={countReplies(OPEvent)} type={'OP'}/>}
                 </div>
                 <div className="col-span-full flex justify-center space-x-16 pb-4">
                     <DocumentTextIcon
@@ -175,7 +198,7 @@ const Thread = () => {
                 <OptionsBar sortByTime={sortByTime} toggleSort={toggleSort} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     {displayedEvents.map((event, index) => (
-                        <PostCard key={index} event={event} metadata={getMetadataEvent(event)} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
+                        <PostCard key={index} event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
                     ))}
                 </div>
             </main>

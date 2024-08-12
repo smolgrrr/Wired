@@ -62,6 +62,11 @@ const RepostCard = ({
         subNoteOnce(repostedEvent.id, onEvent);
     }, [repostedEvent.id]); 
 
+    // Save the cached metadataEvents to localStorage
+    useEffect(() => {
+        localStorage.setItem("cachedMetadataEvents", JSON.stringify(cachedMetadataEvents));
+    }, [cachedMetadataEvents]);
+
     const handleClick = () => {
         navigate(`/thread/${nip19.noteEncode(repostedEvent.id)}`);
     };
