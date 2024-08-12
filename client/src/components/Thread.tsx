@@ -4,7 +4,7 @@ import { Event, nip19 } from "nostr-tools"
 import { subNote, subNotesOnce } from '../utils/subscriptions';
 import { useEffect } from 'react';
 import { uniqBy } from '../utils/otherUtils';
-import { DocumentTextIcon, FolderPlusIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, FolderPlusIcon, DocumentDuplicateIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { getPow } from '../utils/mine';
 import PostCard from './Modals/NoteCard';
 import Placeholder from './Modals/Placeholder';
@@ -124,7 +124,7 @@ const Thread = () => {
                         ))}
                     {OPEvent && <PostCard event={OPEvent} metadata={getMetadataEvent(OPEvent)} replyCount={countReplies(OPEvent)} type={'OP'}/>}
                 </div>
-                <div className="col-span-full flex justify-center space-x-36 pb-4">
+                <div className="col-span-full flex justify-center space-x-16 pb-4">
                     <DocumentTextIcon
                         className="h-5 w-5 text-gray-200 cursor-pointer"
                         onClick={() => {
@@ -148,6 +148,11 @@ const Thread = () => {
                             setShowRepost(false)
                         }}
                     />
+                    <a href={`nostr:${id}`} target="_blank" rel="noopener noreferrer">
+                        <ArrowTopRightOnSquareIcon
+                            className="h-5 w-5 text-gray-200 cursor-pointer"
+                        />
+                    </a>
                 </div>
                 {(showForm && postType) && 
                 <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">

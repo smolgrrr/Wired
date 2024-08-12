@@ -85,7 +85,7 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
           {isExpanded ? "...Read less" : "...Read more"}
         </button>
       )}
-      {/* {url !== "" && <LinkModal key={key} url={url} />} */}
+      {url !== "" && <LinkModal key={key} url={url} />}
       {quoteEvents[0] && quoteEvents.length > 0 && (
         <a href={`/thread/${nip19.noteEncode(quoteEvents[0].id)}`}>
           <QuoteEmbed

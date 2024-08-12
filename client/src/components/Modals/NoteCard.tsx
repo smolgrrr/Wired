@@ -1,10 +1,10 @@
 import CardContainer from "./CardContainer";
 import { FolderIcon, CpuChipIcon } from "@heroicons/react/24/outline";
-import { parseContent } from "../../utils/content";
+// import { parseContent } from "../../utils/content";
 import { Event, nip19 } from "nostr-tools";
 import { getMetadata } from "../../utils/otherUtils";
 import ContentPreview from "./CardModals/TextModal";
-import { renderMedia } from "../../utils/FileUpload";
+// import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
 import { verifyPow } from "../../utils/mine";
 import { uniqBy } from "../../utils/otherUtils";
@@ -26,7 +26,7 @@ const PostCard = ({
     repliedTo,
     type
 }: CardProps) => {
-    const { files } = parseContent(event);
+    // const { files } = parseContent(event);
     const icon = getIconFromHash(event.pubkey);
     const metadataParsed = metadata ? getMetadata(metadata) : null;
 

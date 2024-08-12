@@ -1,10 +1,10 @@
-import CardContainer from "./CardContainer";
-import { CpuChipIcon, ArrowPathRoundedSquareIcon } from "@heroicons/react/24/outline";
-import { parseContent } from "../../utils/content";
-import { Event as NostrEvent, nip19 } from "nostr-tools";
+// import CardContainer from "./CardContainer";
+import { CpuChipIcon } from "@heroicons/react/24/outline";
+// import { parseContent } from "../../utils/content";
+import { Event, nip19 } from "nostr-tools";
 import { getMetadata, Metadata } from "../../utils/otherUtils";
 import ContentPreview from "./CardModals/TextModal";
-import { renderMedia } from "../../utils/FileUpload";
+// import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
 import { verifyPow } from "../../utils/mine";
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 
 interface RepostProps {
     key?: string | number;
-    event: NostrEvent;
+    event: Event;
 }
 
 const RepostCard = ({
@@ -21,15 +21,40 @@ const RepostCard = ({
     event
 }: RepostProps) => {
     const repostedEvent = JSON.parse(event.content);
-    const { files } = parseContent(repostedEvent);
+    // const { files } = parseContent(repostedEvent);
     const icon = getIconFromHash(event.pubkey);
     const navigate = useNavigate();
+    const [cachedMetadataEvents, setCachedMetadataEvents] = useState<Event[]>(
+        JSON.parse(localStorage.getItem("cachedMetadataEvents") || "[]")
+      ); 
     const [metadata, setMetadata] = useState<Metadata>()
 
     // Define your callback function for subGlobalFeed
-    const onEvent = (event: NostrEvent, relay: string) => {
-        if (event.kind === 0 && event.pubkey === repostedEvent.pubkey && metadata == null) {
+    const onEvent = (event: Event, relay: string) => {
+        const existingEvent = cachedMetadataEvents.find((e) => e.pubkey === event.pubkey)
+        if (existingEvent) {
+            setMetadata(getMetadata(existingEvent))
+        }
+        else if (!existingEvent && event.kind === 0 && event.pubkey === repostedEvent.pubkey && metadata == null) {
             setMetadata(getMetadata(event))
+
+            setCachedMetadataEvents((prevMetadataEvents) => {
+                // Check if the event already exists in the cached metadata events
+                const existingEvent = prevMetadataEvents.find((e) => e.id === event.id || e.pubkey === event.pubkey)
+                if (!existingEvent) {
+                  // If the event doesn't exist, add it to the cached metadata events
+                  return [...prevMetadataEvents, event];
+                } else if (existingEvent && existingEvent.created_at < event.created_at) {
+                  // Remove any existing metadata event with the same pubkey and id
+                  const updatedMetadataEvents = prevMetadataEvents.filter(
+                    (e) => e.id !== existingEvent.id
+                  );
+                  // Add the new metadata event
+                  return [...updatedMetadataEvents, event];
+                }
+                // If the event already exists, return the previous cached metadata events
+                return prevMetadataEvents;
+              });
         }
     };
 

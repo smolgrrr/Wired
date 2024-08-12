@@ -30,7 +30,7 @@ const OptionsBar: React.FC<OptionsBarProps> = ({ sortByTime, setAnon, toggleSort
                         <div className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${sortByTime ? 'transform translate-x-full bg-blue-400' : ''}`} ></div>
                     </div>
                     <div className={`ml-2 text-neutral-500 text-sm ${sortByTime ? 'text-neutral-500' : ''}`}>
-                        {sortByTime ? 'Time' : 'PoW'}
+                        {sortByTime ? 'PoW' : 'Time'}
                     </div>
                 </label>}
                 {toggleAnon && <label htmlFor="toggleB" className="flex items-center cursor-pointer ml-4"> {/* Add margin-left here */}
