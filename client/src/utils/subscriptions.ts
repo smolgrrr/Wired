@@ -280,3 +280,82 @@ export const subProfile = (
     unsub: true,
   });
 };
+
+/** subscribe to global feed */
+export const subHashtagFeed = (
+  hashtag: string,
+  onEvent: SubCallback,
+  age: number
+  ) => {
+    console.info('subscribe to hashtag feed');
+    unsubAll();
+    const now = Math.floor(Date.now() * 0.001);
+    const pubkeys = new Set<string>();
+    const notes = new Set<string>();
+    sub({ // get past events
+      cb: (evt, relay) => {
+        pubkeys.add(evt.pubkey);
+        notes.add(evt.id);
+        onEvent(evt, relay);
+      },
+      filter: {
+        "#t": [hashtag],
+        kinds: [1, 6],
+        since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
+        limit: 50,
+      },
+      unsub: true
+    });
+  
+    setTimeout(() => {
+      // get profile info
+      sub({
+        cb: onEvent,
+        filter: {
+          authors: Array.from(pubkeys),
+          kinds: [0],
+          limit: pubkeys.size,
+        },
+        unsub: true,
+      });
+      pubkeys.clear();
+  
+      sub({
+        cb: onEvent,
+        filter: {
+          '#e': Array.from(notes),
+          kinds: [1],
+        },
+        unsub: true,
+      });
+  
+      notes.clear();
+    }, 2000);
+  
+    // subscribe to future notes, reactions and profile updates
+    sub({
+      cb: (evt, relay) => {
+        onEvent(evt, relay);
+        if (
+          evt.kind !== 1
+          || pubkeys.has(evt.pubkey)
+        ) {
+          return;
+        }
+        subOnce({ // get profile data
+          relay,
+          cb: onEvent,
+          filter: {
+            authors: [evt.pubkey],
+            kinds: [0],
+            limit: 1,
+          }
+        });
+      },
+      filter: {
+        "#t": [hashtag],
+        kinds: [1],
+        since: now,
+      },
+    });
+};

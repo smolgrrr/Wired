@@ -16,11 +16,13 @@ import "./Form.css";
 interface FormProps {
     refEvent?: NostrEvent;
     tagType?: 'Reply' | 'Quote' | '';
+    hashtag?: string;
 }
 
 const NewNoteCard = ({
     refEvent,
-    tagType
+    tagType, 
+    hashtag,
 }: FormProps) => {
     const ref = useRef<HTMLDivElement | null>(null);
     const [comment, setComment] = useState("");
@@ -44,6 +46,10 @@ const NewNoteCard = ({
     const [uploadingFile, setUploadingFile] = useState(false);
 
     useEffect(() => {
+        if (hashtag) {
+            unsigned.tags.push(['t', hashtag as string]);
+        }
+
         if (refEvent && tagType) {
             unsigned.tags = Array.from(new Set(unsigned.tags.concat(refEvent.tags)));
             unsigned.tags.push(['p', refEvent.pubkey]);
@@ -197,8 +203,8 @@ const NewNoteCard = ({
             {doingWorkProp ? (
                 <div className="flex animate-pulse text-sm text-gray-300">
                     <CpuChipIcon className="h-4 w-4 ml-auto" />
-                    <span>Generating Proof-of-Work.</span>
-                    {doingWorkProgress && <span>Current iteration {doingWorkProgress}</span>}
+                    <span>Doing Work:</span>
+                    {doingWorkProgress && <span>{doingWorkProgress} hashes</span>}
                 </div>
             ) : null}
             <div id="postFormError" className="text-red-500" />

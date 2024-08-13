@@ -74,8 +74,8 @@ const RepostNote = ({
             {doingWorkProp ? (
                 <div className="flex animate-pulse text-sm text-gray-300">
                     <CpuChipIcon className="h-4 w-4 ml-auto" />
-                    <span>Generating Proof-of-Work.</span>
-                    {doingWorkProgress && <span>Current iteration {doingWorkProgress}</span>}
+                    <span>Doing Work:</span>
+                    {doingWorkProgress && <span>{doingWorkProgress} hashes</span>}
                 </div>
             ) : null}
             <div id="postFormError" className="text-red-500" />
