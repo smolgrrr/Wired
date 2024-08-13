@@ -3,17 +3,23 @@ import {
   BellIcon,
   HashtagIcon
 } from "@heroicons/react/24/outline";
+import { useLocation } from "react-router-dom";
 
 export default function Header() {
+  const location = useLocation();
+  const pathParts = location.pathname.split('/');
+  const secondLastPart = pathParts[pathParts.length - 2];
+  const lastPathPart = secondLastPart === "thread" ? "/thread" : "/" + pathParts[pathParts.length - 1];
+
   return (
     <header className="mx-auto px-4 sm:px-6 lg:px-8 py-2">
       <div className="flex justify-between items-center">
         <a href="/">
           <div className="flex items-center gap-2">
             <img src="/icon.png" className="h-12" alt="logo" />
-            <span className="font-semibold text-white">
-            {"~\\WIRED>"}
-            </span>
+              <span className="font-semibold text-white">
+                {`~/WIRED${lastPathPart}>`}
+              </span>
           </div>
         </a>
         <div>
