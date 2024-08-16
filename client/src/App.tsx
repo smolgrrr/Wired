@@ -1,13 +1,13 @@
 import "./styles/App.css";
-import Home from "./Components/Routes/Home";
-import Settings from "./Components/Routes/Settings";
+import Home from "./components/routes/Home";
+import Settings from "./components/routes/Settings";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import Thread from "./Components/Routes/Thread";
-import Header from "./Components/Modals/Header";
-import AddToHomeScreenPrompt from "./Components/Modals/CheckMobile/CheckMobile";
-import Notifications from "./Components/Routes/Notifications";
-import Hashtags from "./Components/Routes/Hashtags";
-import HashtagPage from "./Components/Routes/HashtagPage";
+import Thread from "./components/routes/Thread";
+import Header from "./components/modals/Header";
+import AddToHomeScreenPrompt from "./components/modals/CheckMobile/CheckMobile";
+import Notifications from "./components/routes/Notifications";
+import Hashtags from "./components/routes/Hashtags";
+import HashtagPage from "./components/routes/HashtagPage";
 
 function App() {
   return (

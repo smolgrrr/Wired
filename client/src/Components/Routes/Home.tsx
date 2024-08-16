@@ -1,10 +1,10 @@
 import { verifyPow } from "../../utils/mine";
 import { Event } from "nostr-tools";
-import NewNoteCard from "../Forms/PostFormCard";
-import RepostCard from "../Modals/RepostCard";
+import NewNoteCard from "../forms/PostFormCard";
+import RepostCard from "../modals/RepostCard";
 import { DEFAULT_DIFFICULTY } from "../../config";
 import { useUniqEvents } from "../../hooks/useUniqEvents";
-import PostCard from "../Modals/NoteCard";
+import PostCard from "../modals/NoteCard";
 
 const Home = () => {
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
