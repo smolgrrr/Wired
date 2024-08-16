@@ -8,6 +8,7 @@ import { verifyPow } from "../../utils/mine";
 import { uniqBy } from "../../utils/otherUtils";
 import ContentPreview from "./CardModals/TextModal";
 import CardContainer from "./CardContainer";
+import { useState, useEffect } from "react";
 
 interface CardProps {
     key?: string | number;
@@ -29,9 +30,16 @@ const PostCard = ({
     // const { files } = parseContent(event);
     const icon = getIconFromHash(event.pubkey);
     const metadataParsed = metadata ? getMetadata(metadata) : null;
+    const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
+
+    useEffect(() => {
+        const allRelatedEvents = [event, ...(replies || [])];
+        setRelatedEvents(allRelatedEvents);
+    }, [event, replies]);
 
     const handleClick = () => {
         if (type !== "OP") {
+            localStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
             window.location.href = `/thread/${nip19.noteEncode(event.id)}`;
         }
     };

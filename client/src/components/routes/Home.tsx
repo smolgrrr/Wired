@@ -17,7 +17,7 @@ const Home = () => {
       (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e" || tag[0] === "a"))
     )
 
-  let sortedEvents = [...postEvents]
+  const sortedEvents = postEvents
     .sort((a, b) => {
       // Sort by PoW in descending order
       const powDiff = verifyPow(b) - verifyPow(a);
