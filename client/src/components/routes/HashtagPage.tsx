@@ -4,14 +4,14 @@ import { Event } from "nostr-tools";
 import NewNoteCard from "../forms/PostFormCard";
 import RepostCard from "../modals/RepostCard";
 import { useParams } from "react-router-dom";
-import { useUniqEvents } from "../../hooks/useUniqEvents";
+import { useFetchEvents } from "../../hooks/useFetchEvents";
 
 const DEFAULT_DIFFICULTY = 0;
 
 const HashtagPage = () => {
   const { id } = useParams();
   const filterDifficulty = localStorage.getItem("filterHashtagDifficulty") || DEFAULT_DIFFICULTY;
-  const { noteEvents, metadataEvents } = useUniqEvents(id as string, false);
+  const { noteEvents, metadataEvents } = useFetchEvents(id as string, false);
 
   const postEvents: Event[] = noteEvents
     .filter((event) =>

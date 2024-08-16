@@ -2,11 +2,11 @@ import { useState, useCallback } from "react";
 import PostCard from "../modals/PostCard";
 import { Event } from "nostr-tools";
 import RepostCard from "../modals/RepostCard";
-import { useUniqEvents } from "../../hooks/useUniqEvents";
+import { useFetchEvents } from "../../hooks/useFetchEvents";
 
 const Notifications = () => {
   const [notifsView, setNotifsView] = useState(false);
-  const { noteEvents, metadataEvents } = useUniqEvents(undefined,true);
+  const { noteEvents, metadataEvents } = useFetchEvents(undefined,true);
   const storedKeys = JSON.parse(localStorage.getItem('usedKeys') || '[]');
   const storedPubkeys = storedKeys.map((key: any[]) => key[1]);
 

@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { subGlobalFeed, subHashtagFeed, subNotifications } from "../utils/subscriptions";
+import { subGlobalFeed, subHashtagFeed, subNote, subNotifications, subNotesOnce} from "../utils/subscriptions";
 import { uniqBy } from "../utils/otherUtils";
 import { Event } from "nostr-tools";
-import {  } from "../utils/subscriptions";
 
-export const useUniqEvents = (hashtag?: string, notifications?: boolean) => {
+export const useFetchEvents = (hashtag?: string, notifications?: boolean, OP_eventID?: string) => {
     const [events, setEvents] = useState<Event[]>([]);
     const age = Number(localStorage.getItem("age")) || 24;
   
@@ -45,6 +44,8 @@ export const useUniqEvents = (hashtag?: string, notifications?: boolean) => {
       if (hashtag) {
         // Code from the second function
         unsubscribe = subHashtagFeed(hashtag, onEvent, age);
+      } else if (OP_eventID) {
+        unsubscribe = subNote(OP_eventID, onEvent);
       } else if (notifications) {
         // Code from the third function
         let storedKeys = JSON.parse(localStorage.getItem("usedKeys") || "[]");

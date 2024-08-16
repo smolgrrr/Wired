@@ -3,12 +3,12 @@ import { Event } from "nostr-tools";
 import NewNoteCard from "../forms/PostFormCard";
 import RepostCard from "../modals/RepostCard";
 import { DEFAULT_DIFFICULTY } from "../../config";
-import { useUniqEvents } from "../../hooks/useUniqEvents";
 import PostCard from "../modals/PostCard";
+import { useFetchEvents } from "../../hooks/useFetchEvents";
 
 const Home = () => {
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
-  const { noteEvents, metadataEvents } = useUniqEvents();
+  const { noteEvents, metadataEvents } = useFetchEvents();
 
   const postEvents: Event[] = noteEvents
     .filter((event) =>

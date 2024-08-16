@@ -236,7 +236,6 @@ export const subNotifications = (
   onEvent: SubCallback,
 ) => {
   unsubAll();
-
   sub({
     cb: (evt, relay) => {
       onEvent(evt, relay);
