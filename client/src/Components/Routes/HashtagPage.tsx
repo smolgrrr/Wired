@@ -1,20 +1,23 @@
+import PostCard from "../Modals/NoteCard";
 import { verifyPow } from "../../utils/mine";
 import { Event } from "nostr-tools";
 import NewNoteCard from "../Forms/PostFormCard";
 import RepostCard from "../Modals/RepostCard";
-import { DEFAULT_DIFFICULTY } from "../../config";
+import { useParams } from "react-router-dom";
 import { useUniqEvents } from "../../hooks/useUniqEvents";
-import PostCard from "../Modals/NoteCard";
 
-const Home = () => {
-  const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
-  const { noteEvents, metadataEvents } = useUniqEvents();
+const DEFAULT_DIFFICULTY = 0;
+
+const HashtagPage = () => {
+  const { id } = useParams();
+  const filterDifficulty = localStorage.getItem("filterHashtagDifficulty") || DEFAULT_DIFFICULTY;
+  const { noteEvents, metadataEvents } = useUniqEvents(id as string, false);
 
   const postEvents: Event[] = noteEvents
     .filter((event) =>
       verifyPow(event) >= Number(filterDifficulty) &&
       event.kind !== 0 &&
-      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e" || tag[0] === "a"))
+      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e"))
     )
 
   let sortedEvents = [...postEvents]
@@ -25,13 +28,13 @@ const Home = () => {
 
       // If PoW is the same, sort by created_at in descending order
       return b.created_at - a.created_at;
-    });
+  });
 
   // Render the component
   return (
     <main className="text-white mb-20">
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-        <NewNoteCard />
+        <NewNoteCard hashtag={id as string} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
         {sortedEvents.map((event) => (
@@ -51,4 +54,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default HashtagPage;
