@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import PostCard from "../modals/NoteCard.jsx";
+import PostCard from "../modals/PostCard.jsx";
 import { Event } from "nostr-tools";
 import RepostCard from "../modals/RepostCard.jsx";
 import { useUniqEvents } from "../../hooks/useUniqEvents.js";

@@ -1,4 +1,4 @@
-import PostCard from "../modals/NoteCard.jsx";
+import PostCard from "../modals/PostCard.jsx";
 import { verifyPow } from "../../utils/mine.js";
 import { Event } from "nostr-tools";
 import NewNoteCard from "../forms/PostFormCard.jsx";

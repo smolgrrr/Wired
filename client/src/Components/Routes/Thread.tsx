@@ -5,10 +5,10 @@ import { subNote, subNotesOnce } from '../../utils/subscriptions';
 import { useEffect } from 'react';
 import { uniqBy } from '../../utils/otherUtils';
 import { DocumentTextIcon, FolderPlusIcon, DocumentDuplicateIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import PostCard from '../modals/NoteCard';
 import Placeholder from '../modals/Placeholder';
 import NewNoteCard from '../forms/PostFormCard';
 import RepostNote from '../forms/RepostNote';
+import PostCard from '../modals/PostCard';
 
 type PostType = "" | "Reply" | "Quote" | undefined;
 
