@@ -1,8 +1,8 @@
-import PostCard from "../modals/NoteCard";
+import PostCard from "../Modals/NoteCard";
 import { verifyPow } from "../../utils/mine";
 import { Event } from "nostr-tools";
-import NewNoteCard from "../forms/PostFormCard";
-import RepostCard from "../modals/RepostCard";
+import NewNoteCard from "../Forms/PostFormCard";
+import RepostCard from "../Modals/RepostCard";
 import { DEFAULT_DIFFICULTY } from "../../config";
 import { useUniqEvents } from "../../hooks/useUniqEvents";
 

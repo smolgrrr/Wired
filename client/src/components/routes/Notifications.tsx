@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
-import PostCard from "../modals/NoteCard";
+import PostCard from "../Modals/NoteCard";
 import { Event } from "nostr-tools";
-import RepostCard from "../modals/RepostCard";
+import RepostCard from "../Modals/RepostCard";
 import { useUniqEvents } from "../../hooks/useUniqEvents";
 
 const Notifications = () => {
