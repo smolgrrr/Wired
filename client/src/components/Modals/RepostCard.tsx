@@ -2,7 +2,7 @@
 import { CpuChipIcon } from "@heroicons/react/24/outline";
 // import { parseContent } from "../../utils/content";
 import { Event, nip19 } from "nostr-tools";
-import { getMetadata, Metadata } from "../../utils/otherUtils";
+import { getMetadata, Metadata } from "../../utils/getMetadata";
 import ContentPreview from "./CardModals/TextModal";
 // import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../utils/cardUtils";

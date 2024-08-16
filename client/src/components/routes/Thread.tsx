@@ -1,16 +1,14 @@
 import { useParams } from 'react-router-dom';
 import { useState } from "react";
 import { Event, nip19 } from "nostr-tools"
-import { subNote, subNotesOnce } from '../utils/subscriptions';
+import { subNote, subNotesOnce } from '../../utils/subscriptions';
 import { useEffect } from 'react';
-import { uniqBy } from '../utils/otherUtils';
+import { uniqBy } from '../../utils/otherUtils';
 import { DocumentTextIcon, FolderPlusIcon, DocumentDuplicateIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import { getPow } from '../utils/mine';
-import PostCard from './Modals/NoteCard';
-import Placeholder from './Modals/Placeholder';
-import NewNoteCard from './Forms/PostFormCard';
-import RepostNote from './Forms/RepostNote';
-import OptionsBar from './Modals/OptionsBar';
+import PostCard from '../modals/NoteCard';
+import Placeholder from '../modals/Placeholder';
+import NewNoteCard from '../forms/PostFormCard';
+import RepostNote from '../forms/RepostNote';
 
 type PostType = "" | "Reply" | "Quote" | undefined;
 
@@ -23,9 +21,8 @@ const Thread = () => {
     const [postType, setPostType] = useState<PostType>("");
     const [hasRun, setHasRun] = useState(false);
     const [preOPEvents, setPreOPEvents] = useState(['']);
-    const [sortByTime, setSortByTime] = useState(true);
-    const filterDifficulty = useState(localStorage.getItem("filterDifficulty") || "20");
-        // Load cached metadataEvents from localStorage
+    // const filterDifficulty = useState(localStorage.getItem("filterDifficulty") || "20");
+    // Load cached metadataEvents from localStorage
     const [cachedMetadataEvents, setCachedMetadataEvents] = useState<Event[]>(
         JSON.parse(localStorage.getItem("cachedMetadataEvents") || "[]")
     );
@@ -96,7 +93,7 @@ const Thread = () => {
     }, [uniqEvents, hasRun]);
 
     const countReplies = (event: Event) => {
-        return uniqEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id)).length;
+        return uniqEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id));
     }
 
     const repliedList = (event: Event): Event[] => {
@@ -109,34 +106,18 @@ const Thread = () => {
             preOPEvents.includes(event.id)
     ).sort((a, b) => (b.created_at as any) - (a.created_at as any));
 
-    const toggleSort = () => {
-        setSortByTime(prev => !prev);
-    };
-
-    const eventsSortedByTime = [...uniqEvents].slice(1)
+    const displayedEvents = [...uniqEvents].slice(1)
     .filter(event => 
         event.kind === 1 &&
         !earlierEvents.map(e => e.id).includes(event.id) &&
         (OPEvent ? OPEvent.id !== event.id : true)
     ).sort((a, b) => a.created_at - b.created_at);
 
-    // Events sorted by PoW (assuming `getPow` returns a numerical representation of the PoW)
-    const eventsSortedByPow = [...uniqEvents].slice(1)
-        .filter((event) =>
-            getPow(event.id) > Number(filterDifficulty) &&
-            event.kind === 1 &&
-            !earlierEvents.map(e => e.id).includes(event.id) &&
-            (OPEvent ? OPEvent.id !== event.id : true)
-        ).sort((a, b) => getPow(b.id) - getPow(a.id));
-
-    const displayedEvents = sortByTime ? eventsSortedByTime : eventsSortedByPow;
-
     if (uniqEvents.length === 0) {
         return (
             <>
                 <Placeholder />
                 <div className="col-span-full h-0.5 bg-neutral-900"/> {/* This is the white line separator */}
-                <OptionsBar sortByTime={sortByTime} toggleSort={toggleSort} />
             </>
         );
     }
@@ -147,9 +128,9 @@ const Thread = () => {
                     {earlierEvents
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                            <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replyCount={countReplies(event)} />
+                            <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replies={countReplies(event)} />
                         ))}
-                    {OPEvent && <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replyCount={countReplies(OPEvent)} type={'OP'}/>}
+                    {OPEvent && <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replies={countReplies(OPEvent)} type={'OP'}/>}
                 </div>
                 <div className="col-span-full flex justify-center space-x-16 pb-4">
                     <DocumentTextIcon
@@ -195,10 +176,15 @@ const Thread = () => {
                     <RepostNote refEvent={OPEvent}/>
                 </div>}
                 <div className="col-span-full h-0.5 bg-neutral-900"/> {/* This is the white line separator */}
-                <OptionsBar sortByTime={sortByTime} toggleSort={toggleSort} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                     {displayedEvents.map((event, index) => (
-                        <PostCard key={index} event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replyCount={countReplies(event)} repliedTo={repliedList(event)} />
+                        <PostCard 
+                        key={index} 
+                        event={event} 
+                        metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} 
+                        replies={displayedEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} 
+                        repliedTo={repliedList(event)} 
+                        />
                     ))}
                 </div>
             </main>

@@ -1,11 +1,11 @@
 import React from "react";
-import QuoteEmbed from "./QuoteEmbed";
 import { Event } from "nostr-tools";
 import { useEffect, useState } from "react";
 import { subNoteOnce } from "../../../utils/subscriptions";
 import { nip19 } from "nostr-tools";
-import LinkModal from "./LinkPreview";
 import { parseContent } from "../../../utils/content";
+import QuoteEmbed from "./QuoteEmbed";
+import LinkModal from "./LinkPreview";
 
 const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: boolean; emojiMap: Record<string, any> }) => {
   const content = isExpanded ? text.split('\n') : text.slice(0, 350).split('\n');

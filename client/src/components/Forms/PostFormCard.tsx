@@ -8,10 +8,10 @@ import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useRef } from "react";
 import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { renderMedia, attachFile } from "../../utils/FileUpload";
-import { EmojiPicker } from "./Emojis/emoji-picker";
+import EmojiPicker from "@emoji-mart/react";
 import customEmojis from './custom_emojis.json';
 import { useSubmitForm } from "./handleSubmit";
-import "./Form.css";
+import "../../styles/Form.css";
 
 interface FormProps {
     refEvent?: NostrEvent;

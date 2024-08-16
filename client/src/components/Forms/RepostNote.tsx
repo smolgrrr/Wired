@@ -4,7 +4,7 @@ import {
 import { useState, useEffect } from "react";
 import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { useSubmitForm } from "./handleSubmit";
-import "./Form.css";
+import "../../styles/Form.css";
 
 interface FormProps {
     refEvent: NostrEvent;

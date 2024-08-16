@@ -2,7 +2,7 @@ import CardContainer from "./CardContainer";
 import { FolderIcon, CpuChipIcon } from "@heroicons/react/24/outline";
 // import { parseContent } from "../../utils/content";
 import { Event, nip19 } from "nostr-tools";
-import { getMetadata } from "../../utils/otherUtils";
+import { getMetadata } from "../../utils/getMetadata";
 import ContentPreview from "./CardModals/TextModal";
 // import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
@@ -13,7 +13,7 @@ interface CardProps {
     key?: string | number;
     event: Event;
     metadata: Event | null;
-    replyCount: number;
+    replies: Event[];
     repliedTo?: Event[]
     type?: 'OP' | 'Reply' | 'Post';
 }
@@ -22,7 +22,7 @@ const PostCard = ({
     key,
     event,
     metadata,
-    replyCount,
+    replies,
     repliedTo,
     type
 }: CardProps) => {
@@ -77,7 +77,7 @@ const PostCard = ({
                             <span className="text-neutral-700">·</span>
                             <div className="inline-flex items-center gap-1">
                                 <FolderIcon className="h-4 w-4 text-neutral-600" />
-                                <span className="text-xs text-neutral-600">{replyCount}</span>
+                                <span className="text-xs text-neutral-600">{replies.length}</span>
                             </div>
                         </div>
                     </div>

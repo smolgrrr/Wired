@@ -1,6 +1,6 @@
 import { parseContent } from "../../../utils/content";
 import { Event } from "nostr-tools";
-import { getMetadata } from "../../../utils/otherUtils";
+import { getMetadata } from "../../../utils/getMetadata";
 import ContentPreview from "./TextModal";
 import { renderMedia } from "../../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../../utils/cardUtils";
