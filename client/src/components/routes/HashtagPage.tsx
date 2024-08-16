@@ -1,10 +1,10 @@
-import PostCard from "../modals/PostCard.jsx";
-import { verifyPow } from "../../utils/mine.js";
+import PostCard from "../modals/PostCard";
+import { verifyPow } from "../../utils/mine";
 import { Event } from "nostr-tools";
-import NewNoteCard from "../forms/PostFormCard.jsx";
-import RepostCard from "../modals/RepostCard.jsx";
+import NewNoteCard from "../forms/PostFormCard";
+import RepostCard from "../modals/RepostCard";
 import { useParams } from "react-router-dom";
-import { useUniqEvents } from "../../hooks/useUniqEvents.js";
+import { useUniqEvents } from "../../hooks/useUniqEvents";
 
 const DEFAULT_DIFFICULTY = 0;
 

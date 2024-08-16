@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
-import PostCard from "../modals/PostCard.jsx";
+import PostCard from "../modals/PostCard";
 import { Event } from "nostr-tools";
-import RepostCard from "../modals/RepostCard.jsx";
-import { useUniqEvents } from "../../hooks/useUniqEvents.js";
+import RepostCard from "../modals/RepostCard";
+import { useUniqEvents } from "../../hooks/useUniqEvents";
 
 const Notifications = () => {
   const [notifsView, setNotifsView] = useState(false);
