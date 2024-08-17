@@ -39,7 +39,7 @@ const PostCard = ({
 
     const handleClick = () => {
         if (type !== "OP") {
-            localStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
+            sessionStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
             window.location.href = `/thread/${nip19.noteEncode(event.id)}`;
         }
     };

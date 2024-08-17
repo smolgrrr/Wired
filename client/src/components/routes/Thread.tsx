@@ -18,7 +18,7 @@ const Thread = () => {
 
     // Load cached thread from localStorage
     const [threadCache, setThreadCache] = useState<Event[]>(
-        JSON.parse(localStorage.getItem("cachedThread") || "[]")
+        JSON.parse(sessionStorage.getItem("cachedThread") || "[]")
     );
     // Combine noteEvents and threadCache into a single array
     const allEvents = [...noteEvents, ...threadCache];
@@ -50,8 +50,9 @@ const Thread = () => {
         .filter(e =>
             e.created_at < OPEvent.created_at
         )
-    
-        const replyEvents = [...allEvents].slice(1)
+        
+        const uniqReplyEvents = uniqBy(allEvents, "id");
+        const replyEvents = [...uniqReplyEvents].slice(1)
         .filter(event => 
             !earlierEvents.map(e => e.id).includes(event.id) &&
             (OPEvent ? OPEvent.id !== event.id : true)

@@ -1,15 +1,11 @@
 import {
-    ServerIcon,
     CpuChipIcon,
-    ArrowPathIcon,
     PlusCircleIcon
 } from "@heroicons/react/24/outline";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useRef } from "react";
 import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
-import { renderMedia, attachFile } from "../../utils/FileUpload";
-import EmojiPicker from "@emoji-mart/react";
-import customEmojis from './custom_emojis.json';
+import { renderMedia } from "../../utils/FileUpload";
 import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
 
@@ -100,43 +96,6 @@ const NewNoteCard = ({
         }));
     };
 
-    //Emoji stuff
-    const emojiRef = useRef(null);
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-
-    interface Emoji {
-        native?: string;
-        id?: string;
-    }
-
-    const emojiNames = customEmojis.map(p => p.emojis).flat();
-    function getEmojiById(id: string) {
-        return emojiNames.find(e => e.shortcode === id);
-    }
-
-    async function onEmojiSelect(emoji: Emoji) {
-        setShowEmojiPicker(false);
-        try {
-            if (emoji.id) {
-                const e = getEmojiById(emoji.id);
-                if (e) {
-                    setComment(comment + " :" + e.shortcode + ":");
-                    unsigned.tags.push(['emoji', e.shortcode, e.url]);
-                };
-            }
-        } catch {
-            //ignore
-        }
-    }
-
-    const topOffset = ref.current?.getBoundingClientRect().top;
-    const leftOffset = ref.current?.getBoundingClientRect().left;
-
-    function pickEmoji(e: React.MouseEvent) {
-        e.stopPropagation();
-        setShowEmojiPicker(!showEmojiPicker);
-    }
-
     return (
         <form
             name="post"
@@ -174,18 +133,6 @@ const NewNoteCard = ({
                     </div>
                     <div>
                         <div className="flex items-center gap-4">
-                            <div className="items-center">
-                                {showEmojiPicker && (
-                                    <EmojiPicker
-                                        topOffset={topOffset || 0}
-                                        leftOffset={leftOffset || 0}
-                                        onEmojiSelect={onEmojiSelect}
-                                        onClickOutside={() => setShowEmojiPicker(false)}
-                                        ref={emojiRef}
-                                    />
-                                )}
-                                <PlusCircleIcon className="h-4 w-4 text-neutral-400 cursor-pointer" onClick={pickEmoji} />
-                            </div>
                             <button
                                 type="submit"
                                 className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'cursor-not-allowed' : ''}`}

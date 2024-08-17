@@ -25,7 +25,8 @@ const Home = () => {
 
       // If PoW is the same, sort by created_at in descending order
       return b.created_at - a.created_at;
-    });
+    }
+  );
 
   // Render the component
   return (
@@ -39,7 +40,7 @@ const Home = () => {
             <PostCard
               event={event}
               metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
-              replies={sortedEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))}
+              replies={noteEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))}
             />
             :
             <RepostCard
