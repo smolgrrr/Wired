@@ -8,6 +8,7 @@ import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { renderMedia } from "../../utils/FileUpload";
 import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
+import EmotePicker from "../modals/EmotePicker/EmotePicker";
 
 interface FormProps {
     refEvent?: NostrEvent;
@@ -133,6 +134,7 @@ const NewNoteCard = ({
                     </div>
                     <div>
                         <div className="flex items-center gap-4">
+                            <EmotePicker />
                             <button
                                 type="submit"
                                 className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'cursor-not-allowed' : ''}`}

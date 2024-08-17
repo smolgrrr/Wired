@@ -1,10 +1,5 @@
 [
     {
-        "id": "poast",
-        "name": "poast",
-        "emojis":
-[
-    {
         "category": "",
         "shortcode": "00",
         "static_url": "https://poa.st/emoji/custom/00.png",
@@ -133775,4 +133770,4 @@
         "url": "https://poa.st/emoji/stolen/🍆_shake.gif",
         "visible_in_picker": true
     }
-]}]
+]
