@@ -1,13 +1,12 @@
 import {
-    CpuChipIcon,
-    PlusCircleIcon
+    CpuChipIcon
 } from "@heroicons/react/24/outline";
-import { XCircleIcon } from "@heroicons/react/24/solid";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
-import { renderMedia } from "../../utils/FileUpload";
 import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
+import EmotePicker from "../modals/EmotePicker/EmotePicker";
+import emotes from "../modals/EmotePicker/custom_emojis.json"
 
 interface FormProps {
     refEvent?: NostrEvent;
@@ -20,9 +19,7 @@ const NewNoteCard = ({
     tagType, 
     hashtag,
 }: FormProps) => {
-    const ref = useRef<HTMLDivElement | null>(null);
     const [comment, setComment] = useState("");
-    const [file, setFile] = useState("");
     const [unsigned, setUnsigned] = useState<UnsignedEvent>({
         kind: 1,
         tags: [
@@ -38,8 +35,6 @@ const NewNoteCard = ({
     const [difficulty, setDifficulty] = useState(
         localStorage.getItem("difficulty") || "21"
     );
-    const [fileSizeError, setFileSizeError] = useState(false);
-    const [uploadingFile, setUploadingFile] = useState(false);
 
     useEffect(() => {
         if (hashtag) {
@@ -78,23 +73,40 @@ const NewNoteCard = ({
     useEffect(() => {
         setUnsigned(prevUnsigned => ({
             ...prevUnsigned,
-            content: `${comment} ${file}`,
+            content: `${comment}`,
             created_at: Math.floor(Date.now() / 1000),
         }));
-    }, [comment, file]);
+    }, [comment]);
 
     const { handleSubmit: originalHandleSubmit, doingWorkProp, doingWorkProgress } = useSubmitForm(unsigned, difficulty);
 
     const handleSubmit = async (event: React.FormEvent) => {
         await originalHandleSubmit(event);
         setComment("");
-        setFile("");
         setUnsigned(prevUnsigned => ({
             ...prevUnsigned,
             content: '',
             created_at: Math.floor(Date.now() / 1000)
         }));
     };
+
+    //Emoji stuff
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    interface Emoji {
+        category: string;
+        shortcode: string;
+        static_url: string;
+        tags: string[];
+        url: string;
+        visible_in_picker: boolean;
+    }
+
+    async function onEmojiSelect(emoji: Emoji) {
+        setShowEmojiPicker(false);
+        setComment(comment + " :" + emoji.shortcode + ":");
+        unsigned.tags.push(['emoji', emoji.shortcode, emoji.url]);
+    }
 
     return (
         <form
@@ -114,14 +126,6 @@ const NewNoteCard = ({
                     onChange={(e) => setComment(e.target.value)}
                     rows={comment.split('\n').length || 1}
                 />
-                <div className="relative">
-                    {file !== "" && (
-                        <button onClick={() => setFile("")}>
-                            <XCircleIcon className="h-10 w-10 absolute shadow z-100 text-blue-500" />
-                        </button>
-                    )}
-                    {renderMedia([file])}
-                </div>
                 <div className="h-14 flex items-center justify-between">
                     <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
                         <div className="inline-flex items-center gap-1.5 text-neutral-300">
@@ -133,10 +137,11 @@ const NewNoteCard = ({
                     </div>
                     <div>
                         <div className="flex items-center gap-4">
+                            <EmotePicker onEmojiSelect={(emoji: Emoji) => onEmojiSelect(emoji)} />
                             <button
                                 type="submit"
-                                className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp || uploadingFile ? 'cursor-not-allowed' : ''}`}
-                                disabled={doingWorkProp || uploadingFile}
+                                className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp ? 'cursor-not-allowed' : ''}`}
+                                disabled={doingWorkProp}
                             >
                                 Submit
                             </button>
@@ -144,9 +149,6 @@ const NewNoteCard = ({
                     </div>
                 </div>
             </div>
-            {fileSizeError ? (
-                <span className="text-red-500">File size should not exceed 2.5MB</span>
-            ) : null}
             {doingWorkProp ? (
                 <div className="flex animate-pulse text-sm text-gray-300">
                     <CpuChipIcon className="h-4 w-4 ml-auto" />
