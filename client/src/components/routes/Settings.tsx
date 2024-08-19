@@ -184,11 +184,11 @@ const Settings = () => {
       <div className="settings-page py-10">
         <h1 className="text-lg font-semibold mb-4">About</h1>
         <div className="flex flex-col">
-          <p>The Anon Operation (TAO) is an anonymous-first agora, built upon the <a className="underline" href="https://nostr.com/">NOSTR protocol</a>.</p>
+          <p>The Wired is an anon agora, built upon the <a className="underline" href="https://nostr.com/">NOSTR protocol</a>.</p>
           <br />
-          <p>TAO is built to facilitate unstoppable free speech on the internet.</p>
+          <p>The Wired is built to facilitate unstoppable free speech on the internet.</p>
           <p>-PWA to be widely accessible with distribution via URLS, and to side-step App Store gatekeeping</p>
-          <p>-Uses NOSTR as a censorship-resistant global "social" network</p>
+          <p>-Uses NOSTR as a censorship-resistant "social" network</p>
           <p>-Employs Proof-of-Work (PoW) as a spam prevention mechanism, as opposed to Captcha, moderation or other verification methods</p>
           <br />
           <a href="https://github.com/smolgrrr/TAO">

@@ -301,6 +301,23 @@ export const subHashtagFeed = (
         "#t": [hashtag],
         kinds: [1, 6],
         since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
+        limit: 25,
+      },
+      unsub: true
+    });
+
+    const prefix = Math.floor(16 / 4); //  4 bits in each '0' character
+    sub({ // get past events
+      cb: (evt, relay) => {
+        pubkeys.add(evt.pubkey);
+        notes.add(evt.id);
+        onEvent(evt, relay);
+      },
+      filter: {
+        ...(prefix && { ids: ['0'.repeat(prefix)] }),
+        "#t": [hashtag],
+        kinds: [1, 6],
+        since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
         limit: 50,
       },
       unsub: true
@@ -318,16 +335,6 @@ export const subHashtagFeed = (
         unsub: true,
       });
       pubkeys.clear();
-  
-      sub({
-        cb: onEvent,
-        filter: {
-          '#e': Array.from(notes),
-          kinds: [1],
-        },
-        unsub: true,
-      });
-  
       notes.clear();
     }, 2000);
   

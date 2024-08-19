@@ -15,9 +15,9 @@ export default function Header() {
     <header className="mx-auto px-4 sm:px-6 lg:px-8 py-2">
       <div className="flex justify-between items-center">
         <a href="/">
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 max-w-60 w-full sm:max-w-none sm:w-auto">
             <img src="/icon.png" className="h-12" alt="logo" />
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-white truncate">
                 {`~/WIRED${lastPathPart}>`}
               </span>
           </div>
