@@ -99,3 +99,4 @@ addRelay('wss://nos.lol');
 addRelay('wss://powrelay.xyz');
 addRelay('wss://relay.damus.io');
 addRelay('wss://nostr.mutinywallet.com');
+addRelay('wss://labour.fiatjaf.com/');
