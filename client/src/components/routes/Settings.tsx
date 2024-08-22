@@ -182,7 +182,7 @@ const Settings = () => {
       </form>
       </div>
       <div className="settings-page py-10">
-        <h1 className="text-lg font-semibold mb-4">About</h1>
+        <h1 className="text-lg font-semibold mb-4">About <a className="hover:underline"href="https://git.getwired.app/doot/TAO">(source code)</a></h1>
         <div className="flex flex-col">
           <p>The Wired is an anon agora, built upon the <a className="underline" href="https://nostr.com/">NOSTR protocol</a>.</p>
           <br />
