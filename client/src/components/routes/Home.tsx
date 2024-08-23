@@ -17,16 +17,7 @@ const Home = () => {
       (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e" || tag[0] === "a"))
     )
 
-  const sortedEvents = postEvents
-    .sort((a, b) => {
-      // Sort by PoW in descending order
-      const powDiff = verifyPow(b) - verifyPow(a);
-      if (powDiff !== 0) return powDiff;
-
-      // If PoW is the same, sort by created_at in descending order
-      return b.created_at - a.created_at;
-    }
-  );
+  const sortedEvents = postEvents.sort((a, b) => b.created_at - a.created_at);
 
   // Render the component
   return (

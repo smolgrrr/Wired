@@ -4,7 +4,10 @@ import { publish } from "../../utils/relays";
 
 const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: string, deps: any[]) => {
     const [messageFromWorker, setMessageFromWorker] = useState(null);
-    const [doingWorkProgress, setDoingWorkProgress] = useState(0);
+    const [hashrate, setHashrate] = useState(0);
+    const [bestPow, setBestPow] = useState(0);
+
+    const startTime = Date.now();
 
     const startWork = () => {
         const workers = Array(numCores).fill(null).map(() => new Worker(new URL("../../powWorker", import.meta.url)));
@@ -12,8 +15,10 @@ const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: strin
         workers.forEach((worker, index) => {
             worker.onmessage = (event) => {
                 if (event.data.status === 'progress') {
-                    console.log(`Worker progress: Checked ${event.data.currentNonce} nonces.`);
-                    setDoingWorkProgress(event.data.currentNonce);
+                    setHashrate(Math.floor(event.data.currentNonce/((Date.now() - startTime)/1000)));
+                    if (event.data.bestPoW > bestPow) {
+                        setBestPow(event.data.bestPoW)
+                    }
                 } else if (event.data.found) {
                     setMessageFromWorker(event.data.event);
                     // Terminate all workers once a solution is found
@@ -30,7 +35,7 @@ const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: strin
         });
     };
 
-    return { startWork, messageFromWorker, doingWorkProgress };
+    return { startWork, messageFromWorker, hashrate, bestPow };
 };
 
 export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
@@ -44,7 +49,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     // Initialize the worker outside of any effects
     const numCores = navigator.hardwareConcurrency || 4;
 
-    const { startWork, messageFromWorker, doingWorkProgress } = useWorkers(numCores, unsignedWithPubkey, difficulty, [unsignedWithPubkey]);
+    const { startWork, messageFromWorker, hashrate, bestPow } = useWorkers(numCores, unsignedWithPubkey, difficulty, [unsignedWithPubkey]);
 
     useEffect(() => {
         if (unsignedPoWEvent) {
@@ -99,5 +104,5 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
         }
     }, [messageFromWorker]);
 
-    return { handleSubmit, doingWorkProp, doingWorkProgress };
+    return { handleSubmit, doingWorkProp, hashrate, bestPow };
 };

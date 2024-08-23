@@ -45,7 +45,8 @@ export function getPow(hex: string): number {
  */
 export function minePow<K extends number>(unsigned: UnsignedEvent, difficulty: number, nonceStart: number, nonceStep: number): { found: boolean, event?: Omit<Event, 'sig'> } {
     let nonce = nonceStart;
-
+    let bestPoW = 0;
+    
     const event = unsigned as Omit<Event, 'sig'>
     const tag = ['nonce', nonce.toString(), difficulty.toString()]
 
@@ -57,15 +58,20 @@ export function minePow<K extends number>(unsigned: UnsignedEvent, difficulty: n
         tag[1] = (nonce).toString();
 
         event.id = getEventHash(event);
+        let leadingZeroes = getPow(event.id);
 
-        if (getPow(event.id) >= difficulty) {
+        if (leadingZeroes > bestPoW) {
+            bestPoW = leadingZeroes;
+        }
+
+        if (leadingZeroes >= difficulty) {
             return { found: true, event: event };
         }
 
         nonce += nonceStep;
 
         if (nonce % (nonceStep * 10000) === 0) {
-            ctx.postMessage({ status: 'progress', currentNonce: nonce });
+            ctx.postMessage({ status: 'progress', currentNonce: nonce,  bestPoW});
         }
     }
     return { found: false };

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
+import { DEFAULT_DIFFICULTY } from "../../config";
 
 interface FormProps {
     refEvent: NostrEvent;
@@ -14,7 +15,7 @@ const RepostNote = ({
     refEvent
 }: FormProps) => {
     const [difficulty, setDifficulty] = useState(
-        localStorage.getItem("difficulty") || "21"
+        localStorage.getItem("difficulty") || DEFAULT_DIFFICULTY.toString()
     );
     const [unsigned] = useState<UnsignedEvent>({
         kind: 6,
@@ -42,7 +43,7 @@ const RepostNote = ({
         };
     }, []);
 
-    const { handleSubmit, doingWorkProp, doingWorkProgress } = useSubmitForm(unsigned, difficulty);
+    const { handleSubmit, doingWorkProp, hashrate } = useSubmitForm(unsigned, difficulty);
 
     return (
         <form
@@ -75,7 +76,7 @@ const RepostNote = ({
                 <div className="flex animate-pulse text-sm text-gray-300">
                     <CpuChipIcon className="h-4 w-4 ml-auto" />
                     <span>Doing Work:</span>
-                    {doingWorkProgress && <span>{doingWorkProgress} hashes</span>}
+                    {hashrate && <span>{hashrate} H/s</span>}
                 </div>
             ) : null}
             <div id="postFormError" className="text-red-500" />

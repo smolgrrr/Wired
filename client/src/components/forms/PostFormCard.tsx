@@ -7,6 +7,7 @@ import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
 import EmotePicker from "../modals/EmotePicker/EmotePicker";
 import emotes from "../modals/EmotePicker/custom_emojis.json"
+import { DEFAULT_DIFFICULTY } from "../../config";
 
 interface FormProps {
     refEvent?: NostrEvent;
@@ -16,7 +17,7 @@ interface FormProps {
 
 const NewNoteCard = ({
     refEvent,
-    tagType, 
+    tagType,
     hashtag,
 }: FormProps) => {
     const [comment, setComment] = useState("");
@@ -33,7 +34,7 @@ const NewNoteCard = ({
         pubkey: "",
     });
     const [difficulty, setDifficulty] = useState(
-        localStorage.getItem("difficulty") || "21"
+        localStorage.getItem("difficulty") || DEFAULT_DIFFICULTY.toString()
     );
 
     useEffect(() => {
@@ -44,7 +45,7 @@ const NewNoteCard = ({
         if (refEvent && tagType) {
             unsigned.tags = Array.from(new Set(unsigned.tags.concat(refEvent.tags)));
             unsigned.tags.push(['p', refEvent.pubkey]);
-        
+
             if (tagType === 'Reply') {
                 unsigned.tags.push(['e', refEvent.id, refEvent.tags.some(tag => tag[0] === 'e') ? 'root' : '']);
             } else {
@@ -78,7 +79,7 @@ const NewNoteCard = ({
         }));
     }, [comment]);
 
-    const { handleSubmit: originalHandleSubmit, doingWorkProp, doingWorkProgress } = useSubmitForm(unsigned, difficulty);
+    const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow } = useSubmitForm(unsigned, difficulty);
 
     const handleSubmit = async (event: React.FormEvent) => {
         await originalHandleSubmit(event);
@@ -127,13 +128,30 @@ const NewNoteCard = ({
                     rows={comment.split('\n').length || 1}
                 />
                 <div className="h-14 flex items-center justify-between">
-                    <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
+                    <div className="inline-flex items-center bg-neutral-800 px-1 py-0.5 rounded-lg">
                         <div className="inline-flex items-center gap-1.5 text-neutral-300">
                             <CpuChipIcon className="h-4 w-4" />
                         </div>
-                        <p className="text-xs font-medium text-neutral-400">
-                            {difficulty} Work
-                        </p>
+                        <input
+                            type="number"
+                            className="bg-neutral-800 text-white text-xs font-medium border-none rounded-lg w-10"
+                            value={difficulty}
+                            onChange={(e) => setDifficulty(e.target.value)}
+                            min="10" // Assuming a minimum difficulty value of 1
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setDifficulty(String(Math.max(10, parseInt(difficulty) - 1)))} // Decrement, ensuring not below min
+                        >
+                            -
+                        </button>
+                        <button
+                            type="button"
+                            className="pl-0.5"
+                            onClick={() => setDifficulty(String(parseInt(difficulty) + 1))} // Increment
+                        >
+                            +
+                        </button>
                     </div>
                     <div>
                         <div className="flex items-center gap-4">
@@ -148,14 +166,15 @@ const NewNoteCard = ({
                         </div>
                     </div>
                 </div>
+                {doingWorkProp ? (
+                    <div className="flex animate-pulse text-xs text-gray-300">
+                        <CpuChipIcon className="h-4 w-4 ml-auto" />
+                        <span>Doing Work:</span>
+                        {hashrate && <span>{hashrate > 100000 ? `${(hashrate / 1000).toFixed(0)}k` : hashrate}</span>}H/s
+                        <span className="pl-1"> (PB:{bestPow})</span>
+                    </div>
+                ) : null}
             </div>
-            {doingWorkProp ? (
-                <div className="flex animate-pulse text-sm text-gray-300">
-                    <CpuChipIcon className="h-4 w-4 ml-auto" />
-                    <span>Doing Work:</span>
-                    {doingWorkProgress && <span>{doingWorkProgress} hashes</span>}
-                </div>
-            ) : null}
             <div id="postFormError" className="text-red-500" />
         </form>
     );
