@@ -4,10 +4,22 @@ import NewNoteCard from "../forms/PostFormCard";
 import { DEFAULT_DIFFICULTY } from "../../config";
 import PostCard from "../modals/PostCard";
 import { useFetchEvents } from "../../hooks/useFetchEvents";
+import { useState, useEffect } from "react";
 
 const Home = () => {
   const filterDifficulty = localStorage.getItem("filterDifficulty") || DEFAULT_DIFFICULTY;
   const { noteEvents, metadataEvents } = useFetchEvents();
+  const [isAnimating, setIsAnimating] = useState(true);
+
+  // Step 3: Use useEffect to remove the animation class after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAnimating(false);
+    }, 3000); // 3000 milliseconds = 3 seconds
+
+    return () => clearTimeout(timer); // Cleanup the timer
+  }, []); // Empty dependency array means this effect runs once on mount
+
 
   const postEvents: Event[] = noteEvents
     .filter((event) =>
@@ -43,7 +55,7 @@ const Home = () => {
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewNoteCard />
       </div>
-      <div className="grid grid-cols-1 max-w-xl mx-auto gap-1 px-4">
+      <div className={`grid grid-cols-1 max-w-xl mx-auto gap-1 px-4 ${isAnimating ? 'animate-pulse' : ''}`}>
         {sortedEvents.map((event) => (
             <PostCard
               key={event.postEvent.id}

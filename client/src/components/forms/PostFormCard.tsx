@@ -6,7 +6,6 @@ import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
 import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
 import EmotePicker from "../modals/EmotePicker/EmotePicker";
-import emotes from "../modals/EmotePicker/custom_emojis.json"
 import { DEFAULT_DIFFICULTY } from "../../config";
 
 interface FormProps {
@@ -43,11 +42,11 @@ const NewNoteCard = ({
         }
 
         if (refEvent && tagType) {
-            unsigned.tags = Array.from(new Set(unsigned.tags.concat(refEvent.tags)));
+            unsigned.tags = Array.from(new Set(unsigned.tags.concat(refEvent.tags.filter(tag => tag[0] === 'e' || tag[0] === 'p'))));
             unsigned.tags.push(['p', refEvent.pubkey]);
 
             if (tagType === 'Reply') {
-                unsigned.tags.push(['e', refEvent.id, refEvent.tags.some(tag => tag[0] === 'e') ? 'root' : '']);
+                unsigned.tags.push(['e', refEvent.id]);
             } else {
                 if (tagType === 'Quote') {
                     setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
@@ -168,10 +167,9 @@ const NewNoteCard = ({
                 </div>
                 {doingWorkProp ? (
                     <div className="flex animate-pulse text-xs text-gray-300">
-                        <CpuChipIcon className="h-4 w-4 ml-auto" />
-                        <span>Doing Work:</span>
+                        <span className="ml-auto">Doing Work:</span>
                         {hashrate && <span>{hashrate > 100000 ? `${(hashrate / 1000).toFixed(0)}k` : hashrate}</span>}H/s
-                        <span className="pl-1"> (PB:{bestPow})</span>
+                        <span className="pl-1"> (PB:{bestPow}</span><CpuChipIcon className="h-4 w-4" />)
                     </div>
                 ) : null}
             </div>
