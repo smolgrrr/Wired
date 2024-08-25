@@ -67,7 +67,7 @@ const Thread = () => {
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
                             <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replies={countReplies(event)} />
                         ))}
-                    <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replies={countReplies(OPEvent)} type={'OP'}/>
+                    <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replies={replyEvents} type={'OP'}/>
                 </div>
                 <ThreadPostModal OPEvent={OPEvent} />
                 <div className="col-span-full h-0.5 bg-neutral-900"/> {/* This is the white line separator */}

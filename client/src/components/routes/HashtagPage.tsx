@@ -2,7 +2,6 @@ import PostCard from "../modals/PostCard";
 import { verifyPow } from "../../utils/mine";
 import { Event } from "nostr-tools";
 import NewNoteCard from "../forms/PostFormCard";
-import RepostCard from "../modals/RepostCard";
 import { useParams } from "react-router-dom";
 import { useFetchEvents } from "../../hooks/useFetchEvents";
 
@@ -36,19 +35,15 @@ const HashtagPage = () => {
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewNoteCard hashtag={id as string} />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
-        {sortedEvents.map((event) => (
-          event.kind === 1 ?
+      <div className="grid grid-cols-1 max-w-xl mx-auto gap-1 px-4">
+        {sortedEvents.map((event) => 
             <PostCard
               event={event}
               metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
               replies={sortedEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))}
             />
-            :
-            <RepostCard
-              event={event}
-            />
-        ))}
+  
+        )}
       </div>
     </main>
   );

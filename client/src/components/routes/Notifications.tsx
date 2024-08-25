@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import PostCard from "../modals/PostCard";
 import { Event } from "nostr-tools";
-import RepostCard from "../modals/RepostCard";
 import { useFetchEvents } from "../../hooks/useFetchEvents";
 
 const Notifications = () => {
@@ -65,30 +64,20 @@ const Notifications = () => {
         <div className={`grid grid-cols-1 gap-4 px-4 flex-grow ${notifsView ? 'hidden sm:block' : ''}`}>
           <span>Your Recent Posts</span>
           {sortedEvents.map((event) => (
-            event.kind === 1 ?
               <PostCard
                 event={event}
                 metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
                 replies={countReplies(event)}
-              />
-              :
-              <RepostCard
-                event={event}
               />
           ))}
         </div>
         <div className={`grid grid-cols-1 gap-4 px-4 flex-grow ${notifsView ? '' : 'hidden sm:block'}`}>
           <span>Mentions</span>
           {sortedMentions.map((event) => (
-            event.kind === 1 ?
               <PostCard
                 event={event}
                 metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
                 replies={countReplies(event)}
-              />
-              :
-              <RepostCard
-                event={event}
               />
           ))}
         </div>
