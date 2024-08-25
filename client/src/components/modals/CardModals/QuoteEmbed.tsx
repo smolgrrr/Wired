@@ -50,7 +50,6 @@ const QuoteEmbed = ({
             <div className="text-xs font-semibold text-neutral-600">
               {timeAgo(event.created_at)}
             </div>
-            <span className="text-neutral-700">·</span>
           </div>
         </div>
       </div>
