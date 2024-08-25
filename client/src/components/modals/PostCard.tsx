@@ -88,17 +88,17 @@ const PostCard = ({
                         );
                     })}
                 </div>}
-                <div className={`flex justify-between items-center ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
+                <div className={`pt-3 flex justify-between items-center ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
                     {metadataParsed ?
                         <img
                             key={key}
-                            className={`h-5 w-5 rounded-full`}
+                            className={`h-7 w-7 rounded-full overflow-hidden`}
                             src={metadataParsed?.picture ?? icon}
                             alt=""
                             loading="lazy"
                             decoding="async" />
                         :
-                        <div className={`h-4 w-4 ${icon} rounded-full`} />
+                        <div className={`h-6 w-6 ${icon} rounded-full`} />
                     }
                     <div className="flex items-center ml-auto gap-2.5">
                         <div className={`inline-flex text-xs ${verifyPow(parsedEvent) === 0 ? 'text-neutral-600' : 'text-sky-800'} gap-0.5`}>

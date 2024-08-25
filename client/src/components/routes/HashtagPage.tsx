@@ -1,33 +1,14 @@
 import PostCard from "../modals/PostCard";
-import { verifyPow } from "../../utils/mine";
-import { Event } from "nostr-tools";
 import NewNoteCard from "../forms/PostFormCard";
 import { useParams } from "react-router-dom";
-import { useFetchEvents } from "../../hooks/useFetchEvents";
+import useProcessedEvents from "../../hooks/processedEvents";
 
 const DEFAULT_DIFFICULTY = 0;
 
 const HashtagPage = () => {
   const { id } = useParams();
-  const filterDifficulty = localStorage.getItem("filterHashtagDifficulty") || DEFAULT_DIFFICULTY;
-  const { noteEvents, metadataEvents } = useFetchEvents(id as string, false);
-
-  const postEvents: Event[] = noteEvents
-    .filter((event) =>
-      verifyPow(event) >= Number(filterDifficulty) &&
-      event.kind !== 0 &&
-      (event.kind !== 1 || !event.tags.some((tag) => tag[0] === "e"))
-    )
-
-  let sortedEvents = [...postEvents]
-    .sort((a, b) => {
-      // Sort by PoW in descending order
-      const powDiff = verifyPow(b) - verifyPow(a);
-      if (powDiff !== 0) return powDiff;
-
-      // If PoW is the same, sort by created_at in descending order
-      return b.created_at - a.created_at;
-  });
+  const filterDifficulty = DEFAULT_DIFFICULTY;
+  const { processedEvents } = useProcessedEvents(id as string, filterDifficulty);
 
   // Render the component
   return (
@@ -36,13 +17,14 @@ const HashtagPage = () => {
         <NewNoteCard hashtag={id as string} />
       </div>
       <div className="grid grid-cols-1 max-w-xl mx-auto gap-1 px-4">
-        {sortedEvents.map((event) => 
-            <PostCard
-              event={event}
-              metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
-              replies={sortedEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))}
-            />
-  
+        {processedEvents.map((event) =>
+          <PostCard
+            key={event.postEvent.id}
+            event={event.postEvent}
+            metadata={event.metadataEvent}
+            replies={event.replies}
+          />
+
         )}
       </div>
     </main>
