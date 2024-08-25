@@ -34,6 +34,7 @@ const PostCard = ({
     const [sumReplyPow, setReplySumPow] = useState(0);
     const [repostedEvent, setRepostedEvent] = useState<Event>();
     const [parsedEvent, setParsedEvent] = useState<Event>(event);
+    const cachedMetadataEvents = JSON.parse(localStorage.getItem("cachedMetadataEvents") || "[]");
 
     useEffect(() => {
         const allRelatedEvents = [event, ...(replies || [])];
@@ -73,15 +74,19 @@ const PostCard = ({
                 </div>
                 {repliedTo && <div className="flex items-center mt-1" >
                     <span className="text-xs text-gray-500">Reply to: </span>
-                    {uniqBy(repliedTo, 'pubkey').map((parsedEvent, index) => (
-                        <div key={index}>
-                            {event.kind === 0 ? (
-                                <img className={`h-5 w-5 rounded-full`} src={getMetadata(parsedEvent)?.picture} />
-                            ) : (
-                                <div className={`h-4 w-4 ${getIconFromHash(parsedEvent.pubkey)} rounded-full`} />
-                            )}
-                        </div>
-                    ))}
+                    {uniqBy(repliedTo, 'pubkey').map((parsedEvent, index) => {
+                        // Move the logic outside of the JSX return statement
+                        const replyMetadata = cachedMetadataEvents.find((e: Event) => e.pubkey === parsedEvent.pubkey && e.kind === 0) || null;
+                        return (
+                            <div key={index}>
+                                {replyMetadata ? (
+                                    <img className={`h-5 w-5 rounded-full`} src={getMetadata(replyMetadata)?.picture} />
+                                ) : (
+                                    <div className={`h-4 w-4 ${getIconFromHash(parsedEvent.pubkey)} rounded-full`} />
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>}
                 <div className={`flex justify-between items-center ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
                     {metadataParsed ?

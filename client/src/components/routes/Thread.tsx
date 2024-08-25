@@ -15,17 +15,11 @@ const Thread = () => {
     let decodeResult = nip19.decode(id as string);
     let hexID = decodeResult.data as string;
     const { noteEvents, metadataEvents } = useFetchEvents(undefined,false,hexID);
-
     // Load cached thread from localStorage
-    const [threadCache, setThreadCache] = useState<Event[]>(
-        JSON.parse(sessionStorage.getItem("cachedThread") || "[]")
-    );
+    const threadCache = JSON.parse(sessionStorage.getItem("cachedThread") || "[]")
+
     // Combine noteEvents and threadCache into a single array
     const allEvents = [...noteEvents, ...threadCache];
-
-    const countReplies = (event: Event) => {
-        return allEvents.filter(e => e.tags.some(tag => tag[0] === 'e' && tag[1] === event.id));
-    }
 
     const repliedList = (event: Event): Event[] => {
         return allEvents.filter(e => event.tags.some(tag => tag[0] === 'p' && tag[1] === e.pubkey));
@@ -36,9 +30,9 @@ const Thread = () => {
         setPrevMentions((prevEvents) => [...prevEvents, event]);
     };
 
-    const OPEvent = allEvents.find(event => event.id === hexID);
+    const OPEvent: Event = allEvents.find(event => event.id === hexID);
     useEffect(() => {
-        if (OPEvent && prevMentions.length == 0) {
+        if (OPEvent && prevMentions.length === 0) {
             const OPMentionIDs = OPEvent.tags.filter(tag => tag[0] === 'e').map(tag => tag[1]);
             subNotesOnce(OPMentionIDs, onEvent);
         }
@@ -52,7 +46,7 @@ const Thread = () => {
         )
         
         const uniqReplyEvents = uniqBy(allEvents, "id");
-        const replyEvents = [...uniqReplyEvents].slice(1)
+        const replyEvents = [...uniqReplyEvents]
         .filter(event => 
             !earlierEvents.map(e => e.id).includes(event.id) &&
             (OPEvent ? OPEvent.id !== event.id : true)
@@ -65,7 +59,7 @@ const Thread = () => {
                     {earlierEvents
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                            <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replies={countReplies(event)} />
+                            <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replies={uniqEvents.filter((e: Event) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} />
                         ))}
                     <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replies={replyEvents} type={'OP'}/>
                 </div>
@@ -77,7 +71,7 @@ const Thread = () => {
                         key={index} 
                         event={event} 
                         metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} 
-                        replies={replyEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} 
+                        replies={replyEvents.filter((e: Event) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} 
                         repliedTo={repliedList(event)} 
                         />
                     ))}
