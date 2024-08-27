@@ -42,18 +42,26 @@ const NewNoteCard = ({
         }
 
         if (refEvent && tagType) {
-            unsigned.tags = Array.from(new Set(unsigned.tags.concat(refEvent.tags.filter(tag => tag[0] === 'e' || tag[0] === 'p'))));
             unsigned.tags.push(['p', refEvent.pubkey]);
-
-            if (tagType === 'Reply') {
+            const addEventTags = () => {
+                unsigned.tags = Array.from(new Set([
+                    ...unsigned.tags,
+                    ...refEvent.tags.filter(tag => tag[0] === 'e' || tag[0] === 'p')
+                ]));
                 unsigned.tags.push(['e', refEvent.id]);
-            } else {
-                if (tagType === 'Quote') {
+            };
+
+            switch (tagType) {
+                case 'Reply':
+                    addEventTags();
+                    break;
+                case 'Quote':
                     setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
                     unsigned.tags.push(['q', refEvent.id]);
-                } else {
-                    unsigned.tags.push(['e', refEvent.id]);
-                }
+                    break;
+                default:
+                    addEventTags();
+                    break;
             }
         }
 
