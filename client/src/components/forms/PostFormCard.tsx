@@ -14,6 +14,38 @@ interface FormProps {
     hashtag?: string;
 }
 
+// LOL
+const timeUnits = [
+    { unit: 'c', value: 60 * 60 * 24 * 365.25 * 100 }, // Centuries
+    { unit: 'de', value: 60 * 60 * 24 * 365.25 * 10 }, // Decades
+    { unit: 'y', value: 60 * 60 * 24 * 365.25 }, // Years
+    { unit: 'mo', value: 60 * 60 * 24 * 30 }, // Months
+    { unit: 'w', value: 60 * 60 * 24 * 7 },
+    { unit: 'd', value: 60 * 60 * 24 },
+    { unit: 'h', value: 60 * 60 },
+    { unit: 'm', value: 60 },
+];
+
+const timeToGoEst = (difficulty: string, hashrate: number): string => {
+    const difficultyValue = parseInt(difficulty);
+    let estimatedTime = Math.pow(2, difficultyValue) / (hashrate || 1);
+    let result = '';
+
+    if (hashrate < 50000 && estimatedTime > (60 * 60 * 24 * 3)) {
+        return 'calculating'
+    }
+
+    for (let unit of timeUnits) {
+        if (estimatedTime >= unit.value) {
+            const timeInUnit = Math.floor(estimatedTime / unit.value);
+            estimatedTime -= timeInUnit * unit.value; // Update estimatedTime to the remainder
+            result += `${timeInUnit}${unit.unit} `;
+        }
+    }
+
+    return result.trim() || '0m'; // Return '0m' if result is empty, indicating less than a minute
+};
+
 const NewNoteCard = ({
     refEvent,
     tagType,
@@ -177,7 +209,10 @@ const NewNoteCard = ({
                     <div className="flex animate-pulse text-xs text-gray-300">
                         <span className="ml-auto">Doing Work:</span>
                         {hashrate && <span>{hashrate > 100000 ? `${(hashrate / 1000).toFixed(0)}k` : hashrate}</span>}H/s
-                        <span className="pl-1"> (PB:{bestPow}</span><CpuChipIcon className="h-4 w-4" />)
+                        <span className="pl-1"> (PB:{bestPow}</span><CpuChipIcon className="h-4 w-4" />,
+                        <div className="text-xs text-gray-300 pl-1">
+                            ~{timeToGoEst(difficulty, hashrate)}
+                        </div>)
                     </div>
                 ) : null}
             </div>
