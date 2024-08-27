@@ -24,7 +24,7 @@ const Home = () => {
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewNoteCard />
       </div>
-      <div className={`grid grid-cols-1 max-w-xl mx-auto gap-1 px-4 ${isAnimating ? 'animate-pulse' : ''}`}>
+      <div className={`grid grid-cols-1 max-w-xl mx-auto gap-1 ${isAnimating ? 'animate-pulse' : ''}`}>
         {processedEvents.map((event) => (
             <PostCard
               key={event.postEvent.id}

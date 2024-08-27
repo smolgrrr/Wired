@@ -176,7 +176,7 @@ const NewNoteCard = ({
                             className="bg-neutral-800 text-white text-xs font-medium border-none rounded-lg w-10"
                             value={difficulty}
                             onChange={(e) => setDifficulty(e.target.value)}
-                            min="10" // Assuming a minimum difficulty value of 1
+                            min="21" 
                         />
                         <button
                             type="button"

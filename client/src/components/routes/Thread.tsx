@@ -66,7 +66,7 @@ const Thread = () => {
                 </div>
                 <ThreadPostModal OPEvent={OPEvent} />
                 <div className="col-span-full h-0.5 bg-neutral-900 mb-2"/> {/* This is the white line separator */}
-                <div className="grid grid-cols-1 max-w-xl mx-auto gap-1 px-4">
+                <div className="grid grid-cols-1 max-w-xl mx-auto gap-1">
                     {replyEvents.map((event: Event) => (
                         <div className={`w-11/12 ${event.tags.find(tag => tag[0] === 'e' && tag[1] !== OPEvent.id) ? 'ml-auto' : 'mr-auto'}`}>
                         <PostCard 

@@ -1,1 +1,1 @@
-export const DEFAULT_DIFFICULTY = 20;
+export const DEFAULT_DIFFICULTY = 21;
