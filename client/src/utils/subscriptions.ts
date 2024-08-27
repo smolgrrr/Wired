@@ -31,52 +31,40 @@ export const subGlobalFeed = (onEvent: SubCallback, age: number) => {
 
   setTimeout(() => {
     // get profile info
-    sub({
-      cb: onEvent,
-      filter: {
-        authors: Array.from(pubkeys),
-        kinds: [0],
-        limit: pubkeys.size,
-      },
-      unsub: true,
-    });
-    pubkeys.clear();
+    if (pubkeys.size > 0) {
+      sub({
+        cb: onEvent,
+        filter: {
+          authors: Array.from(pubkeys),
+          kinds: [0],
+          limit: pubkeys.size,
+        },
+        unsub: true,
+      });
+      pubkeys.clear();
+    }
 
-    sub({
-      cb: onEvent,
-      filter: {
-        '#e': Array.from(notes),
-        kinds: [1],
-      },
-      unsub: true,
-    });
-
-    notes.clear();
+    if (notes.size > 0) {
+      sub({
+        cb: onEvent,
+        filter: {
+          '#e': Array.from(notes),
+          kinds: [1],
+        },
+        unsub: true,
+      });
+      notes.clear();
+    }
   }, 2000);
 
   // subscribe to future notes, reactions and profile updates
   sub({
     cb: (evt, relay) => {
       onEvent(evt, relay);
-      if (
-        evt.kind !== 1
-        || pubkeys.has(evt.pubkey)
-      ) {
-        return;
-      }
-      subOnce({ // get profile data
-        relay,
-        cb: onEvent,
-        filter: {
-          authors: [evt.pubkey],
-          kinds: [0],
-          limit: 1,
-        }
-      });
     },
     filter: {
       ...(prefix && { ids: ['0'.repeat(prefix)] }),
-      kinds: [1],
+      kinds: [1,6],
       since: now,
     },
   });
@@ -122,16 +110,18 @@ export const subNote = (
 
   setTimeout(() => {
     // get profile info
-    sub({
-      cb: onEvent,
-      filter: {
-        authors: Array.from(pubkeys),
-        kinds: [0],
-        limit: pubkeys.size,
-      },
-      unsub: true,
-    });
-    pubkeys.clear();
+    if (pubkeys.size > 0) {
+      sub({
+        cb: onEvent,
+        filter: {
+          authors: Array.from(pubkeys),
+          kinds: [0],
+          limit: pubkeys.size,
+        },
+        unsub: true,
+      });
+      pubkeys.clear();
+    }
   }, 2000);
 
   replies.add(eventId);
@@ -166,16 +156,18 @@ export const subNoteOnce = (
 
   setTimeout(() => {
     // get profile info
-    sub({
-      cb: onEvent,
-      filter: {
-        authors: Array.from(pubkeys),
-        kinds: [0],
-        limit: pubkeys.size,
-      },
-      unsub: true,
-    });
-    pubkeys.clear();
+    if (pubkeys.size > 0) {
+      sub({
+        cb: onEvent,
+        filter: {
+          authors: Array.from(pubkeys),
+          kinds: [0],
+          limit: pubkeys.size,
+        },
+        unsub: true,
+      });
+      pubkeys.clear();
+    }
   }, 2000);
 };
 
@@ -200,16 +192,18 @@ export const subNotesOnce = (
 
   setTimeout(() => {
     // get profile info
-    sub({
-      cb: onEvent,
-      filter: {
-        authors: Array.from(pubkeys),
-        kinds: [0],
-        limit: pubkeys.size,
-      },
-      unsub: true,
-    });
-    pubkeys.clear();
+    if (pubkeys.size > 0) {
+      sub({
+        cb: onEvent,
+        filter: {
+          authors: Array.from(pubkeys),
+          kinds: [0],
+          limit: pubkeys.size,
+        },
+        unsub: true,
+      });
+      pubkeys.clear();
+    }
   }, 2000);
 };  
 
@@ -299,8 +293,8 @@ export const subHashtagFeed = (
       },
       filter: {
         "#t": [hashtag],
-        kinds: [1, 6],
-        since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
+        kinds: [1],
+        since: Math.floor((Date.now() * 0.001) - (3 * 60 * 60)),
         limit: 20,
       },
       unsub: true
@@ -325,38 +319,36 @@ export const subHashtagFeed = (
   
     setTimeout(() => {
       // get profile info
-      sub({
-        cb: onEvent,
-        filter: {
-          authors: Array.from(pubkeys),
-          kinds: [0],
-          limit: pubkeys.size,
-        },
-        unsub: true,
-      });
-      pubkeys.clear();
-      notes.clear();
+      if (pubkeys.size > 0) {
+        sub({
+          cb: onEvent,
+          filter: {
+            authors: Array.from(pubkeys),
+            kinds: [0],
+            limit: pubkeys.size,
+          },
+          unsub: true,
+        });
+        pubkeys.clear();
+      }
+  
+      if (notes.size > 0) {
+        sub({
+          cb: onEvent,
+          filter: {
+            '#e': Array.from(notes),
+            kinds: [1],
+          },
+          unsub: true,
+        });
+        notes.clear();
+      }
     }, 2000);
   
     // subscribe to future notes, reactions and profile updates
     sub({
       cb: (evt, relay) => {
         onEvent(evt, relay);
-        if (
-          evt.kind !== 1
-          || pubkeys.has(evt.pubkey)
-        ) {
-          return;
-        }
-        subOnce({ // get profile data
-          relay,
-          cb: onEvent,
-          filter: {
-            authors: [evt.pubkey],
-            kinds: [0],
-            limit: 1,
-          }
-        });
       },
       filter: {
         "#t": [hashtag],

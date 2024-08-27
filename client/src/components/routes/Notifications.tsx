@@ -65,6 +65,7 @@ const Notifications = () => {
           <span>Your Recent Posts</span>
           {sortedEvents.map((event) => (
               <PostCard
+                key={event.id}
                 event={event}
                 metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
                 replies={countReplies(event)}
@@ -75,6 +76,7 @@ const Notifications = () => {
           <span>Mentions</span>
           {sortedMentions.map((event) => (
               <PostCard
+                key={event.id}
                 event={event}
                 metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null}
                 replies={countReplies(event)}

@@ -60,9 +60,9 @@ const Thread = () => {
                     {earlierEvents
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
-                            <PostCard event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replies={uniqEvents.filter((e: Event) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} />
+                            <PostCard key={event.id} event={event} metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} replies={uniqEvents.filter((e: Event) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} />
                         ))}
-                    <PostCard event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replies={replyEvents} type={'OP'}/>
+                    <PostCard key={OPEvent.id} event={OPEvent} metadata={metadataEvents.find((e) => e.pubkey === OPEvent.pubkey && e.kind === 0) || null} replies={replyEvents} type={'OP'}/>
                 </div>
                 <ThreadPostModal OPEvent={OPEvent} />
                 <div className="col-span-full h-0.5 bg-neutral-900 mb-2"/> {/* This is the white line separator */}

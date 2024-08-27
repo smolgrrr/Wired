@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { generateSecretKey, getPublicKey, finalizeEvent, UnsignedEvent } from "nostr-tools";
+import { generateSecretKey, getPublicKey, finalizeEvent, UnsignedEvent, Event } from "nostr-tools";
 import { publish } from "../../utils/relays";
 
 const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: string, deps: any[]) => {
@@ -43,7 +43,8 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     const [sk, setSk] = useState(generateSecretKey());
     const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
     const powServer = useState(localStorage.getItem('powserver') || '');
-    const [unsignedPoWEvent, setUnsignedPoWEvent] = useState<UnsignedEvent>()
+    const [unsignedPoWEvent, setUnsignedPoWEvent] = useState<UnsignedEvent>();
+    const [signedPoWEvent, setSignedPoWEvent] = useState<Event>();
     let storedKeys = JSON.parse(localStorage.getItem('usedKeys') || '[]');
 
     // Initialize the worker outside of any effects
@@ -56,6 +57,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
             setDoingWorkProp(false);
             const signedEvent = finalizeEvent(unsignedPoWEvent, sk);
             publish(signedEvent);
+            setSignedPoWEvent(signedEvent);
             setSk(generateSecretKey())
         } 
     }, [unsignedPoWEvent]);
@@ -63,7 +65,6 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     const handleSubmit = (event: React.FormEvent) => {
         event.preventDefault();
         setDoingWorkProp(true);
-        console.log(powServer[0])
         if (powServer[0]) {
             const inEventFormat = { ...unsignedWithPubkey, sig: "" };
             const powRequest = {
@@ -104,5 +105,5 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
         }
     }, [messageFromWorker]);
 
-    return { handleSubmit, doingWorkProp, hashrate, bestPow };
+    return { handleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent};
 };

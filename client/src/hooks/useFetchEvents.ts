@@ -57,7 +57,7 @@ export const useFetchEvents = (hashtag?: string, notifications?: boolean, OP_eve
       }
   
       return unsubscribe;
-    }, [hashtag]);
+    }, []);
   
     const uniqEvents = uniqBy(events, "id");
   

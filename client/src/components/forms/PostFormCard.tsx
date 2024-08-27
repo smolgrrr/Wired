@@ -7,6 +7,7 @@ import { useSubmitForm } from "./handleSubmit";
 import "../../styles/Form.css";
 import EmotePicker from "../modals/EmotePicker/EmotePicker";
 import { DEFAULT_DIFFICULTY } from "../../config";
+import PostCard from "../modals/PostCard";
 
 interface FormProps {
     refEvent?: NostrEvent;
@@ -24,6 +25,7 @@ const timeUnits = [
     { unit: 'd', value: 60 * 60 * 24 },
     { unit: 'h', value: 60 * 60 },
     { unit: 'm', value: 60 },
+    { unit: 's', value: 1 },
 ];
 
 const timeToGoEst = (difficulty: string, hashrate: number): string => {
@@ -43,7 +45,7 @@ const timeToGoEst = (difficulty: string, hashrate: number): string => {
         }
     }
 
-    return result.trim() || '0m'; // Return '0m' if result is empty, indicating less than a minute
+    return result.trim() || 'now'; // Return 'now' if result is empty
 };
 
 const NewNoteCard = ({
@@ -88,7 +90,6 @@ const NewNoteCard = ({
                     addEventTags();
                     break;
                 case 'Quote':
-                    setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
                     unsigned.tags.push(['q', refEvent.id]);
                     break;
                 default:
@@ -118,10 +119,16 @@ const NewNoteCard = ({
         }));
     }, [comment]);
 
-    const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow } = useSubmitForm(unsigned, difficulty);
+    const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent } = useSubmitForm(unsigned, difficulty);
 
     const handleSubmit = async (event: React.FormEvent) => {
         await originalHandleSubmit(event);
+
+        // Check if tagType is 'Quote' and update comment
+        if (tagType === 'Quote' && refEvent) {
+            setComment(prevComment => prevComment + '\nnostr:' + nip19.noteEncode(refEvent.id));
+        }
+
         setComment("");
         setUnsigned(prevUnsigned => ({
             ...prevUnsigned,
@@ -161,9 +168,13 @@ const NewNoteCard = ({
                 <textarea
                     name="com"
                     wrap="soft"
-                    className="shadow-lg w-full px-4 py-3 border-blue-500 bg-black text-white"
+                    className="shadow-lg w-full px-4 py-3 border-blue-500 bg-black text-white h-auto"
                     value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    onChange={(e) => {
+                        setComment(e.target.value);
+                        e.target.style.height = 'auto'; // Reset height
+                        e.target.style.height = `${e.target.scrollHeight}px`; // Set height to scrollHeight
+                    }}
                     rows={comment.split('\n').length || 1}
                 />
                 <div className="h-14 flex items-center justify-between">
@@ -176,7 +187,7 @@ const NewNoteCard = ({
                             className="bg-neutral-800 text-white text-xs font-medium border-none rounded-lg w-10"
                             value={difficulty}
                             onChange={(e) => setDifficulty(e.target.value)}
-                            min="21" 
+                            min="21"
                         />
                         <button
                             type="button"
@@ -215,6 +226,14 @@ const NewNoteCard = ({
                         </div>)
                     </div>
                 ) : null}
+                {signedPoWEvent && (
+                    <PostCard
+                        key={signedPoWEvent.id}
+                        event={signedPoWEvent}
+                        metadata={null}
+                        replies={[]}
+                    />
+                )}
             </div>
             <div id="postFormError" className="text-red-500" />
         </form>

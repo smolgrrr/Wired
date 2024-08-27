@@ -80,7 +80,7 @@ const PostCard = ({
                         return (
                             <div key={index}>
                                 {replyMetadata ? (
-                                    <img className={`h-5 w-5 rounded-full`} src={getMetadata(replyMetadata)?.picture} />
+                                    <img className={`h-5 w-5 rounded-full`} alt="icon" src={getMetadata(replyMetadata)?.picture} />
                                 ) : (
                                     <div className={`h-4 w-4 ${getIconFromHash(parsedEvent.pubkey)} rounded-full`} />
                                 )}

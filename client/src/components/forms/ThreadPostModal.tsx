@@ -37,7 +37,7 @@ const ThreadPostModal = ({ OPEvent }: { OPEvent: Event }) => {
                         setShowRepost(false)
                     }}
                 />
-                <a href={`nostr:${OPEvent.id}`} target="_blank" rel="noopener noreferrer">
+                <a href={`https://njump.me/${OPEvent.id}`} target="_blank" rel="noopener noreferrer">
                     <ArrowTopRightOnSquareIcon
                         className="h-5 w-5 text-gray-200 cursor-pointer"
                     />

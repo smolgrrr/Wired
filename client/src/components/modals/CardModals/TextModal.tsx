@@ -47,7 +47,7 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
 
     const match = comment.match(/\bnostr:([a-z0-9]+)/i);
     const nostrQuoteID = match && match[1];
-    if (nostrQuoteID && nostrQuoteID.length > 0) {
+    if (nostrQuoteID && nostrQuoteID.length > 0 && quoteEvents.length !== 0) {
       let id_to_hex = String(nip19.decode(nostrQuoteID as string).data);
       subNoteOnce(id_to_hex, onEvent);
       setFinalComment(finalComment.replace("nostr:" + nostrQuoteID, "").trim());
