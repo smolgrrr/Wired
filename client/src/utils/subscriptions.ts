@@ -13,7 +13,7 @@ export const subGlobalFeed = (onEvent: SubCallback, age: number) => {
   const now = Math.floor(Date.now() * 0.001);
   const pubkeys = new Set<string>();
   const notes = new Set<string>();
-  const prefix = 6; //  4 bits in each '0' character
+  const prefix = 4; //  4 bits in each '0' character
   sub({ // get past events
     cb: (evt, relay) => {
       pubkeys.add(evt.pubkey);
@@ -300,7 +300,7 @@ export const subHashtagFeed = (
       unsub: true
     });
 
-    const prefix = 6; //  4 bits in each '0' character
+    const prefix = 4; //  4 bits in each '0' character
     sub({ // get past events
       cb: (evt, relay) => {
         pubkeys.add(evt.pubkey);
