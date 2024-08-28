@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export const DefaultHashtags = ['asknostr', 'politics', 'technology', 'proofofwork','bitcoin', 'wired'];
+export const DefaultHashtags = ['asknostr', 'proofofwork', 'bitcoin'];
 
 const Hashtags = () => {
     const [addedHashtags, setAddedHashtags] = useState<string[]>(JSON.parse(localStorage.getItem('hashtags') as string) || []);

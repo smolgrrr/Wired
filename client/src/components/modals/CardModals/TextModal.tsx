@@ -6,24 +6,35 @@ import { nip19 } from "nostr-tools";
 import { parseContent } from "../../../utils/content";
 import QuoteEmbed from "./QuoteEmbed";
 import LinkModal from "./LinkPreview";
+import { EventPointer } from "nostr-tools/lib/types/nip19";
 
 const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: boolean; emojiMap: Record<string, any> }) => {
-  const content = isExpanded ? text.split('\n') : text.slice(0, 350).split('\n');
-
+  let content = isExpanded ? text.split('\n') : text.slice(0, 350).split('\n');
+  
   return (
     <>
       {content.map((line, i) => (
         <div key={i}>
-          {line.split(' ').map((word, j) =>
-            emojiMap[word]
-              ? <img className="w-9 h-9 mx-0.5 inline" src={emojiMap[word]} alt={word} key={j} />
-              : `${word} `
-          )}
+          {line.split(' ').map((word, j) => {
+            if (emojiMap[word]) {
+              return <img className="w-9 h-9 mx-0.5 inline" src={emojiMap[word]} alt={word} key={j} />;
+            }              
+            const match = word.match(/(?:nostr:(?:nevent1|note1|npub1|nprofile1|naddr1)|@(?:nevent1|note1|npub1|nprofile1|naddr1))([a-z0-9]+)/i);
+            if (match) {
+              const fullIdentifier = match[0];
+              const displayText = `@${fullIdentifier.replace(/^(@|nostr:)/, '').slice(0, 9)}`;
+              return <><a className="underline" href={`https://njump.me/${fullIdentifier.replace(/^(@|nostr:)/, '')}`} key={j} target="_blank" rel="noopener noreferrer">{displayText}</a>{' '}</>;
+            } else {
+              return `${word} `;
+            }
+          })}
         </div>
       ))}
     </>
   );
 };
+
+// ... rest of the file remains unchanged
 
 const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) => {
   const { comment } = parseContent(eventdata);
@@ -45,12 +56,20 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
       setFinalComment(finalComment.replace(findUrl[0], "").trim());
     }
 
-    const match = comment.match(/\bnostr:([a-z0-9]+)/i);
-    const nostrQuoteID = match && match[1];
-    if (nostrQuoteID && nostrQuoteID.length > 0 && quoteEvents.length !== 0) {
-      let id_to_hex = String(nip19.decode(nostrQuoteID as string).data);
-      subNoteOnce(id_to_hex, onEvent);
-      setFinalComment(finalComment.replace("nostr:" + nostrQuoteID, "").trim());
+    const match = comment.match(/\bnostr:(?:nevent1|note1)([a-z0-9]+)/i);
+    const nostrURI = match && match[1];
+    if (nostrURI && quoteEvents.length === 0) {
+      if (match[1].startsWith('note')) {
+        setFinalComment(finalComment.replace("nostr:" + nostrURI, "").trim());
+        let id_to_hex = String(nip19.decode(nostrURI).data);
+        subNoteOnce(id_to_hex, onEvent);
+      } else if (match[1].startsWith('nevent')) {
+        setFinalComment(finalComment.replace("nostr:" + nostrURI, "").trim());
+        let { type, data } = nip19.decode(nostrURI) as { type: string, data: EventPointer };
+        if (data.kind === 1) {
+          subNoteOnce(data.id, onEvent);
+        }
+      }
     }
 
     let newEmojiMap: Record<string, any> = {};

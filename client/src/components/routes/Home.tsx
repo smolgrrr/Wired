@@ -1,22 +1,24 @@
 import NewNoteCard from "../forms/PostFormCard";
 import { DEFAULT_DIFFICULTY } from "../../config";
 import PostCard from "../modals/PostCard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import useProcessedEvents from "../../hooks/processedEvents";
 
 const Home = () => {
-  const filterDifficulty = Number(localStorage.getItem('filterDifficulty')) || DEFAULT_DIFFICULTY;
+  const filterDifficulty = useMemo(() => {
+    return Number(localStorage.getItem('filterDifficulty')) || DEFAULT_DIFFICULTY;
+  }, []);
+
   const { processedEvents } = useProcessedEvents(undefined, filterDifficulty);
   const [isAnimating, setIsAnimating] = useState(true);
 
-  // Step 3: Use useEffect to remove the animation class after 3 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsAnimating(false);
-    }, 4000); // 3000 milliseconds = 3 seconds
+    }, 4000);
 
-    return () => clearTimeout(timer); // Cleanup the timer
-  }, []); // Empty dependency array means this effect runs once on mount
+    return () => clearTimeout(timer);
+  }, []);
 
   // Render the component
   return (

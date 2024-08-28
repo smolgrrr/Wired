@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { subGlobalFeed, subHashtagFeed, subNote, subNotifications, subNotesOnce} from "../utils/subscriptions";
+import { subGlobalFeed, subHashtagFeed, subNote, subNotifications} from "../utils/subscriptions";
 import { uniqBy } from "../utils/otherUtils";
 import { Event } from "nostr-tools";
 
