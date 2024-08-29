@@ -50,12 +50,6 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
   };
 
   useEffect(() => {
-    const findUrl = comment.match(/\bhttps?:\/\/\S+/gi);
-    if (findUrl && findUrl.length > 0) {
-      setUrl(findUrl[0]);
-      setFinalComment(finalComment.replace(findUrl[0], "").trim());
-    }
-
     const match = comment.match(/\bnostr:(?:nevent1|note1)([a-z0-9]+)/i);
     const nostrURI = match && match[1];
     if (nostrURI && quoteEvents.length === 0) {

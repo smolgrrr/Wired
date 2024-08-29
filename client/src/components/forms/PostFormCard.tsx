@@ -122,13 +122,13 @@ const NewNoteCard = ({
     const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent } = useSubmitForm(unsigned, difficulty);
 
     const handleSubmit = async (event: React.FormEvent) => {
-        await originalHandleSubmit(event);
-
         // Check if tagType is 'Quote' and update comment
         if (tagType === 'Quote' && refEvent) {
             setComment(prevComment => prevComment + '\nnostr:' + nip19.noteEncode(refEvent.id));
         }
 
+        await originalHandleSubmit(event);
+        
         setComment("");
         setUnsigned(prevUnsigned => ({
             ...prevUnsigned,
@@ -222,7 +222,7 @@ const NewNoteCard = ({
                         {hashrate && <span>{hashrate > 100000 ? `${(hashrate / 1000).toFixed(0)}k` : hashrate}</span>}H/s
                         <span className="pl-1"> (PB:{bestPow}</span><CpuChipIcon className="h-4 w-4" />,
                         <div className="text-xs text-gray-300 pl-1">
-                            ~{timeToGoEst(difficulty, hashrate)}
+                            ~{timeToGoEst(difficulty, hashrate)} total
                         </div>)
                     </div>
                 ) : null}

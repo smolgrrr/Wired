@@ -1,14 +1,14 @@
 import { FolderIcon, CpuChipIcon } from "@heroicons/react/24/outline";
-// import { parseContent } from "../../utils/content";
+import { parseContent } from "../../utils/content";
 import { Event, nip19 } from "nostr-tools";
 import { getMetadata } from "../../utils/getMetadata";
-// import { renderMedia } from "../../utils/FileUpload";
 import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
 import { verifyPow } from "../../utils/mine";
 import { uniqBy } from "../../utils/otherUtils";
 import ContentPreview from "./CardModals/TextModal";
 import CardContainer from "./CardContainer";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo} from "react";
+import RenderMedia from "./MediaRender";
 
 interface CardProps {
     key?: string | number;
@@ -27,7 +27,7 @@ const PostCard = ({
     repliedTo,
     type
 }: CardProps) => {
-    // const { files } = parseContent(event);
+    const { files } = parseContent(event);
     const icon = getIconFromHash(event.pubkey);
     const metadataParsed = metadata ? getMetadata(metadata) : null;
     const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
@@ -65,13 +65,13 @@ const PostCard = ({
         }
     };
 
-
     return (
         <CardContainer>
             <div className={`flex flex-col gap-2`} key={key}>
                 <div className={`flex flex-col break-words ${type !== "OP" ? 'hover:cursor-pointer' : ''}`} onClick={handleClick}>
                     <ContentPreview key={parsedEvent.id} eventdata={parsedEvent} />
                 </div>
+                <RenderMedia files={files} />
                 {repliedTo && <div className="flex items-center mt-1" >
                     <span className="text-xs text-gray-500">Reply to: </span>
                     {uniqBy(repliedTo, 'pubkey').map((parsedEvent, index) => {

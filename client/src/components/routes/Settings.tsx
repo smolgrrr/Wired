@@ -79,7 +79,7 @@ const Settings = () => {
               type="number"
               value={filterDifficulty}
               onChange={e => setFilterDifficulty(e.target.value)}
-              min={21}
+              min={22}
               className="w-full px-3 py-2 border rounded-md bg-black"
             />
           </div>
@@ -94,7 +94,7 @@ const Settings = () => {
               type="number"
               value={difficulty}
               onChange={e => setDifficulty(e.target.value)}
-              min={21}
+              min={22}
               className="w-full px-3 py-2 border rounded-md bg-black"
             />
           </div>

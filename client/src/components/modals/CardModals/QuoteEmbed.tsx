@@ -2,7 +2,7 @@ import { parseContent } from "../../../utils/content";
 import { Event } from "nostr-tools";
 import { getMetadata } from "../../../utils/getMetadata";
 import ContentPreview from "./TextModal";
-import { renderMedia } from "../../../utils/FileUpload";
+import RenderMedia from "../MediaRender";
 import { getIconFromHash, timeAgo } from "../../../utils/cardUtils";
 import { CpuChipIcon } from "@heroicons/react/24/outline";
 import { verifyPow } from "../../../utils/mine";
@@ -30,6 +30,7 @@ const QuoteEmbed = ({
         <div className="flex flex-col break-words">
           <ContentPreview key={event.id} eventdata={event} />
         </div>
+        <RenderMedia files={files} />
         <div className="flex justify-between items-center">
             {metadataParsed ?
               <img
