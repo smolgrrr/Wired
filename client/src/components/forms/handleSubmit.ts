@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { generateSecretKey, getPublicKey, finalizeEvent, UnsignedEvent, Event } from "nostr-tools";
 import { publish } from "../../utils/relays";
+import { bytesToHex } from '@noble/hashes/utils'
 
 const useWorkers = (numCores: number, unsigned: UnsignedEvent, difficulty: string, deps: any[]) => {
     const [messageFromWorker, setMessageFromWorker] = useState(null);
@@ -94,7 +95,8 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
         }
 
         // Add the logic here
-        storedKeys.push([sk, getPublicKey(sk)]);
+        const skHex = bytesToHex(sk);
+        storedKeys.push([skHex, getPublicKey(sk)]);
         // Stringify the array and store it back to localStorage
         localStorage.setItem('usedKeys', JSON.stringify(storedKeys));
     };
