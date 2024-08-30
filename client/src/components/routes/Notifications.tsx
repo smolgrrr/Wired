@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import PostCard from "../modals/PostCard";
 import { Event } from "nostr-tools";
 import { useFetchEvents } from "../../hooks/useFetchEvents";
+import Wallet from "../modals/Wallet/Wallet";
 
 const Notifications = () => {
   const [notifsView, setNotifsView] = useState(false);
@@ -42,6 +43,7 @@ const Notifications = () => {
   // Render the component
   return (
     <main className="text-white mb-20">
+      <Wallet />
       <div className="block sm:hidden">
         <label htmlFor="toggleC" className="p-4 flex items-center cursor-pointer">
           <div className="relative">

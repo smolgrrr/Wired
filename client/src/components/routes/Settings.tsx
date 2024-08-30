@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CpuChipIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
+import WalletSettings from '../modals/Wallet/WalletSettings';
 
 type TestResponse = {
   timeTaken: string;
@@ -183,6 +184,7 @@ const Settings = () => {
         </button>
       </form>
       </div>
+      <WalletSettings />
       <div className="settings-page py-10">
         <h1 className="text-lg font-semibold mb-4">About <a className="hover:underline"href="https://git.getwired.app/doot/TAO">(source code)</a></h1>
         <div className="flex flex-col">
