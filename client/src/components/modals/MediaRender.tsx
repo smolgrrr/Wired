@@ -93,7 +93,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
               key={index}
               alt="Invalid thread"
               loading="lazy"
-              className={`thumb mt-2 max-w-64 min-h-64 mx-auto rounded-md`}
+              className={`thumb mt-2 max-h-64 mx-auto rounded-md`}
               src={file}
               onClick={isFromAllowedDomain ? undefined : toggleBlur} // Only add onClick if blur is applied
             />
