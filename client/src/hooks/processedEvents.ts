@@ -30,10 +30,22 @@ const useProcessedEvents = (id?: string, filterDifficulty: number = 0) => {
       });
     });
 
+    // Create a Set to keep track of seen pubkeys
+    const seenPubkeys = new Set<string>();
+
     return noteEvents
       .filter(event => {
         const pow = verifyPow(event);
-        return (event.kind === 0 || pow >= filterDifficulty) && !(event.kind === 1 && event.tags.some(tag => tag[0] === 'e'));
+        // Check if the pubkey has been seen before
+        if (seenPubkeys.has(event.pubkey)) {
+          return false;
+        }
+        // Add the pubkey to the set if it passes the filter
+        if ((event.kind === 0 || pow >= filterDifficulty) && !(event.kind === 1 && event.tags.some(tag => tag[0] === 'e'))) {
+          seenPubkeys.add(event.pubkey);
+          return true;
+        }
+        return false;
       })
       .map(event => {
         const pow = verifyPow(event); // Calculate once and reuse

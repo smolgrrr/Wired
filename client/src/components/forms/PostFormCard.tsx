@@ -122,6 +122,12 @@ const NewNoteCard = ({
     const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent } = useSubmitForm(unsigned, difficulty);
 
     const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault(); // Prevent default form submission
+        
+        if (comment.trim() === "") {
+            return; // Don't submit if comment is empty or just whitespace
+        }
+
         // Check if tagType is 'Quote' and update comment
         if (tagType === 'Quote' && refEvent) {
             setComment(prevComment => prevComment + '\nnostr:' + nip19.noteEncode(refEvent.id));
