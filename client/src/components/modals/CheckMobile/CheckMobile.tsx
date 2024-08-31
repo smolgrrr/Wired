@@ -39,7 +39,7 @@ export default function CombinedIntroAndMobile() {
         localStorage.setItem('hasClosedIntro', 'true');
     };
 
-    if (!showIntro && !inMobileBrowser) return null;
+    if (!showIntro) return null;
 
     return (
         <Transition appear show={showIntro || inMobileBrowser} as={Fragment}>
