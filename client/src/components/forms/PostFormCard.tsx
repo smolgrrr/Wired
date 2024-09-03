@@ -30,7 +30,7 @@ const timeUnits = [
 
 const timeToGoEst = (difficulty: string, hashrate: number): string => {
     const difficultyValue = parseInt(difficulty);
-    let estimatedTime = Math.pow(2, difficultyValue) / (hashrate || 1);
+    let estimatedTime = (Math.pow(2, difficultyValue) / (hashrate || 1)) * 1.3;
     let result = '';
 
     if (hashrate < 50000 && estimatedTime > (60 * 60 * 24 * 3)) {

@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 const checkMedia = async (url: string) => {
   try {
     const token = process.env.REACT_APP_NSFW_TOKEN;
-    if (!token) {
-      console.error("NSFW token is not set in environment variables");
+    const picpurifyApiKey = process.env.REACT_APP_PICPURIFY_API_KEY;
+    if (!token || !picpurifyApiKey) {
+      console.error("NSFW token or PicPurify API key is not set in environment variables");
       return null;
     }
 
-    const response = await fetch('https://nsfw-detector-api-latest.onrender.com/predict', {
+    // NSFW check
+    const nsfwResponse = await fetch('https://nsfw-detector-api-latest.onrender.com/predict', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -18,7 +20,23 @@ const checkMedia = async (url: string) => {
       },
       body: JSON.stringify({ url }),
     });
-    return await response.json();
+    const nsfwResult = await nsfwResponse.json();
+
+    // PicPurify gore check
+    const picpurifyResponse = await fetch('https://www.picpurify.com/analyse/1.1', {
+      method: 'POST',
+      body: new URLSearchParams({
+        'API_KEY': picpurifyApiKey,
+        'task': 'gore_moderation',
+        'url_image': url
+      })
+    });
+    const picpurifyResult = await picpurifyResponse.json();
+
+    return {
+      nsfw: nsfwResult,
+      gore: picpurifyResult
+    };
   } catch (error) {
     console.error("Error checking media:", error);
     return null;
@@ -40,13 +58,14 @@ const RenderMedia = ({ files }: { files: string[] }) => {
     const performMediaChecks = async () => {
       for (const file of files) {
         const result = await checkMedia(file);
-        console.log(`Result for ${file}:`, result);
-        if (result && result.data && result.data.predictedLabel) {
+        if (result) {
           setMediaCheckResults(prev => ({
             ...prev,
-            [file]: { predictedLabel: result.data.predictedLabel }
+            [file]: {
+              nsfwLabel: result.nsfw?.data?.predictedLabel,
+              goreContent: result.gore?.gore_moderation?.gore_content
+            }
           }));
-          console.error(`Unexpected result structure for ${file}:`, result.data.predictedLabel);
         } else {
           console.error(`Unexpected result structure for ${file}:`, result);
         }
@@ -54,7 +73,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
     };
 
     if (Object.keys(mediaCheckResults).length === 0) {
-    performMediaChecks();
+      performMediaChecks();
     }
   }, []);
 
@@ -65,16 +84,16 @@ const RenderMedia = ({ files }: { files: string[] }) => {
         const isFromAllowedDomain = whitelistImageURL.some(domain => file.includes(domain));
         const mediaCheckResult = mediaCheckResults[file];
         
-        // Only render if predictedLabel is neutral
-        if (mediaCheckResult && mediaCheckResult.predictedLabel !== 'neutral') {
+        // Check for both NSFW and gore content
+        if (mediaCheckResult && (mediaCheckResult.nsfwLabel !== 'neutral' || mediaCheckResult.goreContent)) {
           return (
             <div>
-              <p className="text-center text-red-500 text-xs">Attached media has been flagged as not safe for work.</p>
+              <p className="text-center text-red-500 text-xs">Attached media has been flagged as not safe for work or contains gore.</p>
             </div>
           );
         }
 
-        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.predictedLabel === 'neutral') {
+        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.nsfwLabel === 'neutral') {
           return (
             <video
               key={index}
@@ -87,7 +106,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
               <source src={file} type="video/mp4" />
             </video>
           );
-        } else if (file && mediaCheckResult && mediaCheckResult.predictedLabel === 'neutral') {
+        } else if (file && mediaCheckResult && mediaCheckResult.nsfwLabel === 'neutral') {
           return (
             <img
               key={index}
