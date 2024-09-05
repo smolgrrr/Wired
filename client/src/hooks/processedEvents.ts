@@ -55,14 +55,20 @@ const useProcessedEvents = (id?: string, filterDifficulty: number = 0) => {
         if (event.kind === 6) {
           const parsedEvent = JSON.parse(event.content);
           const replies = repliesMap.get(parsedEvent.id) || [];
-          const totalWork = Math.pow(2, pow) + replies.reduce((acc, reply) => acc + Math.pow(2, verifyPow(reply)), 0);
+          const totalWork = Math.pow(2, pow) + replies.reduce((acc, reply) => {
+            const replyPow = reply.id.startsWith('0') ? verifyPow(reply) : 0;
+            return acc + Math.pow(2, replyPow);
+          }, 0);
           const metadataEvent = metadataEvents.find(e => e.pubkey === parsedEvent.pubkey && e.kind === 0) || null;
 
           return { postEvent: event, replies, totalWork, metadataEvent };
         }
 
         const replies = repliesMap.get(event.id) || [];
-        const totalWork = Math.pow(2, pow) + replies.reduce((acc, reply) => acc + Math.pow(2, verifyPow(reply)), 0);
+        const totalWork = Math.pow(2, pow) + replies.reduce((acc, reply) => {
+          const replyPow = reply.id.startsWith('0') ? verifyPow(reply) : 0;
+          return acc + Math.pow(2, replyPow);
+        }, 0);
         const metadataEvent = metadataEvents.find(e => e.pubkey === event.pubkey && e.kind === 0) || null;
         return { postEvent: event, replies, totalWork, metadataEvent };
       })

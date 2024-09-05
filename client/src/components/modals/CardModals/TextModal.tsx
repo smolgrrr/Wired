@@ -14,7 +14,7 @@ const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: bo
   return (
     <>
       {content.map((line, i) => (
-        <div key={i}>
+        <div key={i} className={line.startsWith('>') ? 'text-sky-300' : ''}>
           {line.split(' ').map((word, j) => {
             if (emojiMap[word]) {
               return <img className="w-9 h-9 mx-0.5 inline" src={emojiMap[word]} alt={word} key={j} />;

@@ -60,13 +60,15 @@ export default function CombinedIntroAndMobile() {
                                 </h2>
                                 <ul className="list-none space-y-2 text-xs">
                                     <li>
-                                        {'>'} Here your anonymous posts are distributed among a series of independent <a className="underline" href="https://github.com/nostr-protocol/nostr" target="_blank" rel="noopener noreferrer">NOSTR</a> relay servers,
+                                        {'>'} here your anonymous posts are distributed among a series of independent <a className="underline" href="https://github.com/nostr-protocol/nostr" target="_blank" rel="noopener noreferrer">NOSTR</a> servers,
                                         which means they are highly resistant to censorship and moderation.
                                     </li>
                                     <li>
-                                        {'>'} Each post must use Proof-of-Work to reduce spam and noise. Your note's ID is a hash of the note,
-                                        and this hashing is done repeatedly with a nonce until it starts with multiple leading zeros,
-                                        which approximates the work done to generate the note.
+                                        {'>'} each post must use Proof-of-Work which filters out most spam and noise. this is done by hashing the note repeatedly,  
+                                        while incrementing a nonce, until the hash (the note's ID) starts with a certain number of leading zeros. this takes work/energy.
+                                    </li>
+                                    <li>
+                                        {'>'} the Home feed is sorted by total Proof-of-Work of notes and replies in a thread.
                                     </li>
                                 </ul>
                             </div>
