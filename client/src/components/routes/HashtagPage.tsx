@@ -2,6 +2,7 @@ import PostCard from "../modals/PostCard";
 import NewNoteCard from "../forms/PostFormCard";
 import { useParams } from "react-router-dom";
 import useProcessedEvents from "../../hooks/processedEvents";
+import HashtagBar from "../modals/HashtagBar";
 
 const DEFAULT_DIFFICULTY = 0;
 
@@ -15,6 +16,7 @@ const HashtagPage = () => {
     <main className="text-white mb-20">
       <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
         <NewNoteCard hashtag={id as string} />
+        <HashtagBar />
       </div>
       <div className="grid grid-cols-1 max-w-xl mx-auto gap-1 px-4">
         {processedEvents.map((event) =>

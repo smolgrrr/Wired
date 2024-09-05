@@ -22,20 +22,20 @@ const checkMedia = async (url: string) => {
     });
     const nsfwResult = await nsfwResponse.json();
 
-    // PicPurify gore check
-    const picpurifyResponse = await fetch('https://www.picpurify.com/analyse/1.1', {
-      method: 'POST',
-      body: new URLSearchParams({
-        'API_KEY': picpurifyApiKey,
-        'task': 'gore_moderation',
-        'url_image': url
-      })
-    });
-    const picpurifyResult = await picpurifyResponse.json();
+    // // PicPurify gore check
+    // const picpurifyResponse = await fetch('https://www.picpurify.com/analyse/1.1', {
+    //   method: 'POST',
+    //   body: new URLSearchParams({
+    //     'API_KEY': picpurifyApiKey,
+    //     'task': 'gore_moderation',
+    //     'url_image': url
+    //   })
+    // });
+    // const picpurifyResult = await picpurifyResponse.json();
 
     return {
       nsfw: nsfwResult,
-      gore: picpurifyResult
+      // gore: picpurifyResult
     };
   } catch (error) {
     console.error("Error checking media:", error);
@@ -63,7 +63,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
             ...prev,
             [file]: {
               nsfwLabel: result.nsfw?.data?.predictedLabel,
-              goreContent: result.gore?.gore_moderation?.gore_content
+              // goreContent: result.gore?.gore_moderation?.gore_content
             }
           }));
         } else {
@@ -85,7 +85,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
         const mediaCheckResult = mediaCheckResults[file];
         
         // Check for both NSFW and gore content
-        if (mediaCheckResult && (mediaCheckResult.nsfwLabel !== 'neutral' || mediaCheckResult.goreContent)) {
+        if (mediaCheckResult && (mediaCheckResult.nsfwLabel !== 'neutral')) {
           return (
             <div>
               <p className="text-center text-red-500 text-xs">Attached media has been flagged as not safe for work or contains gore.</p>
@@ -93,7 +93,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
           );
         }
 
-        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.nsfwLabel === 'neutral') {
+        if (file && (file.endsWith(".mp4") || file.endsWith(".webm"))) {
           return (
             <video
               key={index}

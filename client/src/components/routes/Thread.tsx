@@ -56,7 +56,7 @@ const Thread = () => {
     return (
         <>
             <main className="bg-black text-white min-h-screen">
-                <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+                <div className="w-full sm:px-0 sm:max-w-xl mx-auto my-2">
                     {earlierEvents
                         .filter(event => event.kind === 1)
                         .sort((a, b) => a.created_at - b.created_at).map((event, index) => (
