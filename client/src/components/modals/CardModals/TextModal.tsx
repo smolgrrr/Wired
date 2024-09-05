@@ -19,7 +19,7 @@ const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: bo
             if (emojiMap[word]) {
               return <img className="w-9 h-9 mx-0.5 inline" src={emojiMap[word]} alt={word} key={j} />;
             }              
-            const match = word.match(/(?:nostr:(?:nevent1|note1|npub1|nprofile1|naddr1)|@(?:nevent1|note1|npub1|nprofile1|naddr1))([a-z0-9]+)/i);
+            const match = word.match(/(?:nostr:(?:npub1|nprofile1|naddr1)|@(?:npub1|nprofile1|naddr1))([a-z0-9]+)/i);
             if (match) {
               const fullIdentifier = match[0];
               const displayText = `@${fullIdentifier.replace(/^(@|nostr:)/, '').slice(0, 9)}`;
@@ -50,19 +50,21 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
   };
 
   useEffect(() => {
-    const match = comment.match(/\bnostr:(?:nevent1|note1)([a-z0-9]+)/i);
-    const nostrURI = match && match[1];
+    const match = comment.match(/\b(nostr:(?:nevent1|note1)[\w]+|@(?:nevent1|note1)[\w]+)/i);
+    const nostrURI = match && match[1].replace(/^(nostr:|@)/, '');
     if (nostrURI && quoteEvents.length === 0) {
-      if (match[1].startsWith('note')) {
+      if (nostrURI.startsWith('note')) {
         setFinalComment(finalComment.replace("nostr:" + nostrURI, "").trim());
         let id_to_hex = String(nip19.decode(nostrURI).data);
-        subNoteOnce(id_to_hex, onEvent);
-      } else if (match[1].startsWith('nevent')) {
+        if (!quoteEvents.some(event => event.id === id_to_hex)) {
+          subNoteOnce(id_to_hex, onEvent);
+        }
+      } else if (nostrURI.startsWith('nevent')) {
         setFinalComment(finalComment.replace("nostr:" + nostrURI, "").trim());
         let { type, data } = nip19.decode(nostrURI) as { type: string, data: EventPointer };
-        if (data.kind === 1) {
-          subNoteOnce(data.id, onEvent);
-        }
+      if (data.kind === 1 && !quoteEvents.some(event => event.id === data.id)) {
+        subNoteOnce(data.id, onEvent);
+      }
       }
     }
 
@@ -75,7 +77,7 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
     // Update the state variable
     setEmojiMap(newEmojiMap);
 
-  }, [comment, finalComment]);
+  }, [comment, quoteEvents]);
 
   const getMetadataEvent = (event: Event) => {
     const metadataEvent = quoteEvents.find(

@@ -49,6 +49,7 @@ const Thread = () => {
         const uniqReplyEvents = uniqBy(allEvents, "id");
         const replyEvents = [...uniqReplyEvents]
         .filter(event => 
+            event.kind === 1 && 
             !earlierEvents.map(e => e.id).includes(event.id) &&
             (OPEvent ? OPEvent.id !== event.id : true)
         ).sort((a, b) => a.created_at - b.created_at);

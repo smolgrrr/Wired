@@ -19,15 +19,17 @@ const useProcessedEvents = (id?: string, filterDifficulty: number = 0) => {
     // Create a map for replies to optimize lookup
     const repliesMap = new Map<string, Event[]>();
     noteEvents.forEach(event => {
-      event.tags.forEach(tag => {
-        if (tag[0] === 'e') {
-          const replyToId = tag[1];
-          if (!repliesMap.has(replyToId)) {
-            repliesMap.set(replyToId, []);
+      if (event.kind === 1) { // Only consider kind 1 events as replies
+        event.tags.forEach(tag => {
+          if (tag[0] === 'e') {
+            const replyToId = tag[1];
+            if (!repliesMap.has(replyToId)) {
+              repliesMap.set(replyToId, []);
+            }
+            repliesMap.get(replyToId)?.push(event);
           }
-          repliesMap.get(replyToId)?.push(event);
-        }
-      });
+        });
+      }
     });
 
     // Create a Set to keep track of seen pubkeys
@@ -49,6 +51,16 @@ const useProcessedEvents = (id?: string, filterDifficulty: number = 0) => {
       })
       .map(event => {
         const pow = verifyPow(event); // Calculate once and reuse
+
+        if (event.kind === 6) {
+          const parsedEvent = JSON.parse(event.content);
+          const replies = repliesMap.get(parsedEvent.id) || [];
+          const totalWork = Math.pow(2, pow) + replies.reduce((acc, reply) => acc + Math.pow(2, verifyPow(reply)), 0);
+          const metadataEvent = metadataEvents.find(e => e.pubkey === parsedEvent.pubkey && e.kind === 0) || null;
+
+          return { postEvent: event, replies, totalWork, metadataEvent };
+        }
+
         const replies = repliesMap.get(event.id) || [];
         const totalWork = Math.pow(2, pow) + replies.reduce((acc, reply) => acc + Math.pow(2, verifyPow(reply)), 0);
         const metadataEvent = metadataEvents.find(e => e.pubkey === event.pubkey && e.kind === 0) || null;

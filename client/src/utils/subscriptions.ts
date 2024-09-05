@@ -16,14 +16,22 @@ export const subGlobalFeed = (onEvent: SubCallback, age: number) => {
   const prefix = 4; //  4 bits in each '0' character
   sub({ // get past events
     cb: (evt, relay) => {
-      pubkeys.add(evt.pubkey);
-      notes.add(evt.id);
+      if (evt.kind === 1 && !evt.tags.some(tag => tag[0] === 'e')) {
+        pubkeys.add(evt.pubkey);
+        notes.add(evt.id);
+      } else if (evt.kind === 6) {
+        const parsedEvt = JSON.parse(evt.content);
+        if (parsedEvt.kind === 1) {
+          pubkeys.add(parsedEvt.pubkey);
+          notes.add(parsedEvt.id);
+        }
+      }
       onEvent(evt, relay);
     },
     filter: {
       ...(prefix && { ids: ['0'.repeat(prefix)] }),
       kinds: [1, 6],
-      since: Math.floor((Date.now() * 0.001) - (age * 60 * 60)),
+      since: Math.floor(now - (age * 60 * 60)),
       limit: 500,
     },
     unsub: true
@@ -56,18 +64,6 @@ export const subGlobalFeed = (onEvent: SubCallback, age: number) => {
       notes.clear();
     }
   }, 2000);
-
-  // subscribe to future notes, reactions and profile updates
-  sub({
-    cb: (evt, relay) => {
-      onEvent(evt, relay);
-    },
-    filter: {
-      ...(prefix && { ids: ['0'.repeat(prefix)] }),
-      kinds: [1,6],
-      since: now,
-    },
-  });
 };
 
 /** subscribe to a note id (nip-19) */
@@ -287,14 +283,16 @@ export const subHashtagFeed = (
     const notes = new Set<string>();
     sub({ // get past events
       cb: (evt, relay) => {
-        pubkeys.add(evt.pubkey);
-        notes.add(evt.id);
+        if (!evt.tags.some(tag => tag[0] === 'e')) {
+          pubkeys.add(evt.pubkey);
+          notes.add(evt.id);
+        }
         onEvent(evt, relay);
       },
       filter: {
         "#t": [hashtag],
         kinds: [1],
-        since: Math.floor((Date.now() * 0.001) - (3 * 60 * 60)),
+        since: Math.floor(now - (3 * 60 * 60)),
         limit: 20,
       },
       unsub: true
@@ -303,8 +301,16 @@ export const subHashtagFeed = (
     const prefix = 4; //  4 bits in each '0' character
     sub({ // get past events
       cb: (evt, relay) => {
-        pubkeys.add(evt.pubkey);
-        notes.add(evt.id);
+        if (evt.kind === 1 && !evt.tags.some(tag => tag[0] === 'e')) {
+          pubkeys.add(evt.pubkey);
+          notes.add(evt.id);
+        } else if (evt.kind === 6) {
+          const parsedEvt = JSON.parse(evt.content);
+          if (parsedEvt.kind === 1) {
+            pubkeys.add(parsedEvt.pubkey);
+            notes.add(parsedEvt.id);
+          }
+        }
         onEvent(evt, relay);
       },
       filter: {
@@ -344,16 +350,4 @@ export const subHashtagFeed = (
         notes.clear();
       }
     }, 2000);
-  
-    // subscribe to future notes, reactions and profile updates
-    sub({
-      cb: (evt, relay) => {
-        onEvent(evt, relay);
-      },
-      filter: {
-        "#t": [hashtag],
-        kinds: [1],
-        since: now,
-      },
-    });
 };

@@ -61,7 +61,7 @@ const PostCard = ({
     const handleClick = () => {
         if (type !== "OP") {
             sessionStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
-            window.location.href = `/thread/${nip19.noteEncode(event.id)}`;
+            window.location.href = `/thread/${nip19.noteEncode(parsedEvent.id)}`;
         }
     };
 
@@ -92,7 +92,7 @@ const PostCard = ({
                     {metadataParsed ?
                         <img
                             key={key}
-                            className={`h-7 w-7 rounded-full overflow-hidden`}
+                            className="h-7 w-7 rounded-full object-cover"
                             src={metadataParsed?.picture ?? icon}
                             alt=""
                             loading="lazy"
