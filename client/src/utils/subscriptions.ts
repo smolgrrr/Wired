@@ -292,7 +292,7 @@ export const subHashtagFeed = (
       filter: {
         "#t": [hashtag],
         kinds: [1],
-        since: Math.floor(now - (3 * 60 * 60)),
+        since: Math.floor(now - (24 * 60 * 60)),
         limit: 20,
       },
       unsub: true

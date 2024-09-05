@@ -12,6 +12,7 @@ import ThreadPostModal from '../forms/ThreadPostModal';
 const Thread = () => {
     const { id } = useParams();
     const [prevMentions, setPrevMentions] = useState<Event[]>([]);
+    const [visibleReplyEvents, setVisibleReplyEvents] = useState(10);
     let decodeResult = nip19.decode(id as string);
     let hexID = decodeResult.data as string;
     const { noteEvents, metadataEvents } = useFetchEvents(undefined,false,hexID);
@@ -38,6 +39,17 @@ const Thread = () => {
             subNotesOnce(OPMentionIDs, onEvent);
         }
     }, [OPEvent]);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
+                setVisibleReplyEvents((prev) => prev + 10);
+            }
+        };
+
+        window.addEventListener("scroll", handleScroll);
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
 
     if (OPEvent) {
         const uniqEvents = uniqBy(prevMentions, "id");
@@ -68,7 +80,7 @@ const Thread = () => {
                 <ThreadPostModal OPEvent={OPEvent} />
                 <div className="col-span-full h-0.5 bg-neutral-900 mb-2"/> {/* This is the white line separator */}
                 <div className="grid grid-cols-1 max-w-xl mx-auto gap-1">
-                    {replyEvents.map((event: Event) => (
+                    {replyEvents.slice(0, visibleReplyEvents).map((event: Event) => (
                         <div className={`w-11/12 ${event.tags.find(tag => tag[0] === 'e' && tag[1] !== OPEvent.id) ? 'ml-auto' : 'mr-auto'}`}>
                         <PostCard 
                         key={event.id} 

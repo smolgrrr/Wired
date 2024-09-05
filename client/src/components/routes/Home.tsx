@@ -12,13 +12,24 @@ const Home = () => {
 
   const { processedEvents } = useProcessedEvents(undefined, filterDifficulty);
   const [isAnimating, setIsAnimating] = useState(true);
+  const [visibleEvents, setVisibleEvents] = useState(10);
+
+  const handleScroll = () => {
+    if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
+      setVisibleEvents((prev) => prev + 10);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsAnimating(false);
     }, 4000);
 
-    return () => clearTimeout(timer);
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   // Render the component
@@ -29,7 +40,7 @@ const Home = () => {
         <HashtagBar />
       </div>
       <div className={`grid grid-cols-1 max-w-xl mx-auto gap-1 ${isAnimating ? 'animate-pulse' : ''}`}>
-        {processedEvents.map((event) => (
+        {processedEvents.slice(0, visibleEvents).map((event) => (
             <PostCard
               key={event.postEvent.id}
               event={event.postEvent}
