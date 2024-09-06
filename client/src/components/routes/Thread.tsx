@@ -51,6 +51,7 @@ const Thread = () => {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
+    const [showAllReplies, setShowAllReplies] = useState(false);
     if (OPEvent) {
         const uniqEvents = uniqBy(prevMentions, "id");
         const earlierEvents = uniqEvents
@@ -79,18 +80,25 @@ const Thread = () => {
                 </div>
                 <ThreadPostModal OPEvent={OPEvent} />
                 <div className="col-span-full h-0.5 bg-neutral-900 mb-2"/> {/* This is the white line separator */}
+                <div className="flex justify-center">
+                    <button onClick={() => setShowAllReplies(!showAllReplies)} className="text-neutral-600 text-xs border border-neutral-700 rounded-md px-4 py-2">
+                        {showAllReplies ? 'Hide 0 PoW Replies' : 'Show All Replies'}
+                    </button>
+                </div>
                 <div className="grid grid-cols-1 max-w-xl mx-auto gap-1">
-                    {replyEvents.slice(0, visibleReplyEvents).map((event: Event) => (
-                        <div className={`w-11/12 ${event.tags.find(tag => tag[0] === 'e' && tag[1] !== OPEvent.id) ? 'ml-auto' : 'mr-auto'}`}>
-                        <PostCard 
-                        key={event.id} 
-                        event={event} 
-                        metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} 
-                        replies={replyEvents.filter((e: Event) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} 
-                        repliedTo={repliedList(event)} 
-                        />
-                        </div>
-                    ))}
+                    {replyEvents.slice(0, visibleReplyEvents)
+                        .filter((event: Event) => (showAllReplies || event.id.startsWith('0')) && event.tags.some(tag => tag[0] === 'e' && tag[1] === OPEvent.id))
+                        .map((event: Event) => (
+                            <div className={`w-11/12 ${event.tags.find(tag => tag[0] === 'e' && tag[1] !== OPEvent.id) ? 'ml-auto' : 'mr-auto'}`}>
+                                <PostCard 
+                                    key={event.id} 
+                                    event={event} 
+                                    metadata={metadataEvents.find((e) => e.pubkey === event.pubkey && e.kind === 0) || null} 
+                                    replies={replyEvents.filter((e: Event) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id))} 
+                                    repliedTo={repliedList(event)} 
+                                />
+                            </div>
+                        ))}
                 </div>
             </main>
         </>

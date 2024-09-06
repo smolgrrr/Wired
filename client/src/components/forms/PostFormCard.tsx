@@ -91,6 +91,7 @@ const NewNoteCard = ({
                     break;
                 case 'Quote':
                     unsigned.tags.push(['q', refEvent.id]);
+                    setComment(comment + '\nnostr:' + nip19.noteEncode(refEvent.id));
                     break;
                 default:
                     addEventTags();
