@@ -106,7 +106,7 @@ const Thread = () => {
                     </div>
                     <div className="grid grid-cols-1 max-w-xl mx-auto gap-1">
                     {replyEvents.slice(0, visibleReplyEvents)
-                            .filter((event) => (showAllReplies || event.totalWork > 1) && event.postEvent.tags.some(tag => tag[0] === 'e' && tag[1] === OPEvent.id))
+                            .filter((event) => (showAllReplies || Math.log2(event.totalWork) > 10) && event.postEvent.tags.some(tag => tag[0] === 'e' && tag[1] === OPEvent.id))
                             .map((event) => (
                                 <div className={`w-11/12 ${event.postEvent.tags.find(tag => tag[0] === 'e' && tag[1] !== OPEvent.id) ? 'ml-auto' : 'mr-auto'}`}>
                                     <PostCard

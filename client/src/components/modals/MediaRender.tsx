@@ -93,7 +93,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
           );
         }
 
-        if (file && (file.endsWith(".mp4") || file.endsWith(".webm"))) {
+        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.nsfwLabel === 'neutral') {
           return (
             <video
               key={index}
