@@ -88,7 +88,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
         if (mediaCheckResult && (mediaCheckResult.nsfwLabel !== 'neutral')) {
           return (
             <div>
-              <p className="text-center text-red-500 text-xs">Attached media has been flagged as not safe for work or contains gore.</p>
+              <p className="text-center text-red-500 text-xs">This Wired instance blocks NSFW media.</p>
             </div>
           );
         }

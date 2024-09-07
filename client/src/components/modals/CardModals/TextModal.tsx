@@ -9,7 +9,7 @@ import LinkModal from "./LinkPreview";
 import { EventPointer } from "nostr-tools/lib/types/nip19";
 
 const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: boolean; emojiMap: Record<string, any> }) => {
-  let content = isExpanded ? text.split('\n') : text.slice(0, 350).split('\n');
+  let content = isExpanded ? text.split('\n') : text.slice(0, 750).split('\n');
   
   return (
     <>
