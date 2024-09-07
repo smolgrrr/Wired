@@ -87,16 +87,16 @@ const RenderMedia = ({ files }: { files: string[] }) => {
         // Check for both NSFW and gore content
         if (mediaCheckResult && (mediaCheckResult.nsfwLabel !== 'neutral')) {
           return (
-            <div>
+            <div key={file}>
               <p className="text-center text-red-500 text-xs">This Wired instance blocks NSFW media.</p>
             </div>
           );
         }
 
-        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.nsfwLabel === 'neutral') {
+        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.nsfwLabel === 'fail') {
           return (
             <video
-              key={index}
+              key={file}
               controls
               muted
               src={file + "#t=0.1"}
@@ -106,10 +106,10 @@ const RenderMedia = ({ files }: { files: string[] }) => {
               <source src={file} type="video/mp4" />
             </video>
           );
-        } else if (file && mediaCheckResult && mediaCheckResult.nsfwLabel === 'neutral') {
+        } else if (file && mediaCheckResult && mediaCheckResult.nsfwLabel === 'fail') {
           return (
             <img
-              key={index}
+              key={file}
               alt="Invalid thread"
               loading="lazy"
               className={`thumb mt-2 max-h-64 mx-auto rounded-md`}
@@ -119,7 +119,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
           );
         } else {
           return (
-            <div>
+            <div key={file}>
               <p className="text-center text-white-500 text-xs">Checking media...</p>
             </div>
           );
