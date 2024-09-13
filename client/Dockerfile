@@ -16,6 +16,6 @@ FROM nginx:alpine AS production
 # Copy built assets from 'build' stage
 COPY --from=build /app/build /usr/share/nginx/html
 # Optional: If you have a custom nginx.conf, you can copy it to the container
-# COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
