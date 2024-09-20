@@ -43,7 +43,7 @@ const useProcessedEvents = (id?: string, filterDifficulty: number = 0) => {
           return false;
         }
         // Add the pubkey to the set if it passes the filter
-        if ((event.kind === 0 || event.kind === 1068 || pow >= filterDifficulty) && !(event.kind === 1 && event.tags.some(tag => tag[0] === 'e'))) {
+        if ((event.kind === 0 || pow >= filterDifficulty) && !(event.kind === 1 && event.tags.some(tag => tag[0] === 'e'))) {
           seenPubkeys.add(event.pubkey);
           return true;
         }
