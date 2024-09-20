@@ -7,6 +7,7 @@ import { parseContent } from "../../../utils/content";
 import QuoteEmbed from "./QuoteEmbed";
 import LinkModal from "./LinkPreview";
 import { EventPointer } from "nostr-tools/lib/types/nip19";
+import PollResponder from "./PollResponder";
 
 const RichText = ({ text, isExpanded, emojiMap }: { text: string; isExpanded: boolean; emojiMap: Record<string, any> }) => {
   let content = isExpanded ? text.split('\n') : text.slice(0, 750).split('\n');
@@ -101,6 +102,9 @@ const ContentPreview = ({ key, eventdata }: { key: string; eventdata: Event }) =
         </button>
       )}
       {url !== "" && <LinkModal key={key} url={url} />}
+      {eventdata.kind === 1068 && (
+        <PollResponder key={key} eventdata={eventdata} />
+      )}
       {quoteEvents[0] && quoteEvents.length > 0 && (
         <a href={`/thread/${nip19.noteEncode(quoteEvents[0].id)}`}>
           <QuoteEmbed

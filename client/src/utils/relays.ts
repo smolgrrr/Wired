@@ -99,3 +99,4 @@ addRelay('wss://relay.damus.io');
 addRelay('wss://labour.fiatjaf.com/');
 addRelay('wss://140.f7z.io');
 addRelay('wss://nostr.lu.ke');
+addRelay('wss://relay.nostr.band/');

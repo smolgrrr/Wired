@@ -61,7 +61,7 @@ export const useFetchEvents = (hashtag?: string, notifications?: boolean, OP_eve
   
     const uniqEvents = uniqBy(events, "id");
   
-    const noteEvents = uniqEvents.filter((event) => event.kind === 1 || event.kind === 6);
+    const noteEvents = uniqEvents.filter((event) => event.kind === 1 || event.kind === 6 || event.kind === 1068);
     const metadataEvents = [...cachedMetadataEvents, ...uniqEvents.filter((event) => event.kind === 0)];
   
     // Save the cached metadataEvents to localStorage

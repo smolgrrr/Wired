@@ -38,6 +38,15 @@ export const subGlobalFeed = (onEvent: SubCallback, age: number) => {
   });
 
   setTimeout(() => {
+    sub({
+      cb: onEvent,
+      filter: {
+        kinds: [1068],
+        since: Math.floor(now - (age * 60 * 60)),
+      },
+      unsub: true,
+    });
+
     // get profile info
     if (pubkeys.size > 0) {
       sub({
@@ -80,7 +89,7 @@ export const subNote = (
     },
     filter: {
       ids: [eventId],
-      kinds: [1],
+      kinds: [1, 1068],
       limit: 1,
     },
     unsub: true,
@@ -202,6 +211,23 @@ export const subNotesOnce = (
     }
   }, 2000);
 };  
+
+/** quick subscribe to a note id (nip-19) */
+export const subPoll = (
+  eventId: string,
+  onEvent: SubCallback,
+) => {
+  sub({
+    cb: (evt, relay) => {
+      onEvent(evt, relay);
+    },
+    filter: {
+      '#e': [eventId],
+      kinds: [1018],
+    },
+    unsub: true,
+  });
+};
 
 const hasEventTag = (tag: string[]) => tag[0] === 'e';
 const isReply = ([tag, , , marker]: string[]) => tag === 'e' && marker !== 'mention';

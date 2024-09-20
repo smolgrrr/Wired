@@ -13,14 +13,29 @@ interface Emoji {
 
 interface EmotePickerProps {
     onEmojiSelect?: (emoji: Emoji) => void;
+    pollOptions: string[];
+    setPollOptions: (options: string[]) => void;
+    pollDifficulty: string;
+    setPollDifficulty: (difficulty: string) => void;
 }
 
-const EmotePicker: React.FC<EmotePickerProps> = ({ onEmojiSelect }) => {
+const EmotePicker: React.FC<EmotePickerProps> = ({ onEmojiSelect, pollOptions, setPollOptions, pollDifficulty, setPollDifficulty }) => {
     const [showEmotes, setShowEmotes] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [hoveredEmote, setHoveredEmote] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState(0);
+    const [pollTab, setPollTab] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
+
+    const handlePollOptionChange = (index: number, value: string) => {
+        const newPollOptions = [...pollOptions];
+        newPollOptions[index] = value;
+        setPollOptions(newPollOptions);
+    };
+
+    const addPollOption = () => {
+        setPollOptions([...pollOptions, '']);
+    };
 
     const toggleEmotes = () => {
         setShowEmotes(!showEmotes);
@@ -52,9 +67,7 @@ const EmotePicker: React.FC<EmotePickerProps> = ({ onEmojiSelect }) => {
     });
 
     useEffect(() => {
-        // Explicitly type the event parameter
         function handleClickOutside(event: MouseEvent) {
-            // Use a type assertion to tell TypeScript the target is an HTMLElement
             const target = event.target as HTMLElement;
             if (modalRef.current && !modalRef.current.contains(target)) {
                 setShowEmotes(false);
@@ -64,7 +77,7 @@ const EmotePicker: React.FC<EmotePickerProps> = ({ onEmojiSelect }) => {
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, []); // Removed modalRef from dependency array as it doesn't change
+    }, []);
 
     return (
         <div className="static m-auto">
@@ -83,21 +96,32 @@ const EmotePicker: React.FC<EmotePickerProps> = ({ onEmojiSelect }) => {
                             <button
                                 type="button"
                                 key={index}
-                                className={`text-xs px-2 py-1 rounded-md ${activeTab === index ? 'bg-gray-700' : 'bg-gray-600'
-                                    }`}
-                                onClick={() => setActiveTab(index)}
+                                className={`text-xs px-2 py-1 rounded-md ${(activeTab === index && !pollTab) ? 'bg-gray-700' : 'bg-gray-600'}`}
+                                onClick={() => {
+                                    setActiveTab(index);
+                                    setPollTab(false);
+                                }}
                             >
                                 {category.label}
                             </button>
                         ))}
+                        <button
+                            type="button"
+                            className={`text-xs px-2 py-1 rounded-md bg-gray-600 ${pollTab ? 'bg-gray-700' : 'bg-gray-600'}`}
+                            onClick={() => {
+                                setPollTab(true);
+                            }}
+                        >
+                            Add Poll
+                        </button>
                     </div>
-                    {filteredEmotes.map((emote: Emoji, index) => (
+                    {!pollTab && filteredEmotes.map((emote: Emoji, index) => (
                         <div
                             key={index}
                             className="text-center relative"
                             onMouseEnter={() => setHoveredEmote(emote.shortcode)}
                             onMouseLeave={() => setHoveredEmote(null)}
-                            onClick={() => onEmojiSelect && onEmojiSelect(emote)} // Add this line
+                            onClick={() => onEmojiSelect && onEmojiSelect(emote)}
                         >
                             <img src={emote.static_url} className="w-7 m-1" />
                             {hoveredEmote === emote.shortcode && (
@@ -107,6 +131,59 @@ const EmotePicker: React.FC<EmotePickerProps> = ({ onEmojiSelect }) => {
                             )}
                         </div>
                     ))}
+                    {pollTab && (
+                        <div className="w-full h-min">
+                            {pollOptions.map((option, index) => (
+                                <input
+                                    key={index}
+                                    type="text"
+                                    placeholder={`Option ${index + 1}`}
+                                    value={option}
+                                    onChange={(e) => handlePollOptionChange(index, e.target.value)}
+                                    className="w-full mb-2 h-10 px-4 py-2 bg-gray-900 rounded-md shadow-sm focus:outline-none focus:border-blue-500"
+                                />
+                            ))}
+                            <div className="px-1 py-2">
+                                <div className="flex space-x-2">
+                                    <button
+                                        type="button"
+                                        onClick={addPollOption}
+                                        className="w-full h-10 bg-gray-700 text-white rounded-md shadow-sm hover:bg-gray-800 focus:outline-none mb-2"
+                                    >
+                                        Add Option
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPollOptions(pollOptions.length > 2 ? pollOptions.slice(0, -1) : pollOptions)}
+                                        className="w-full h-10 bg-red-700 text-white rounded-md shadow-sm hover:bg-red-800 focus:outline-none mb-2"
+                                    >
+                                        Remove Option
+                                    </button>
+                                </div>
+                                <label className="text-xs text-neutral-400">Min Proof-of-Work Difficulty to vote: </label>
+                                <input
+                                    type="number"
+                                    className="bg-neutral-800 text-white text-xs font-medium border-none rounded-lg w-10"
+                                    value={pollDifficulty}
+                                    onChange={(e) => setPollDifficulty(e.target.value)}
+                                    min="10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setPollDifficulty(String(Math.max(10, parseInt(pollDifficulty) - 1)))} // Decrement, ensuring not below min
+                                >
+                                    -
+                                </button>
+                                <button
+                                    type="button"
+                                    className="pl-0.5"
+                                    onClick={() => setPollDifficulty(String(parseInt(pollDifficulty) + 1))} // Increment
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

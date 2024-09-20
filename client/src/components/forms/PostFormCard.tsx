@@ -69,6 +69,8 @@ const NewNoteCard = ({
     const [difficulty, setDifficulty] = useState(
         localStorage.getItem("difficulty") || DEFAULT_DIFFICULTY.toString()
     );
+    const [pollOptions, setPollOptions] = useState(['', '']);
+    const [pollDifficulty, setPollDifficulty] = useState("15");
 
     useEffect(() => {
         if (hashtag) {
@@ -120,11 +122,31 @@ const NewNoteCard = ({
         }));
     }, [comment]);
 
+    useEffect(() => {
+        if (pollOptions.some(option => option !== '')) {
+            const generateOptionId = () => Math.random().toString(36).substring(2, 11);
+
+            setUnsigned(prevUnsigned => ({
+                ...prevUnsigned,
+                kind: 1068,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ["label", `${comment}`],
+                    ...pollOptions.map(option => ["option", generateOptionId(), option]),
+                    ["relay", "wss://relay.damus.io/"],
+                    ["relay", "wss://nos.lol"],
+                    ["PoW", pollDifficulty],
+                    ["polltype", "singlechoice"]
+                ]
+            }));
+        }
+    }, [pollOptions, pollDifficulty]);
+
     const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent } = useSubmitForm(unsigned, difficulty);
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault(); // Prevent default form submission
-        
+
         if (comment.trim() === "") {
             return; // Don't submit if comment is empty or just whitespace
         }
@@ -136,12 +158,20 @@ const NewNoteCard = ({
 
         await originalHandleSubmit(event);
 
+        setPollOptions(['', '']);
         setComment("");
-        setUnsigned(prevUnsigned => ({
-            ...prevUnsigned,
-            content: '',
-            created_at: Math.floor(Date.now() / 1000)
-        }));
+        setUnsigned({
+            kind: 1,
+            tags: [
+                [
+                    "client",
+                    "getwired.app"
+                ]
+            ],
+            content: "",
+            created_at: Math.floor(Date.now() / 1000),
+            pubkey: "",
+        });
     };
 
     //Emoji stuff
@@ -184,6 +214,16 @@ const NewNoteCard = ({
                     }}
                     rows={comment.split('\n').length || 1}
                 />
+                {pollOptions.some(option => option !== '') &&
+                    <div className="flex flex-col items-center gap-2 text-xs">
+                        <h3 className="text-xs text-neutral-300">Poll Options: </h3>
+                        <ul className="">
+                            {pollOptions.map((option, index) => (
+                                <li key={index}>{option}</li>
+                            ))}
+                        </ul>
+                    </div>
+                }
                 <div className="h-14 flex items-center justify-between">
                     <div className="inline-flex items-center bg-neutral-800 px-1 py-0.5 rounded-lg">
                         <div className="inline-flex items-center gap-1.5 text-neutral-300">
@@ -212,7 +252,13 @@ const NewNoteCard = ({
                     </div>
                     <div>
                         <div className="flex items-center gap-4">
-                            <EmotePicker onEmojiSelect={(emoji: Emoji) => onEmojiSelect(emoji)} />
+                            <EmotePicker
+                                onEmojiSelect={(emoji: Emoji) => onEmojiSelect(emoji)}
+                                pollOptions={pollOptions}
+                                setPollOptions={setPollOptions}
+                                pollDifficulty={pollDifficulty}
+                                setPollDifficulty={setPollDifficulty}
+                            />
                             <button
                                 type="submit"
                                 className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${doingWorkProp ? 'cursor-not-allowed' : ''}`}
