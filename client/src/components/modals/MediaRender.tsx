@@ -4,14 +4,12 @@ import { useEffect, useState } from "react";
 const checkMedia = async (url: string) => {
   try {
     const token = process.env.REACT_APP_NSFW_TOKEN;
-    const picpurifyApiKey = process.env.REACT_APP_PICPURIFY_API_KEY;
-    if (!token || !picpurifyApiKey) {
-      console.error("NSFW token or PicPurify API key is not set in environment variables");
+    if (!token) {
+      console.error("NSFW token is not set in environment variables");
       return null;
     }
 
-    // NSFW check
-    const nsfwResponse = await fetch('https://nsfw-detector-api-latest.onrender.com/predict', {
+    const response = await fetch('https://nsfw-detector-api-latest.onrender.com/predict', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,23 +18,7 @@ const checkMedia = async (url: string) => {
       },
       body: JSON.stringify({ url }),
     });
-    const nsfwResult = await nsfwResponse.json();
-
-    // // PicPurify gore check
-    // const picpurifyResponse = await fetch('https://www.picpurify.com/analyse/1.1', {
-    //   method: 'POST',
-    //   body: new URLSearchParams({
-    //     'API_KEY': picpurifyApiKey,
-    //     'task': 'gore_moderation',
-    //     'url_image': url
-    //   })
-    // });
-    // const picpurifyResult = await picpurifyResponse.json();
-
-    return {
-      nsfw: nsfwResult,
-      // gore: picpurifyResult
-    };
+    return await response.json();
   } catch (error) {
     console.error("Error checking media:", error);
     return null;
@@ -58,14 +40,13 @@ const RenderMedia = ({ files }: { files: string[] }) => {
     const performMediaChecks = async () => {
       for (const file of files) {
         const result = await checkMedia(file);
-        if (result) {
+        console.log(`Result for ${file}:`, result);
+        if (result && result.data && result.data.predictedLabel) {
           setMediaCheckResults(prev => ({
             ...prev,
-            [file]: {
-              nsfwLabel: result.nsfw?.data?.predictedLabel,
-              // goreContent: result.gore?.gore_moderation?.gore_content
-            }
+            [file]: { predictedLabel: result.data.predictedLabel }
           }));
+          console.error(`Unexpected result structure for ${file}:`, result.data.predictedLabel);
         } else {
           console.error(`Unexpected result structure for ${file}:`, result);
         }
@@ -73,7 +54,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
     };
 
     if (Object.keys(mediaCheckResults).length === 0) {
-      performMediaChecks();
+    performMediaChecks();
     }
   }, []);
 
@@ -84,19 +65,19 @@ const RenderMedia = ({ files }: { files: string[] }) => {
         const isFromAllowedDomain = whitelistImageURL.some(domain => file.includes(domain));
         const mediaCheckResult = mediaCheckResults[file];
         
-        // Check for both NSFW and gore content
-        if (mediaCheckResult && (mediaCheckResult.nsfwLabel !== 'neutral')) {
+        // Only render if predictedLabel is neutral
+        if (mediaCheckResult && mediaCheckResult.predictedLabel !== 'neutral') {
           return (
-            <div key={file}>
-              <p className="text-center text-red-500 text-xs">This Wired instance blocks NSFW media.</p>
+            <div>
+              <p className="text-center text-red-500 text-xs">Attached media has been flagged as not safe for work.</p>
             </div>
           );
         }
 
-        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.nsfwLabel === 'fail') {
+        if (file && (file.endsWith(".mp4") || file.endsWith(".webm")) && mediaCheckResult && mediaCheckResult.predictedLabel === 'neutral') {
           return (
             <video
-              key={file}
+              key={index}
               controls
               muted
               src={file + "#t=0.1"}
@@ -106,10 +87,10 @@ const RenderMedia = ({ files }: { files: string[] }) => {
               <source src={file} type="video/mp4" />
             </video>
           );
-        } else if (file && mediaCheckResult && mediaCheckResult.nsfwLabel === 'fail') {
+        } else if (file && mediaCheckResult && mediaCheckResult.predictedLabel === 'neutral') {
           return (
             <img
-              key={file}
+              key={index}
               alt="Invalid thread"
               loading="lazy"
               className={`thumb mt-2 max-h-64 mx-auto rounded-md`}
@@ -119,7 +100,7 @@ const RenderMedia = ({ files }: { files: string[] }) => {
           );
         } else {
           return (
-            <div key={file}>
+            <div>
               <p className="text-center text-white-500 text-xs">Checking media...</p>
             </div>
           );

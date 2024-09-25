@@ -53,7 +53,7 @@ const HashtagPage = () => {
   return (
     <main className="text-white mb-20">
       <div className="my-3">
-      <div className="w-full px-3 sm:px-0 sm:max-w-3xl mx-auto flex">
+      <div className="w-full px-3 sm:px-0 sm:max-w-4xl mx-auto flex">
         <label htmlFor="toggleA" className="flex flex-col items-center cursor-pointer mr-1">
           <div className="mb-2 text-neutral-500 text-sm">
             <CpuChipIcon className="h-4 w-4" />
