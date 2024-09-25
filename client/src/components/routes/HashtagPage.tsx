@@ -15,7 +15,7 @@ const HashtagPage = () => {
   const { processedEvents } = useProcessedEvents(id as string, filterDifficulty);
   const [visibleEvents, setVisibleEvents] = useState(10);
   const [isAnimating, setIsAnimating] = useState(true);
-  const [sortOrder, setSortOrder] = useState(''); // State to manage sorting order
+  const [sortOrder, setSortOrder] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
 
   const handleScroll = () => {
     if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
@@ -34,7 +34,7 @@ const HashtagPage = () => {
 
   const sortedEvents = useMemo(() => {
     return [...processedEvents].sort((a, b) => {
-      if (sortOrder === 'desc') {
+      if (!sortOrder) {
         return b.postEvent.created_at - a.postEvent.created_at;
       } else {
         return 0; // Keep original order if not sorting by ascending time
@@ -43,7 +43,11 @@ const HashtagPage = () => {
   }, [processedEvents, sortOrder]);
 
   const toggleSortOrder = () => {
-    setSortOrder((prevOrder) => (prevOrder === '' ? 'desc' : ''));
+    setSortOrder(prev => {
+      const newValue = !prev;
+      localStorage.setItem('sortBy', String(newValue));
+      return newValue;
+    });
   };
 
   return (
@@ -59,11 +63,11 @@ const HashtagPage = () => {
               id="toggleA"
               type="checkbox"
               className="sr-only"
-              checked={sortOrder === 'desc'}
+              checked={!sortOrder}
               onChange={toggleSortOrder}
             />
             <div className="block bg-gray-600 w-4 h-8 rounded-full"></div>
-            <div className={`dot absolute left-0.5 top-1 bg-white w-3 h-3 rounded-full transition ${sortOrder === 'desc' ? 'transform translate-y-full bg-blue-400' : ''}`}></div>
+            <div className={`dot absolute left-0.5 top-1 bg-white w-3 h-3 rounded-full transition ${!sortOrder ? 'transform translate-y-full bg-blue-400' : ''}`}></div>
           </div>
           <div className="mt-2 text-neutral-500 text-xs">
             Time
