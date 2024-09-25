@@ -4,6 +4,9 @@ import PostCard from "../modals/PostCard";
 import { useState, useEffect, useMemo } from "react";
 import useProcessedEvents from "../../hooks/processedEvents";
 import HashtagBar from "../modals/HashtagBar";
+import {
+  CpuChipIcon
+} from "@heroicons/react/24/outline";
 
 const Home = () => {
   const filterDifficulty = useMemo(() => {
@@ -13,6 +16,7 @@ const Home = () => {
   const { processedEvents } = useProcessedEvents(undefined, filterDifficulty);
   const [isAnimating, setIsAnimating] = useState(true);
   const [visibleEvents, setVisibleEvents] = useState(10);
+  const [sortOrder, setSortOrder] = useState<boolean>(localStorage.getItem('sortBy') !== 'false');
 
   const handleScroll = () => {
     if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
@@ -32,21 +36,61 @@ const Home = () => {
     };
   }, []);
 
-  // Render the component
+  const sortedEvents = useMemo(() => {
+    return [...processedEvents].sort((a, b) => {
+      if (!sortOrder) {
+        return b.postEvent.created_at - a.postEvent.created_at;
+      } else {
+        return 0; // Keep original order if not sorting by ascending time
+      }
+    });
+  }, [processedEvents, sortOrder]);
+
+  const toggleSortOrder = () => {
+    setSortOrder(prev => {
+      const newValue = !prev;
+      localStorage.setItem('sortBy', String(newValue));
+      return newValue;
+    });
+  };
+
   return (
     <main className="text-white mb-20">
-      <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-        <NewNoteCard />
-        <HashtagBar />
+      <div className="my-3">
+      <div className="w-full px-3 sm:px-0 sm:max-w-3xl mx-auto flex">
+        <label htmlFor="toggleA" className="flex flex-col items-center cursor-pointer mr-1">
+          <div className="mb-2 text-neutral-500 text-sm">
+            <CpuChipIcon className="h-4 w-4" />
+          </div>
+          <div className="relative">
+            <input
+              id="toggleA"
+              type="checkbox"
+              className="sr-only"
+              checked={!sortOrder}
+              onChange={toggleSortOrder}
+            />
+            <div className="block bg-gray-600 w-4 h-8 rounded-full"></div>
+            <div className={`dot absolute left-0.5 top-1 bg-white w-3 h-3 rounded-full transition ${!sortOrder ? 'transform translate-y-full bg-blue-400' : ''}`}></div>
+          </div>
+          <div className="mt-2 text-neutral-500 text-xs">
+            Time
+          </div>
+        </label>
+        <div className="flex-grow">
+          <NewNoteCard />
+        </div>
+      </div>
+      <HashtagBar />
       </div>
       <div className={`grid grid-cols-1 max-w-xl mx-auto gap-1 ${isAnimating ? 'animate-pulse' : ''}`}>
-        {processedEvents.slice(0, visibleEvents).map((event) => (
-            <PostCard
-              key={event.postEvent.id}
-              event={event.postEvent}
-              metadata={event.metadataEvent}
-              replies={event.replies}
-            />
+        {sortedEvents.slice(0, visibleEvents).map((event) => (
+          <PostCard
+            key={event.postEvent.id}
+            event={event.postEvent}
+            metadata={event.metadataEvent}
+            replies={event.replies}
+          />
         ))}
       </div>
     </main>

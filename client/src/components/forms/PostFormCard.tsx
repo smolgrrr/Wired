@@ -201,11 +201,11 @@ const NewNoteCard = ({
             onSubmit={handleSubmit}
         >
             <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
-            <div className="px-4 flex flex-col rounded-lg">
+            <div className="px-2 flex flex-col rounded-lg">
                 <textarea
                     name="com"
                     wrap="soft"
-                    className="shadow-lg w-full px-4 py-3 border-blue-500 bg-black text-white h-auto"
+                    className="shadow-lg w-full px-4 py-3 border-neutral-500 bg-black text-white min-h-20 rounded"
                     value={comment}
                     onChange={(e) => {
                         setComment(e.target.value);
