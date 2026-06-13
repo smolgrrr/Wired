@@ -3,10 +3,12 @@ import { Analytics } from "@vercel/analytics/react";
 import { AppProviders } from "./app/providers";
 import { AppRoutes } from "./app/routes";
 import { Header } from "./shared/ui/Header";
+import { NoiseOverlay } from "./shared/ui/NoiseOverlay";
 
 function App() {
   return (
     <AppProviders>
+      <NoiseOverlay />
       <Router>
         <Header />
         <AppRoutes />
