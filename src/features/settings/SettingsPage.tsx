@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../app/settings";
+import { Button } from "../../shared/ui/Button";
+import { Input } from "../../shared/ui/Input";
 
 type TestResponse = {
   timeTaken: string;
@@ -18,6 +20,11 @@ export default function SettingsPage() {
   const [testResult, setTestResult] = useState<TestResponse>();
   const [noteLink, setNoteLink] = useState("");
   const navigate = useNavigate();
+  const filterDifficultyValue = Number(filterDifficulty);
+  const filterDifficultyError =
+    filterDifficulty !== "" && (Number.isNaN(filterDifficultyValue) || filterDifficultyValue < 16)
+      ? "minimum signal is 16"
+      : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,16 +56,14 @@ export default function SettingsPage() {
       <form onSubmit={handleSubmit}>
         <div className="flex flex-wrap -mx-2 mb-4">
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-            <label className="block text-xs mb-2" htmlFor="filterDifficulty">
-              Proof-of-Work Filter:
-            </label>
-            <input
+            <Input
               id="filterDifficulty"
+              label="Proof-of-Work Filter:"
               type="number"
               value={filterDifficulty}
               onChange={(e) => setFilterDifficulty(e.target.value)}
               min={16}
-              className="w-full px-3 py-2 border rounded-md bg-black"
+              error={filterDifficultyError}
             />
           </div>
           <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
@@ -128,9 +133,9 @@ export default function SettingsPage() {
             </>
           )}
         </div>
-        <button type="submit" className="bg-black border text-white font-bold py-2 px-4 rounded">
+        <Button type="submit" variant="primary">
           Save Settings
-        </button>
+        </Button>
       </form>
       <div className="settings-page pt-10">
         <h1 className="text-lg font-semibold mb-4">Open Note</h1>
