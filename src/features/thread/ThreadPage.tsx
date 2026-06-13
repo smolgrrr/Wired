@@ -85,6 +85,7 @@ function ThreadView({ hexID }: { hexID: string }) {
             <PostCard
               key={event.id}
               event={event}
+              variant="context"
               replies={uniqEvents.filter((e: Event) =>
                 e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id),
               )}
@@ -94,6 +95,7 @@ function ThreadView({ hexID }: { hexID: string }) {
             event={OPEvent}
             replies={replyEvents.flatMap((event) => event.replies)}
             type="OP"
+            variant="op"
             interactivePoll={OPEvent.kind === 1068}
           />
         </div>

@@ -117,10 +117,21 @@ body {
   }
 }
 
-@layer components {
-  /* @deprecated — removed in PR 4 (post-surface) */
-  .card {
-    border-radius: theme('borderRadius.lg');
-    padding: theme('spacing.4');
+.metadata-row {
+  color: var(--text-secondary);
+}
+
+.metadata-row--secondary {
+  color: var(--text-secondary);
+}
+
+@media (hover: hover) {
+  .metadata-row:not(.metadata-row--secondary) {
+    color: var(--text-muted);
+  }
+
+  .group:hover .metadata-row:not(.metadata-row--secondary),
+  .group:focus-within .metadata-row:not(.metadata-row--secondary) {
+    color: var(--text-secondary);
   }
 }
