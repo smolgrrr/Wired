@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Event, nip19 } from "nostr-tools";
 import { subNotesOnce } from "../../nostr/subscriptions";
 import { uniqBy } from "../../utils/otherUtils";
+import { getThreadDepth } from "../../utils/getThreadDepth";
 import { Placeholder } from "../../shared/ui/Placeholder";
 import { Button } from "../../shared/ui/Button";
 import { PostCard } from "../../shared/ui/PostCard";
@@ -31,6 +32,11 @@ function ThreadView({ hexID }: { hexID: string }) {
     const threadCache = JSON.parse(sessionStorage.getItem("cachedThread") || "[]");
     return [...noteEvents, ...threadCache];
   }, [noteEvents]);
+
+  const eventsById = useMemo(
+    () => new Map(allEvents.map((event) => [event.id, event])),
+    [allEvents],
+  );
 
   const repliedList = (event: Event): Event[] =>
     allEvents.filter((e) => event.tags.some((tag) => tag[0] === "p" && tag[1] === e.pubkey));
@@ -80,7 +86,7 @@ function ThreadView({ hexID }: { hexID: string }) {
 
     return (
       <main id="main-content" className="text-primary mb-20 min-h-screen">
-        <div className="w-full sm:px-0 sm:max-w-xl mx-auto my-2">
+        <div className="mx-auto my-2 max-w-content px-3 sm:px-0">
           {earlierEvents.map((event) => (
             <PostCard
               key={event.id}
@@ -100,7 +106,7 @@ function ThreadView({ hexID }: { hexID: string }) {
           />
         </div>
         <ThreadComposer OPEvent={OPEvent} />
-        <div className="col-span-full h-0.5 bg-neutral-900 mb-2" />
+        <div className="mx-auto mb-2 h-px max-w-content bg-[var(--border-ghost)]" />
         <div className="flex justify-center">
           <Button
             type="button"
@@ -111,7 +117,7 @@ function ThreadView({ hexID }: { hexID: string }) {
             {showAllReplies ? "hide low-signal" : "reveal low-signal"}
           </Button>
         </div>
-        <div className="grid grid-cols-1 max-w-xl mx-auto gap-1">
+        <div className="mx-auto flex max-w-content flex-col px-3 sm:px-0">
           {replyEvents
             .slice(0, visibleReplyEvents)
             .filter(
@@ -120,20 +126,13 @@ function ThreadView({ hexID }: { hexID: string }) {
                 event.postEvent.tags.some((tag) => tag[0] === "e" && tag[1] === OPEvent.id),
             )
             .map((event) => (
-              <div
+              <PostCard
                 key={event.postEvent.id}
-                className={`w-11/12 ${
-                  event.postEvent.tags.find((tag) => tag[0] === "e" && tag[1] !== OPEvent.id)
-                    ? "ml-auto"
-                    : "mr-auto"
-                }`}
-              >
-                <PostCard
-                  event={event.postEvent}
-                  replies={event.replies}
-                  repliedTo={repliedList(event.postEvent)}
-                />
-              </div>
+                event={event.postEvent}
+                replies={event.replies}
+                repliedTo={repliedList(event.postEvent)}
+                depth={getThreadDepth(event.postEvent, OPEvent.id, eventsById)}
+              />
             ))}
         </div>
       </main>
@@ -143,7 +142,7 @@ function ThreadView({ hexID }: { hexID: string }) {
   return (
     <main id="main-content" className="text-primary mb-20">
       <Placeholder />
-      <div className="col-span-full h-0.5 bg-[var(--border-ghost)]" />
+      <div className="mx-auto h-px max-w-content bg-[var(--border-ghost)]" />
     </main>
   );
 }

@@ -51,13 +51,13 @@ export function ThreadComposer({ OPEvent }: { OPEvent: Event }) {
         </Button>
       </div>
       {showForm && postType && (
-        <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+        <div className="w-full px-4 sm:px-0 mx-auto my-2 max-w-content">
           <p className="text-meta text-muted text-center mb-2">{postType.toLowerCase()}</p>
           <PostForm refEvent={OPEvent} tagType={postType} />
         </div>
       )}
       {showRepost && OPEvent && (
-        <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
+        <div className="w-full px-4 sm:px-0 mx-auto my-2 max-w-content">
           <p className="text-meta text-muted text-center mb-2">repost</p>
           <RepostForm refEvent={OPEvent} />
         </div>

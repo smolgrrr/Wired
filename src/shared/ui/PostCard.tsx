@@ -20,6 +20,7 @@ interface PostCardProps {
   interactivePoll?: boolean;
   animate?: boolean;
   animationIndex?: number;
+  fadeIn?: boolean;
 }
 
 const depthClasses: Record<number, string> = {
@@ -44,6 +45,7 @@ export function PostCard({
   interactivePoll = false,
   animate = false,
   animationIndex = 0,
+  fadeIn = false,
 }: PostCardProps) {
   const navigate = useNavigate();
   const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
@@ -96,6 +98,7 @@ export function PostCard({
         variantClass,
         getDepthClass(depth),
         animate ? "motion-safe:animate-resolve-in" : "",
+        fadeIn ? "motion-safe:animate-fade-in" : "",
       ]
         .filter(Boolean)
         .join(" ")}
