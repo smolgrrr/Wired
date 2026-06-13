@@ -17,7 +17,6 @@ interface PostCardProps {
   type?: "OP" | "Reply" | "Post";
   variant?: "default" | "context" | "op";
   depth?: number;
-  interactivePoll?: boolean;
   animate?: boolean;
   animationIndex?: number;
   fadeIn?: boolean;
@@ -42,7 +41,6 @@ export function PostCard({
   type,
   variant = "default",
   depth,
-  interactivePoll = false,
   animate = false,
   animationIndex = 0,
   fadeIn = false,
@@ -105,7 +103,7 @@ export function PostCard({
       style={animate ? { animationDelay: `${animationIndex * 40}ms` } : undefined}
     >
       <div className="post-content flex flex-col gap-2 break-words">
-        <TextContent eventdata={parsedEvent} interactivePoll={interactivePoll} />
+        <TextContent eventdata={parsedEvent} />
         {repliedTo && repliedTo.length > 0 && (
           <ReplyContext events={uniqBy(repliedTo, "pubkey")} />
         )}

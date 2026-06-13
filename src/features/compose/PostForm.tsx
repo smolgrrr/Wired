@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
+import { UnsignedEvent, Event as NostrEvent } from "nostr-tools";
 import { useSubmitForm } from "./useSubmit";
 import { PostCard } from "../../shared/ui/PostCard";
+import { QuotePreview } from "../../shared/ui/QuotePreview";
 import { useSettings } from "../../app/settings";
 import { timeToGoEst } from "../../shared/utils/timeEstimate";
 import { Button } from "../../shared/ui/Button";
@@ -44,7 +45,6 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           break;
         case "Quote":
           unsigned.tags.push(["q", refEvent.id]);
-          setComment((current) => current + "\nnostr:" + nip19.noteEncode(refEvent.id));
           break;
         default:
           addEventTags();
@@ -95,10 +95,6 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
       return;
     }
 
-    if (tagType === "Quote" && refEvent) {
-      setComment((prevComment) => prevComment + "\nnostr:" + nip19.noteEncode(refEvent.id));
-    }
-
     await originalHandleSubmit(event);
 
     setPollOptions(["", ""]);
@@ -127,6 +123,7 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           }}
           rows={comment.split("\n").length || 1}
         />
+        {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
         {pollOptions.some((option) => option !== "") && (
           <div className="flex flex-col gap-3 mt-3">
             <p className="text-meta text-secondary">poll options</p>

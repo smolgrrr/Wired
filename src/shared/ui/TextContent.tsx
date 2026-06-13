@@ -3,18 +3,11 @@ import { useState } from "react";
 import { parseContent } from "../../utils/content";
 import { getPollLabel } from "../../utils/pollUtils";
 import { PollResponder } from "./PollResponder";
-import { PollSummary } from "./PollSummary";
 import { Button } from "./Button";
 
 const COLLAPSED_LENGTH = 750;
 
-export function TextContent({
-  eventdata,
-  interactivePoll = false,
-}: {
-  eventdata: Event;
-  interactivePoll?: boolean;
-}) {
+export function TextContent({ eventdata }: { eventdata: Event }) {
   const { comment } = parseContent(eventdata);
   const bodyText =
     eventdata.kind === 1068 ? comment.trim() || getPollLabel(eventdata) : comment;
@@ -36,12 +29,7 @@ export function TextContent({
           {isExpanded ? "collapse" : "continue"}
         </Button>
       )}
-      {eventdata.kind === 1068 &&
-        (interactivePoll ? (
-          <PollResponder eventdata={eventdata} />
-        ) : (
-          <PollSummary eventdata={eventdata} />
-        ))}
+      {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
     </div>
   );
 }
