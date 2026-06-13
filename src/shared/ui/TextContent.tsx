@@ -1,6 +1,7 @@
 import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "../../utils/content";
+import { getPollLabel } from "../../utils/pollUtils";
 import { PollResponder } from "./PollResponder";
 import { PollSummary } from "./PollSummary";
 import { Button } from "./Button";
@@ -15,13 +16,17 @@ export function TextContent({
   interactivePoll?: boolean;
 }) {
   const { comment } = parseContent(eventdata);
+  const bodyText =
+    eventdata.kind === 1068 ? comment.trim() || getPollLabel(eventdata) : comment;
   const [isExpanded, setIsExpanded] = useState(false);
-  const displayedComment = isExpanded ? comment : comment.slice(0, COLLAPSED_LENGTH);
+  const displayedComment = isExpanded ? bodyText : bodyText.slice(0, COLLAPSED_LENGTH);
 
   return (
     <div className="gap-2 flex flex-col break-words text-body text-primary">
-      <p className="whitespace-pre-wrap">{displayedComment}</p>
-      {comment.length > COLLAPSED_LENGTH && (
+      {bodyText.length > 0 && (
+        <p className="whitespace-pre-wrap">{displayedComment}</p>
+      )}
+      {bodyText.length > COLLAPSED_LENGTH && (
         <Button
           type="button"
           variant="ghost"
