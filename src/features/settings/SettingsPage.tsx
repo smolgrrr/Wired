@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const [age, setAge] = useState(String(settings.ageHours));
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [powServer, setPowServer] = useState(settings.powServerUrl);
-  const [testDiff, setTestDiff] = useState("21");
+  const [testDiff, setTestDiff] = useState("16");
   const [testResult, setTestResult] = useState<TestResponse>();
   const [noteLink, setNoteLink] = useState("");
   const navigate = useNavigate();
