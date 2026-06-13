@@ -1,6 +1,10 @@
-# misc
+node_modules
+dist
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env
+.env.*
+*.log
+coverage
+bun.lockb
+package-lock.json
+yarn.lock
