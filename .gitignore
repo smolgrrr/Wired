@@ -1,5 +1,6 @@
 node_modules
 dist
+.vite
 .DS_Store
 .env
 .env.*
@@ -8,3 +9,5 @@ coverage
 bun.lockb
 package-lock.json
 yarn.lock
+.vercel
+.env*
