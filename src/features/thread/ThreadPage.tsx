@@ -94,6 +94,7 @@ function ThreadView({ hexID }: { hexID: string }) {
             event={OPEvent}
             replies={replyEvents.flatMap((event) => event.replies)}
             type="OP"
+            interactivePoll={OPEvent.kind === 1068}
           />
         </div>
         <ThreadComposer OPEvent={OPEvent} />

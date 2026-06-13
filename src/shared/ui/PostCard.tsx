@@ -14,9 +14,10 @@ interface PostCardProps {
   replies: Event[];
   repliedTo?: Event[];
   type?: "OP" | "Reply" | "Post";
+  interactivePoll?: boolean;
 }
 
-export function PostCard({ event, replies, repliedTo, type }: PostCardProps) {
+export function PostCard({ event, replies, repliedTo, type, interactivePoll = false }: PostCardProps) {
   const navigate = useNavigate();
   const icon = getIconFromHash(event.pubkey);
   const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
@@ -55,7 +56,7 @@ export function PostCard({ event, replies, repliedTo, type }: PostCardProps) {
           className={`flex flex-col break-words ${type !== "OP" ? "hover:cursor-pointer" : ""}`}
           onClick={handleClick}
         >
-          <TextContent eventdata={parsedEvent} />
+          <TextContent eventdata={parsedEvent} interactivePoll={interactivePoll} />
         </div>
         {repliedTo && (
           <div className="flex items-center mt-1">

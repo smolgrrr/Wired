@@ -4,12 +4,13 @@ import { subPoll } from "../../nostr/subscriptions";
 import { verifyPow } from "../../shared/pow/core";
 import { timeToGoEst } from "../../shared/utils/timeEstimate";
 import { uniqBy } from "../../utils/otherUtils";
+import { getPollOptions } from "../../utils/pollUtils";
 import { useSubmitForm } from "../../features/compose/useSubmit";
 import { Button } from "./Button";
 import { SignalStepper } from "./SignalStepper";
 
 export function PollResponder({ eventdata }: { eventdata: Event }) {
-  const [options, setOptions] = useState<[string, string][]>([]);
+  const [options, setOptions] = useState<[string, string][]>(() => getPollOptions(eventdata));
   const [difficulty, setDifficulty] = useState("0");
   const [minDiff, setMinDiff] = useState("0");
   const [showResults, setShowResults] = useState(false);
@@ -24,15 +25,7 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
   const [selectedOption, setSelectedOption] = useState<string>("");
 
   useEffect(() => {
-    if (eventdata.kind === 1068) {
-      const uniqueOptions = new Map<string, string>();
-      eventdata.tags.forEach((tag) => {
-        if (tag[0] === "option") {
-          uniqueOptions.set(tag[1], tag[2]);
-        }
-      });
-      setOptions(Array.from(uniqueOptions.entries()));
-    }
+    setOptions(getPollOptions(eventdata));
 
     const pollMinDiff = eventdata.tags.find((t) => t[0] === "PoW")?.[1] || "0";
     if (pollMinDiff !== "0") {
