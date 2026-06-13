@@ -79,7 +79,7 @@ function ThreadView({ hexID }: { hexID: string }) {
       .sort((a, b) => a.created_at - b.created_at);
 
     return (
-      <main className="bg-black text-white min-h-screen">
+      <main id="main-content" className="text-primary mb-20 min-h-screen">
         <div className="w-full sm:px-0 sm:max-w-xl mx-auto my-2">
           {earlierEvents.map((event) => (
             <PostCard
@@ -139,10 +139,10 @@ function ThreadView({ hexID }: { hexID: string }) {
   }
 
   return (
-    <>
+    <main id="main-content" className="text-primary mb-20">
       <Placeholder />
-      <div className="col-span-full h-0.5 bg-neutral-900" />
-    </>
+      <div className="col-span-full h-0.5 bg-[var(--border-ghost)]" />
+    </main>
   );
 }
 
@@ -153,7 +153,10 @@ export default function ThreadPage() {
 
   if (!hexID) {
     return (
-      <main className="bg-void text-primary min-h-screen flex flex-col items-center justify-center gap-4">
+      <main
+        id="main-content"
+        className="bg-void text-primary min-h-screen flex flex-col items-center justify-center gap-4"
+      >
         <p className="text-secondary text-body">invalid signal ref</p>
         <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/")}>
           return

@@ -27,7 +27,7 @@ export default function FeedPage() {
   }, [processedEvents, settings.sortByPow]);
 
   return (
-    <main className="text-white mb-20">
+    <main id="main-content" className="text-primary mb-20">
       <div className="my-3">
         <div className="w-full px-3 sm:px-0 sm:max-w-4xl mx-auto flex">
           <FeedSortToggle

@@ -26,7 +26,7 @@ export default function NotificationsPage() {
     noteEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id));
 
   return (
-    <main className="text-primary mb-20 max-w-content mx-auto px-4">
+    <main id="main-content" className="text-primary mb-20 max-w-content mx-auto px-4">
       <div className="block sm:hidden mb-4">
         <SegmentedControl
           aria-label="Notification view"
