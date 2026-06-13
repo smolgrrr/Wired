@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { PostCard } from "../../shared/ui/PostCard";
 import { Event } from "nostr-tools";
 import { useNotificationEvents } from "../../hooks/useNotificationEvents";
+import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 
 export default function NotificationsPage() {
-  const [notifsView, setNotifsView] = useState(false);
+  const [notifsView, setNotifsView] = useState<"yours" | "mentions">("yours");
   const { noteEvents, pubkeys } = useNotificationEvents();
 
   const postEvents = noteEvents.filter(
@@ -21,46 +22,31 @@ export default function NotificationsPage() {
 
   const sortedMentions = [...mentions].sort((a, b) => b.created_at - a.created_at);
 
-  const toggleNotifs = useCallback(() => {
-    setNotifsView((prev) => !prev);
-  }, []);
-
   const countReplies = (event: Event) =>
     noteEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id));
 
   return (
-    <main className="text-white mb-20">
-      <div className="block sm:hidden">
-        <label htmlFor="toggleC" className="p-4 flex items-center cursor-pointer">
-          <div className="relative">
-            <input
-              id="toggleC"
-              type="checkbox"
-              className="sr-only"
-              checked={notifsView}
-              onChange={toggleNotifs}
-            />
-            <div className="block bg-gray-600 w-8 h-4 rounded-full"></div>
-            <div
-              className={`dot absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition ${
-                notifsView ? "transform translate-x-full bg-blue-400" : ""
-              }`}
-            ></div>
-          </div>
-          <div className={`ml-2 text-neutral-500 text-sm ${notifsView ? "text-neutral-500" : ""}`}>
-            {notifsView ? "Mentions" : "Prev Posts"}
-          </div>
-        </label>
+    <main id="main-content" className="text-primary mb-20 max-w-content mx-auto px-4">
+      <div className="block sm:hidden mb-4">
+        <SegmentedControl
+          aria-label="Notification view"
+          options={[
+            { value: "yours", label: "yours" },
+            { value: "mentions", label: "mentions" },
+          ]}
+          value={notifsView}
+          onChange={setNotifsView}
+        />
       </div>
-      <div className="flex">
-        <div className={`grid grid-cols-1 gap-4 px-4 flex-grow ${notifsView ? "hidden sm:block" : ""}`}>
-          <span>Your Recent Posts</span>
+      <div className="flex gap-8">
+        <div className={`grid grid-cols-1 gap-4 flex-grow ${notifsView === "mentions" ? "hidden sm:grid" : ""}`}>
+          <span className="text-meta text-muted">your transmissions</span>
           {sortedEvents.map((event) => (
             <PostCard key={event.id} event={event} replies={countReplies(event)} />
           ))}
         </div>
-        <div className={`grid grid-cols-1 gap-4 px-4 flex-grow ${notifsView ? "" : "hidden sm:block"}`}>
-          <span>Mentions</span>
+        <div className={`grid grid-cols-1 gap-4 flex-grow ${notifsView === "yours" ? "hidden sm:grid" : ""}`}>
+          <span className="text-meta text-muted">mentions</span>
           {sortedMentions.map((event) => (
             <PostCard key={event.id} event={event} replies={countReplies(event)} />
           ))}

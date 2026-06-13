@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
-import { UnsignedEvent, Event as NostrEvent, nip19 } from "nostr-tools";
+import { UnsignedEvent, Event as NostrEvent } from "nostr-tools";
 import { useSubmitForm } from "./useSubmit";
-import "../../styles/Form.css";
 import { PostCard } from "../../shared/ui/PostCard";
+import { QuotePreview } from "../../shared/ui/QuotePreview";
 import { useSettings } from "../../app/settings";
 import { timeToGoEst } from "../../shared/utils/timeEstimate";
+import { Button } from "../../shared/ui/Button";
+import { Input } from "../../shared/ui/Input";
+import { Textarea } from "../../shared/ui/Textarea";
+import { SignalStepper } from "../../shared/ui/SignalStepper";
 
 interface PostFormProps {
   refEvent?: NostrEvent;
@@ -41,7 +45,6 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           break;
         case "Quote":
           unsigned.tags.push(["q", refEvent.id]);
-          setComment((current) => current + "\nnostr:" + nip19.noteEncode(refEvent.id));
           break;
         default:
           addEventTags();
@@ -92,10 +95,6 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
       return;
     }
 
-    if (tagType === "Quote" && refEvent) {
-      setComment((prevComment) => prevComment + "\nnostr:" + nip19.noteEncode(refEvent.id));
-    }
-
     await originalHandleSubmit(event);
 
     setPollOptions(["", ""]);
@@ -112,11 +111,10 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
   return (
     <form name="post" method="post" encType="multipart/form-data" onSubmit={handleSubmit}>
       <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
-      <div className="px-2 flex flex-col rounded-lg">
-        <textarea
+      <div className="px-2 flex flex-col">
+        <Textarea
           name="com"
-          wrap="soft"
-          className="shadow-lg w-full px-4 py-3 border-neutral-500 bg-black text-white min-h-20 rounded"
+          variant="compose"
           value={comment}
           onChange={(e) => {
             setComment(e.target.value);
@@ -125,86 +123,61 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           }}
           rows={comment.split("\n").length || 1}
         />
+        {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
         {pollOptions.some((option) => option !== "") && (
-          <div className="flex flex-col items-center gap-2 text-xs">
-            <h3 className="text-xs text-neutral-300">Poll Options: </h3>
-            <div className="w-full max-w-md space-y-2">
+          <div className="flex flex-col gap-3 mt-3">
+            <p className="text-meta text-secondary">poll options</p>
+            <div className="flex flex-col gap-2 max-w-md">
               {pollOptions.map((option, index) => (
-                <input
+                <Input
                   key={index}
                   type="text"
                   value={option}
-                  placeholder={`Option ${index + 1}`}
+                  placeholder={`option ${index + 1}`}
                   onChange={(event) =>
                     setPollOptions((current) =>
                       current.map((value, optionIndex) => (optionIndex === index ? event.target.value : value)),
                     )
                   }
-                  className="w-full bg-neutral-900 border-neutral-700 rounded"
                 />
               ))}
-              <label className="flex items-center gap-2 text-neutral-400">
-                Minimum vote PoW
-                <input
-                  type="number"
-                  min="10"
-                  value={pollDifficulty}
-                  onChange={(event) => setPollDifficulty(event.target.value)}
-                  className="w-16 bg-neutral-900 border-neutral-700 rounded"
-                />
-              </label>
+              <Input
+                id={`poll-signal-${refEvent?.id ?? "feed"}`}
+                label="minimum vote signal"
+                type="number"
+                min={10}
+                value={pollDifficulty}
+                onChange={(event) => setPollDifficulty(event.target.value)}
+                containerClassName="max-w-[12rem]"
+              />
             </div>
           </div>
         )}
-        <div className="h-14 flex items-center justify-between">
-          <div className="inline-flex items-center bg-neutral-800 px-1 py-0.5 rounded-lg">
-            <span className="text-xs text-neutral-400">PoW</span>
-            <input
-              type="number"
-              className="bg-neutral-800 text-white text-xs font-medium border-none rounded-lg w-10"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              min="16"
-            />
-            <button type="button" onClick={() => setDifficulty(String(Math.max(10, parseInt(difficulty) - 1)))}>
-              -
-            </button>
-            <button type="button" className="pl-0.5" onClick={() => setDifficulty(String(parseInt(difficulty) + 1))}>
-              +
-            </button>
-          </div>
-          <div>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                className="text-xs text-neutral-400"
-                onClick={() => setPollOptions(pollOptions.some(Boolean) ? ["", ""] : ["Option 1", "Option 2"])}
-              >
-                {pollOptions.some(Boolean) ? "Remove poll" : "Add poll"}
-              </button>
-              <button
-                type="submit"
-                className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${
-                  doingWorkProp ? "cursor-not-allowed" : ""
-                }`}
-                disabled={doingWorkProp}
-              >
-                Submit
-              </button>
-            </div>
+        <div className="min-h-14 flex items-center justify-between gap-4 mt-2">
+          <SignalStepper value={difficulty} onChange={setDifficulty} min={16} />
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setPollOptions(pollOptions.some(Boolean) ? ["", ""] : ["Option 1", "Option 2"])}
+            >
+              {pollOptions.some(Boolean) ? "remove poll" : "add poll"}
+            </Button>
+            <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>
+              transmit
+            </Button>
           </div>
         </div>
         {doingWorkProp ? (
-          <div className="flex animate-pulse text-xs text-gray-300">
-            <span className="ml-auto">Doing Work:</span>
-            {hashrate && <span>{hashrate > 100000 ? `${(hashrate / 1000).toFixed(0)}k` : hashrate}</span>}H/s
-            <span className="pl-1"> (PB:{bestPow},</span>
-            <div className="text-xs text-gray-300 pl-1">~{timeToGoEst(difficulty, hashrate)} total</div>)
-          </div>
+          <p className="text-meta text-secondary text-right" role="status">
+            computing signal… ~{timeToGoEst(difficulty, hashrate)}
+            {bestPow > 0 ? ` · pb:${bestPow}` : ""}
+          </p>
         ) : null}
         {signedPoWEvent && <PostCard event={signedPoWEvent} replies={[]} />}
       </div>
-      <div id="postFormError" className="text-red-500" />
+      <div id="postFormError" className="text-danger text-meta" />
     </form>
   );
 }

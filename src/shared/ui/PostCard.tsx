@@ -1,12 +1,13 @@
 import { Event, nip19 } from "nostr-tools";
-import { getIconFromHash, timeAgo } from "../../utils/cardUtils";
+import { timeAgo } from "../../utils/cardUtils";
 import { verifyPow } from "../../shared/pow/core";
 import { replyEquivalentDifficulty } from "../../nostr/processing/pow-score";
 import { uniqBy } from "../../utils/otherUtils";
 import { parseRepost } from "../../nostr/processing/repost";
 import { TextContent } from "./TextContent";
-import { CardContainer } from "./CardContainer";
-import { useState, useEffect } from "react";
+import { MetadataRow } from "./MetadataRow";
+import { ReplyContext } from "./ReplyContext";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface PostCardProps {
@@ -14,11 +15,37 @@ interface PostCardProps {
   replies: Event[];
   repliedTo?: Event[];
   type?: "OP" | "Reply" | "Post";
+  variant?: "default" | "context" | "op";
+  depth?: number;
+  animate?: boolean;
+  animationIndex?: number;
+  fadeIn?: boolean;
 }
 
-export function PostCard({ event, replies, repliedTo, type }: PostCardProps) {
+const depthClasses: Record<number, string> = {
+  0: "pl-0 opacity-100",
+  1: "pl-4 opacity-[0.92]",
+  2: "pl-8 opacity-[0.84]",
+  3: "pl-12 opacity-[0.76]",
+};
+
+function getDepthClass(depth?: number): string {
+  if (depth === undefined) return "";
+  return depthClasses[Math.min(depth, 3)] ?? depthClasses[3];
+}
+
+export function PostCard({
+  event,
+  replies,
+  repliedTo,
+  type,
+  variant = "default",
+  depth,
+  animate = false,
+  animationIndex = 0,
+  fadeIn = false,
+}: PostCardProps) {
   const navigate = useNavigate();
-  const icon = getIconFromHash(event.pubkey);
   const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
   const [sumReplyPow, setReplySumPow] = useState(0);
   const [repostedEvent, setRepostedEvent] = useState<Event>();
@@ -41,60 +68,57 @@ export function PostCard({ event, replies, repliedTo, type }: PostCardProps) {
     setReplySumPow(replyEquivalentDifficulty(replies));
   }, [event, replies]);
 
-  const handleClick = () => {
-    if (type !== "OP") {
-      sessionStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
-      navigate(`/thread/${nip19.noteEncode(parsedEvent.id)}`);
-    }
-  };
+  const signal = verifyPow(parsedEvent);
+  const repostSignal = repostedEvent ? verifyPow(repostedEvent) : undefined;
+  const timestamp = timeAgo(event.created_at);
+  const isNavigable = type !== "OP" && variant !== "op";
+
+  const handleNavigate = useCallback(() => {
+    sessionStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
+    navigate(`/thread/${nip19.noteEncode(parsedEvent.id)}`);
+  }, [relatedEvents, navigate, parsedEvent.id]);
+
+  const variantClass =
+    variant === "context"
+      ? "opacity-70"
+      : variant === "op"
+        ? ""
+        : "";
+
+  const resolvedVariant = type === "OP" ? "op" : variant;
 
   return (
-    <CardContainer>
-      <div className="flex flex-col gap-2">
-        <div
-          className={`flex flex-col break-words ${type !== "OP" ? "hover:cursor-pointer" : ""}`}
-          onClick={handleClick}
-        >
-          <TextContent eventdata={parsedEvent} />
-        </div>
-        {repliedTo && (
-          <div className="flex items-center mt-1">
-            <span className="text-xs text-gray-500">Reply to: </span>
-            {uniqBy(repliedTo, "pubkey").map((replyEvent) => (
-              <span className="ml-1 font-mono text-neutral-400" key={replyEvent.pubkey}>
-                {replyEvent.pubkey.slice(0, 8)}
-              </span>
-            ))}
-          </div>
+    <article
+      role="group"
+      aria-label={`Post by ${parsedEvent.pubkey.slice(0, 8)}, signal ${signal}, ${timestamp}`}
+      className={[
+        "group py-4 border-b border-ghost",
+        variantClass,
+        getDepthClass(depth),
+        animate ? "motion-safe:animate-resolve-in" : "",
+        fadeIn ? "motion-safe:animate-fade-in" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={animate ? { animationDelay: `${animationIndex * 40}ms` } : undefined}
+    >
+      <div className="post-content flex flex-col gap-2 break-words">
+        <TextContent eventdata={parsedEvent} />
+        {repliedTo && repliedTo.length > 0 && (
+          <ReplyContext events={uniqBy(repliedTo, "pubkey")} />
         )}
-        <div
-          className={`pt-3 flex justify-between items-center ${type !== "OP" ? "hover:cursor-pointer" : ""}`}
-          onClick={handleClick}
-        >
-          <div className={`h-6 w-6 ${icon} rounded-full`} aria-label={`Author ${parsedEvent.pubkey.slice(0, 8)}`} />
-          <div className="flex items-center ml-auto gap-2.5">
-            <div className={`inline-flex text-xs ${verifyPow(parsedEvent) === 0 ? "text-neutral-600" : "text-sky-800"} gap-0.5`}>
-              PoW {verifyPow(parsedEvent)}
-            </div>
-            {repostedEvent && (
-              <div className={`inline-flex text-xs ${verifyPow(repostedEvent) === 0 ? "text-neutral-600" : "text-sky-800"}`}>
-                + PoW {verifyPow(repostedEvent)}
-              </div>
-            )}
-            <span className="text-neutral-700">·</span>
-            <div className="min-w-20 inline-flex items-center text-neutral-600">
-              <span className="text-xs">Replies {replies.length}</span>
-              <span className={`text-xs pl-1 ${sumReplyPow === 0 ? "text-neutral-600" : "text-sky-800"}`}>
-                (PoW {sumReplyPow.toFixed(0)})
-              </span>
-            </div>
-            <span className="text-neutral-700">·</span>
-            <div className="min-w-6 text-xs font-semibold text-neutral-600">
-              {timeAgo(event.created_at)}
-            </div>
-          </div>
-        </div>
       </div>
-    </CardContainer>
+
+      <MetadataRow
+        pubkey={parsedEvent.pubkey}
+        signal={signal}
+        replySignal={sumReplyPow}
+        replyCount={replies.length}
+        timestamp={timestamp}
+        repostSignal={repostSignal}
+        onOpenThread={isNavigable ? handleNavigate : undefined}
+        forceSecondary={resolvedVariant === "op"}
+      />
+    </article>
   );
 }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../app/settings";
+import { Button } from "../../shared/ui/Button";
+import { Input } from "../../shared/ui/Input";
 
 type TestResponse = {
   timeTaken: string;
@@ -18,6 +20,11 @@ export default function SettingsPage() {
   const [testResult, setTestResult] = useState<TestResponse>();
   const [noteLink, setNoteLink] = useState("");
   const navigate = useNavigate();
+  const filterDifficultyValue = Number(filterDifficulty);
+  const filterDifficultyError =
+    filterDifficulty !== "" && (Number.isNaN(filterDifficultyValue) || filterDifficultyValue < 16)
+      ? "minimum signal is 16"
+      : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,133 +51,112 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="settings-page bg-black text-white p-8 flex flex-col h-full">
-      <h1 className="text-lg font-semibold mb-4">Settings</h1>
-      <form onSubmit={handleSubmit}>
-        <div className="flex flex-wrap -mx-2 mb-4">
-          <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-            <label className="block text-xs mb-2" htmlFor="filterDifficulty">
-              Proof-of-Work Filter:
-            </label>
-            <input
-              id="filterDifficulty"
-              type="number"
-              value={filterDifficulty}
-              onChange={(e) => setFilterDifficulty(e.target.value)}
-              min={16}
-              className="w-full px-3 py-2 border rounded-md bg-black"
-            />
-          </div>
-          <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-            <label className="block text-xs mb-2" htmlFor="difficulty">
-              Post Difficulty (PoW required to make a post):
-            </label>
-            <input
-              id="difficulty"
-              type="number"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              min={16}
-              className="w-full px-3 py-2 border rounded-md bg-black"
-            />
-          </div>
-          <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-            <label className="block text-xs mb-2" htmlFor="age">
-              Thread Age Limit (hrs):
-            </label>
-            <input
-              id="age"
-              type="number"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md bg-black"
-            />
-          </div>
+    <main
+      id="main-content"
+      className="settings-page bg-void text-primary p-8 flex flex-col h-full max-w-content mx-auto"
+    >
+      <h1 className="text-display font-medium mb-4">settings</h1>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            id="filterDifficulty"
+            label="proof filter"
+            type="number"
+            value={filterDifficulty}
+            onChange={(e) => setFilterDifficulty(e.target.value)}
+            min={16}
+            error={filterDifficultyError}
+          />
+          <Input
+            id="difficulty"
+            label="post signal"
+            type="number"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+            min={16}
+          />
+          <Input
+            id="age"
+            label="thread age (hrs)"
+            type="number"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+          />
         </div>
-        <div className="pb-4">
-          <button type="button" onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}>
-            {">"} Advanced Settings
-          </button>
+        <div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+          >
+            {showAdvancedSettings ? "hide advanced" : "advanced"}
+          </Button>
           {showAdvancedSettings && (
-            <>
-              <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-                <label className="block text-xs mb-2" htmlFor="powServer">
-                  Remote PoW Server:
-                </label>
-                <input
-                  id="powServer"
-                  type="text"
-                  value={powServer}
-                  onChange={(e) => setPowServer(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md bg-black"
-                />
-              </div>
-              <div className="px-2">
-                <label className="block text-xs mb-2" htmlFor="testAPI">
-                  Test Your PoW Server (difficulty):
-                </label>
-                <input
+            <div className="mt-4 flex flex-col gap-4">
+              <Input
+                id="powServer"
+                label="remote signal relay"
+                type="text"
+                value={powServer}
+                onChange={(e) => setPowServer(e.target.value)}
+              />
+              <div className="flex flex-wrap items-end gap-3">
+                <Input
                   id="testAPI"
+                  label="test relay (difficulty)"
                   type="text"
                   value={testDiff}
                   onChange={(e) => setTestDiff(e.target.value)}
-                  className="w-12 px-3 py-2 border rounded-md bg-black"
+                  containerClassName="w-auto min-w-[6rem]"
                 />
-                <button type="button" onClick={handleTest} className="bg-black border text-white font-bold py-2 px-4 rounded">
-                  Test
-                </button>
+                <Button type="button" variant="primary" size="sm" onClick={handleTest}>
+                  test
+                </Button>
                 {testResult && (
-                  <span>
-                    Time: {testResult.timeTaken}s with a hashrate of {testResult.hashrate}
-                  </span>
+                  <p className="text-meta text-secondary" role="status">
+                    {testResult.timeTaken}s · {testResult.hashrate}
+                  </p>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
-        <button type="submit" className="bg-black border text-white font-bold py-2 px-4 rounded">
-          Save Settings
-        </button>
+        <Button type="submit" variant="primary">
+          save
+        </Button>
       </form>
-      <div className="settings-page pt-10">
-        <h1 className="text-lg font-semibold mb-4">Open Note</h1>
+      <div className="pt-10">
+        <h2 className="text-body font-medium mb-4">open note</h2>
         <form
+          className="flex flex-col gap-4 max-w-md"
           onSubmit={(e) => {
             e.preventDefault();
             navigate(`/thread/${noteLink}`);
           }}
         >
-          <div className="flex flex-wrap -mx-2 mb-4">
-            <div className="w-full md:w-1/3 px-2 mb-4 md:mb-0">
-              <label className="block text-xs mb-2" htmlFor="noteIDinput">
-                Note ID:
-              </label>
-              <input
-                id="noteIDinput"
-                type="text"
-                value={noteLink}
-                onChange={(e) => setNoteLink(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-black"
-              />
-            </div>
-          </div>
-          <button type="submit" className="bg-black border text-white font-bold py-2 px-4 rounded">
-            Open
-          </button>
+          <Input
+            id="noteIDinput"
+            label="note ref"
+            type="text"
+            value={noteLink}
+            onChange={(e) => setNoteLink(e.target.value)}
+          />
+          <Button type="submit" variant="primary">
+            open
+          </Button>
         </form>
       </div>
-      <div className="settings-page py-10">
-        <h1 className="text-lg font-semibold mb-4">About</h1>
-        <div className="flex flex-col">
+      <div className="py-10">
+        <h2 className="text-body font-medium mb-4">about</h2>
+        <div className="flex flex-col gap-3 text-body text-secondary">
           <p>The Wired is an anon agora built upon the NOSTR protocol.</p>
-          <br />
           <p>The Wired is built to facilitate unstoppable free speech on the internet.</p>
           <p>-Uses NOSTR as a censorship-resistant social network</p>
           <p>-Employs Proof-of-Work (PoW) as a spam prevention mechanism</p>
-          <br />
           <p>Source: https://github.com/smolgrrr/TAO</p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

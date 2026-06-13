@@ -2,18 +2,150 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: 'SF Mono', monospace;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: black;
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
-@layer components {
-  .card {
-    border-radius: theme('borderRadius.lg');
-    padding: theme('spacing.4');
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/ibm-plex-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Surfaces */
+  --void: #050508;
+  --surface: #0a0a0f;
+  --surface-raised: #111118;
+  --border-ghost: rgba(255, 255, 255, 0.06);
+  --border-focus: rgba(94, 234, 212, 0.35);
+
+  /* Text */
+  --text-primary: #e8e8ec;
+  --text-secondary: #8a8a96;
+  --text-muted: #4a4a56;
+  --text-ghost: #2e2e38;
+
+  /* Signal accent */
+  --signal: #5eead4;
+  --signal-dim: rgba(94, 234, 212, 0.45);
+  --signal-ghost: rgba(94, 234, 212, 0.12);
+
+  /* Semantic */
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.6);
+
+  /* Typography */
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-size-display: 1.125rem;
+  --font-size-body: 0.9375rem;
+  --font-size-meta: 0.75rem;
+  --font-size-micro: 0.6875rem;
+  --line-height-body: 1.65;
+  --line-height-meta: 1.4;
+  --letter-spacing-meta: 0.02em;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Layout */
+  --content-max: 36rem;
+  --header-height: 3rem;
+  --compose-min-height: 5rem;
+
+  /* Motion */
+  --duration-resolve: 600ms;
+  --duration-fade-in: 200ms;
+  --duration-hover: 150ms;
+  --duration-focus: 100ms;
+  --ease-resolve: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* Atmosphere */
+  --grain-opacity: 0.025;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--void);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--void), 0 0 0 4px var(--signal-dim);
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: var(--grain-opacity);
+  background-image: url('/noise.png');
+  background-repeat: repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noise-overlay {
+    opacity: 0;
   }
-  /* ... */
+
+  .animate-resolve-in,
+  .animate-fade-in {
+    animation: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
+
+.metadata-row {
+  color: var(--text-secondary);
+}
+
+.metadata-row--secondary {
+  color: var(--text-secondary);
+}
+
+@media (hover: hover) {
+  .metadata-row:not(.metadata-row--secondary) {
+    color: var(--text-muted);
+  }
+
+  .group:hover .metadata-row:not(.metadata-row--secondary),
+  .group:focus-within .metadata-row:not(.metadata-row--secondary) {
+    color: var(--text-secondary);
+  }
+}
+
+textarea {
+  caret-color: var(--signal);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
 }
