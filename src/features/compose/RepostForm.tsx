@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { UnsignedEvent, Event as NostrEvent } from "nostr-tools";
 import { useSubmitForm } from "./useSubmit";
-import "../../styles/Form.css";
 import { useSettings } from "../../app/settings";
+import { Button } from "../../shared/ui/Button";
+import { timeToGoEst } from "../../shared/utils/timeEstimate";
 
 interface RepostFormProps {
   refEvent: NostrEvent;
@@ -27,29 +28,20 @@ export function RepostForm({ refEvent }: RepostFormProps) {
 
   return (
     <form name="post" method="post" encType="multipart/form-data" onSubmit={handleSubmit}>
-      <div className="px-4 flex flex-col rounded-lg">
-        <div className="h-14 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 bg-neutral-800 px-1.5 py-1 rounded-lg">
-            <p className="text-xs font-medium text-neutral-400">{difficulty} PoW</p>
-          </div>
-          <button
-            type="submit"
-            className={`bg-black border h-9 inline-flex items-center justify-center px-4 rounded-lg text-white font-medium text-sm ${
-              doingWorkProp ? "cursor-not-allowed" : ""
-            }`}
-            disabled={doingWorkProp}
-          >
-            Submit
-          </button>
+      <div className="px-4 flex flex-col">
+        <div className="min-h-14 flex items-center justify-between gap-4">
+          <p className="text-meta text-muted">signal {difficulty}</p>
+          <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>
+            transmit
+          </Button>
         </div>
+        {doingWorkProp ? (
+          <p className="text-meta text-secondary" role="status">
+            computing signal… ~{timeToGoEst(difficulty, hashrate)}
+          </p>
+        ) : null}
       </div>
-      {doingWorkProp ? (
-        <div className="flex animate-pulse text-sm text-gray-300">
-          <span>Doing Work:</span>
-          {hashrate && <span>{hashrate} H/s</span>}
-        </div>
-      ) : null}
-      <div id="postFormError" className="text-red-500" />
+      <div id="postFormError" className="text-danger text-meta" />
     </form>
   );
 }

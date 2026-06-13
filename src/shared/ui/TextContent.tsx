@@ -2,6 +2,7 @@ import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "../../utils/content";
 import { PollResponder } from "./PollResponder";
+import { Button } from "./Button";
 
 const COLLAPSED_LENGTH = 750;
 
@@ -11,16 +12,17 @@ export function TextContent({ eventdata }: { eventdata: Event }) {
   const displayedComment = isExpanded ? comment : comment.slice(0, COLLAPSED_LENGTH);
 
   return (
-    <div className="gap-2 flex flex-col break-words text-xs">
+    <div className="gap-2 flex flex-col break-words text-body text-primary">
       <p className="whitespace-pre-wrap">{displayedComment}</p>
       {comment.length > COLLAPSED_LENGTH && (
-        <button
+        <Button
           type="button"
-          className="text-sm text-neutral-500"
+          variant="ghost"
+          size="sm"
           onClick={() => setIsExpanded(!isExpanded)}
         >
-          {isExpanded ? "...Read less" : "...Read more"}
-        </button>
+          {isExpanded ? "collapse" : "continue"}
+        </Button>
       )}
       {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
     </div>

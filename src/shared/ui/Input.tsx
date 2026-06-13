@@ -5,6 +5,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   hint?: string;
   error?: string;
+  containerClassName?: string;
 }
 
 export function Input({
@@ -13,6 +14,7 @@ export function Input({
   error,
   id: idProp,
   className = "",
+  containerClassName = "",
   ...props
 }: InputProps) {
   const generatedId = useId();
@@ -22,7 +24,7 @@ export function Input({
   const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className="w-full">
+    <div className={["w-full", containerClassName].filter(Boolean).join(" ")}>
       {label && (
         <label htmlFor={id} className="block text-meta text-secondary mb-1">
           {label}

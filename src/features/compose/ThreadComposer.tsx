@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Event } from "nostr-tools";
 import { PostForm } from "./PostForm";
 import { RepostForm } from "./RepostForm";
+import { Button } from "../../shared/ui/Button";
 
 type PostType = "" | "Reply" | "Quote" | undefined;
 
@@ -12,50 +13,52 @@ export function ThreadComposer({ OPEvent }: { OPEvent: Event }) {
 
   return (
     <>
-      <div className="col-span-full flex justify-center gap-8 pb-4 text-xs">
-        <button
+      <div className="col-span-full flex justify-center gap-6 pb-4">
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setShowForm((prev) => !prev);
             setPostType("Reply");
             setShowRepost(false);
           }}
         >
-          Reply
-        </button>
-        <button
+          reply
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setShowRepost((prev) => !prev);
             setShowForm(false);
           }}
         >
-          Repost
-        </button>
-        <button
+          repost
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setShowForm((prev) => !prev);
             setPostType("Quote");
             setShowRepost(false);
           }}
         >
-          Quote
-        </button>
+          quote
+        </Button>
       </div>
       {showForm && postType && (
         <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-          <div className="text-center">
-            <span>{postType}-post</span>
-          </div>
+          <p className="text-meta text-muted text-center mb-2">{postType.toLowerCase()}</p>
           <PostForm refEvent={OPEvent} tagType={postType} />
         </div>
       )}
       {showRepost && OPEvent && (
         <div className="w-full px-4 sm:px-0 sm:max-w-xl mx-auto my-2">
-          <div className="text-center">
-            <span>Repost note</span>
-          </div>
+          <p className="text-meta text-muted text-center mb-2">repost</p>
           <RepostForm refEvent={OPEvent} />
         </div>
       )}

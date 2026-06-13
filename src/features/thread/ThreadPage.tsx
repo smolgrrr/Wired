@@ -4,6 +4,7 @@ import { Event, nip19 } from "nostr-tools";
 import { subNotesOnce } from "../../nostr/subscriptions";
 import { uniqBy } from "../../utils/otherUtils";
 import { Placeholder } from "../../shared/ui/Placeholder";
+import { Button } from "../../shared/ui/Button";
 import { PostCard } from "../../shared/ui/PostCard";
 import { useThreadEvents } from "../../hooks/useThreadEvents";
 import { ThreadComposer } from "../compose/ThreadComposer";
@@ -98,12 +99,14 @@ function ThreadView({ hexID }: { hexID: string }) {
         <ThreadComposer OPEvent={OPEvent} />
         <div className="col-span-full h-0.5 bg-neutral-900 mb-2" />
         <div className="flex justify-center">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setShowAllReplies(!showAllReplies)}
-            className="text-neutral-600 text-xs border border-neutral-700 rounded-md px-4 py-2"
           >
-            {showAllReplies ? "Hide 0 PoW Replies" : "Show All Replies"}
-          </button>
+            {showAllReplies ? "hide low-signal" : "reveal low-signal"}
+          </Button>
         </div>
         <div className="grid grid-cols-1 max-w-xl mx-auto gap-1">
           {replyEvents
@@ -149,14 +152,11 @@ export default function ThreadPage() {
 
   if (!hexID) {
     return (
-      <main className="bg-black text-white min-h-screen flex flex-col items-center justify-center gap-4">
-        <p className="text-neutral-400">Invalid note ID.</p>
-        <button
-          onClick={() => navigate("/")}
-          className="text-xs border border-neutral-700 rounded-md px-4 py-2"
-        >
-          Back to feed
-        </button>
+      <main className="bg-void text-primary min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-secondary text-body">invalid signal ref</p>
+        <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/")}>
+          return
+        </Button>
       </main>
     );
   }
