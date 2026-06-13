@@ -3,8 +3,6 @@ import { parseRepost } from "../processing/repost";
 import type { SubscriptionRegistry } from "../subscription-registry";
 import type { SubCallback, SubHandle } from "../types";
 
-const POW_PREFIX_LEN = 4;
-
 const trackRootNote = (notes: Set<string>, evt: Event) => {
   if (evt.kind === 1 && !evt.tags.some((tag) => tag[0] === "e")) {
     notes.add(evt.id);
@@ -33,8 +31,7 @@ export const subGlobalFeed = (
     registry.subscribe([
       {
         filter: {
-          ids: ["0".repeat(POW_PREFIX_LEN)],
-          kinds: [1, 6],
+          kinds: [1, 6, 1068],
           since,
           limit: 500,
         },
@@ -48,19 +45,6 @@ export const subGlobalFeed = (
   );
 
   const stagedTimer = setTimeout(() => {
-    children.push(
-      registry.subscribe([
-        {
-          filter: {
-            kinds: [1068],
-            since,
-          },
-          cb: onEvent,
-          closeOnEose: true,
-        },
-      ]),
-    );
-
     if (notes.size > 0) {
       children.push(
         registry.subscribe([
