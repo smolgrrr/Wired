@@ -64,7 +64,7 @@ function MediaAudio({ item }: { item: MediaItem }) {
   );
 }
 
-function MediaAttachment({ item }: { item: MediaItem }) {
+export function MediaAttachment({ item }: { item: MediaItem }) {
   switch (item.type) {
     case "image":
       return <MediaImage item={item} />;

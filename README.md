@@ -6,7 +6,7 @@ A browser-first, anonymous Nostr social feed that uses proof-of-work to reduce s
 - Nostr relay subscriptions provide feeds, threads, polls, and notifications.
 - Posts are anonymous and signed with ephemeral browser-generated keys.
 - Proof-of-work is calculated in Web Workers before events are published.
-- Media URLs and `imeta` tags are rendered inline. Other URLs and Nostr identifiers remain non-clickable plain text.
+- Media URLs and `imeta` tags render as inline attachments below text. Other URLs become link preview cards (stripped from body). Nostr identifiers linkify inline (note/nevent open in-app; npub/nprofile/naddr open via `nostr:` href).
 
 ## Development
 
@@ -26,7 +26,18 @@ bun run test
 bun run build
 ```
 
-The production image builds the Vite app and serves `dist/` through Nginx with an SPA route fallback.
+## Deployment
+
+Deploy on [Vercel](https://vercel.com). Connect the Git repo in the Vercel dashboard (Vite is auto-detected; build command: `bun run build`, output: `dist`).
+
+[`vercel.json`](vercel.json) includes SPA rewrites so client-side routes work on refresh.
+
+Local production check:
+
+```sh
+bun run build
+bun run preview
+```
 
 ## Structure
 

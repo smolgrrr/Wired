@@ -42,7 +42,7 @@ const MIME_TYPE: Record<string, MediaType> = {
   "audio/mp4": "audio",
 };
 
-function normalizeUrl(url: string): string {
+export function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
