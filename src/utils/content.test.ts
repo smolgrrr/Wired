@@ -3,11 +3,24 @@ import { Event } from "nostr-tools";
 import { parseContent } from "./content";
 
 describe("parseContent", () => {
-  it("preserves plain text, URLs, and emoji tokens", () => {
+  it("strips media URLs from comment and returns media items", () => {
     const content = "hello https://example.com/image.jpg :custom_emoji:";
     const event = { content } as Event;
 
-    expect(parseContent(event)).toEqual({ comment: content });
+    expect(parseContent(event)).toEqual({
+      comment: "hello :custom_emoji:",
+      media: [{ url: "https://example.com/image.jpg", type: "image" }],
+    });
+  });
+
+  it("preserves non-media URLs as plain text", () => {
+    const content = "visit https://example.com/page";
+    const event = { content } as Event;
+
+    expect(parseContent(event)).toEqual({
+      comment: content,
+      media: [],
+    });
   });
 
   it("strips nostr bech32 identifiers from displayed content", () => {
@@ -17,6 +30,7 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "Wem nützt diese Näherung mehr?",
+      media: [],
     });
   });
 
@@ -24,6 +38,42 @@ describe("parseContent", () => {
     const content = "see nostr:note1qqqqqqqqqqqqqqqq for context";
     const event = { content } as Event;
 
-    expect(parseContent(event)).toEqual({ comment: "see for context" });
+    expect(parseContent(event)).toEqual({
+      comment: "see for context",
+      media: [],
+    });
+  });
+
+  it("extracts multiple media items and strips all from comment", () => {
+    const content =
+      "shots https://example.com/1.jpg https://example.com/2.mp4 end";
+    const event = { content } as Event;
+
+    expect(parseContent(event)).toEqual({
+      comment: "shots end",
+      media: [
+        { url: "https://example.com/1.jpg", type: "image" },
+        { url: "https://example.com/2.mp4", type: "video" },
+      ],
+    });
+  });
+
+  it("combines imeta tags with bare URLs", () => {
+    const event = {
+      content: "extra https://example.com/extra.webm",
+      tags: [["imeta", "url https://example.com/tag.png", "m image/png"]],
+    } as Event;
+
+    expect(parseContent(event)).toEqual({
+      comment: "extra",
+      media: [
+        {
+          url: "https://example.com/tag.png",
+          type: "image",
+          mime: "image/png",
+        },
+        { url: "https://example.com/extra.webm", type: "video" },
+      ],
+    });
   });
 });

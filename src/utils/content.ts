@@ -1,4 +1,5 @@
 import { Event } from "nostr-tools";
+import { extractMedia, stripMediaUrls, type MediaItem } from "./mediaUtils";
 
 const NOSTR_REF_PATTERN =
   /nostr:(?:note|nevent|naddr|npub|nprofile|nrelay)1[a-z0-9]+/gi;
@@ -13,8 +14,17 @@ function stripNostrRefs(content: string): string {
     .trim();
 }
 
-export function parseContent(event: Event) {
+export type ParsedContent = {
+  comment: string;
+  media: MediaItem[];
+};
+
+export function parseContent(event: Event): ParsedContent {
+  const media = extractMedia(event);
+  const withoutMedia = stripMediaUrls(event.content, media);
+
   return {
-    comment: stripNostrRefs(event.content),
+    comment: stripNostrRefs(withoutMedia),
+    media,
   };
 }

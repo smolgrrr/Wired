@@ -24,13 +24,16 @@ The refactor replaces dated visual habits (terminal prompt header, rainbow avata
 | **Stillness over spectacle** | Motion is rare and purposeful | One signature load animation on initial feed batch only; no looping ambient effects |
 | **Signal, not decoration** | Every visual element earns its place | Single accent color; metadata whispers on fine-pointer hover, AA-readable elsewhere |
 | **Hierarchy through weight, not color** | Read posts first, telemetry second | Three type scales; PoW/time/replies at lowest contrast on hover-capable devices only |
-| **Plain text is sacred** | No clickable URLs, IDs, or rich embeds | `TextContent` remains plain `whitespace-pre-wrap`; links stay non-interactive |
+| **Text stays plain** | Body text is non-interactive; no clickable URLs or Nostr IDs | `TextContent` body remains `whitespace-pre-wrap` plain text |
+| **Media resolves inline** | Recognized attachments render below text | `NoteMedia` renders `imeta` + bare media URLs; URLs stripped from visible text |
 | **Depth without chrome** | Thread structure via space and fade, not boxes | Indent + opacity; no card borders on feed |
 | **Architecture untouched** | Visual refactor only | New primitives live in flat `src/shared/ui/`; features consume them; no hook/Nostr changes |
 
-### Plain Text Constraint (Preserved Behaviors)
+### Content Rendering (Preserved Behaviors)
 
-- `TextContent` renders post body as non-interactive plain text — unchanged.
+- `TextContent` renders post body as non-interactive plain text.
+- Media from `imeta` tags and recognized URLs renders inline via `NoteMedia` below the text paragraph; media URLs are stripped from visible text.
+- Non-media URLs and Nostr identifiers are never clickable.
 - Quote compose still appends `nostr:note…` to textarea content (existing `PostForm` behavior) — presentation refactor does not alter this.
 - Poll creation (kind 1068) and `PollResponder` voting UI remain functionally unchanged; only primitives and styling update. Poll buttons are interactive controls inside posts, not hyperlinks in body text.
 
@@ -852,6 +855,21 @@ const isNavigable = type !== 'OP' && variant !== 'op';
   {isExpanded ? 'collapse' : 'continue'}
 </Button>
 // Replaces raw <button> and "...Read more" / "...Read less" copy
+// Media attachments render below text via NoteMedia — always visible, outside collapse
+```
+
+#### `NoteMedia`
+
+```tsx
+interface NoteMediaProps {
+  items: MediaItem[]; // from parseContent()
+}
+
+// Vertical stack: flex flex-col gap-3
+// Order: imeta tags first, then bare content URLs (deduped)
+// Images: lazy, max-h-[32rem], object-contain, ghost border
+// Video/audio: native controls, per-item error fallback ("signal lost")
+// Collapse applies to text only — media always visible
 ```
 
 #### `ReplyContext`
@@ -1014,7 +1032,8 @@ Violet `#a78bfa` and amber `#fbbf24` were considered; teal chosen for telemetry 
 | **PostCard navigation** | `role="group"` + `MetadataRow` `open` button | Avoids nested interactives in `role="link"`; keyboard via dedicated control |
 | **Thread depth** | `getThreadDepth()` util | Explicit algorithm; max depth 3 |
 | **Infinite scroll motion** | Resolve initial 20 only | Matches "then stillness" principle |
-| **Plain text constraint** | Preserved; quote/poll behavior unchanged | Product identity |
+| **Text stays plain** | Body text non-interactive; no clickable URLs or Nostr IDs | Product identity |
+| **Media resolves inline** | `NoteMedia` below text; imeta + bare media URLs | Nostr interoperability |
 | **Mining copy** | No hashrate | Avoids terminal telemetry cosplay |
 | **Page backgrounds** | `bg-void` inherited only | No local `bg-black` |
 

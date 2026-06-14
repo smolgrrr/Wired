@@ -2,13 +2,14 @@ import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "../../utils/content";
 import { getPollLabel } from "../../utils/pollUtils";
+import { NoteMedia } from "./NoteMedia";
 import { PollResponder } from "./PollResponder";
 import { Button } from "./Button";
 
 const COLLAPSED_LENGTH = 750;
 
 export function TextContent({ eventdata }: { eventdata: Event }) {
-  const { comment } = parseContent(eventdata);
+  const { comment, media } = parseContent(eventdata);
   const bodyText =
     eventdata.kind === 1068 ? comment.trim() || getPollLabel(eventdata) : comment;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -29,6 +30,7 @@ export function TextContent({ eventdata }: { eventdata: Event }) {
           {isExpanded ? "collapse" : "continue"}
         </Button>
       )}
+      {media.length > 0 && <NoteMedia items={media} />}
       {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
     </div>
   );
