@@ -40,6 +40,31 @@ export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandl
   ]);
 };
 
+export async function subProfilesOnce(
+  pubkeys: string[],
+  onEvent: SubCallback,
+  onEose?: () => void,
+): Promise<SubHandle> {
+  if (pubkeys.length === 0) {
+    return emptySubHandle("profiles-once:empty");
+  }
+
+  await ensureRelaysConnected([...QUOTE_FALLBACK_RELAYS]);
+
+  return getRegistry().subscribe([
+    {
+      filter: {
+        authors: pubkeys,
+        kinds: [0],
+      },
+      cb: onEvent,
+      closeOnEose: true,
+      onEose,
+      relayUrls: [...QUOTE_FALLBACK_RELAYS],
+    },
+  ]);
+}
+
 function relayUrlsForQuote(ref: QuotedRef): string[] {
   return [...new Set([...DEFAULT_RELAYS, ...ref.relays, ...QUOTE_FALLBACK_RELAYS])];
 }
