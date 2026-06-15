@@ -1,5 +1,5 @@
+import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
 import { ensureRelaysConnected, getRegistry } from "../client";
-import { relaysWithHints } from "../relays";
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
 import { emptySubHandle } from "./utils";
@@ -41,30 +41,8 @@ export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandl
 };
 
 function relayUrlsForQuote(ref: QuotedRef): string[] {
-  return relaysWithHints(ref.relays);
+  return [...new Set([...DEFAULT_RELAYS, ...ref.relays, ...QUOTE_FALLBACK_RELAYS])];
 }
-
-export const subProfilesOnce = (
-  pubkeys: string[],
-  onEvent: SubCallback,
-  onEose?: () => void,
-): SubHandle => {
-  if (pubkeys.length === 0) {
-    return emptySubHandle("profiles-once:empty");
-  }
-
-  return getRegistry().subscribe([
-    {
-      filter: {
-        authors: pubkeys,
-        kinds: [0],
-      },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose,
-    },
-  ]);
-};
 
 export async function subQuotedEventsOnce(
   refs: QuotedRef[],

@@ -1,8 +1,6 @@
 import { Event } from "nostr-tools";
 import { parseContent } from "@lib/content";
-import { getDisplayName } from "@lib/profile";
 import { getNoteBodyText } from "@lib/pollUtils";
-import { useProfile } from "../hooks/useProfiles";
 import { AttachmentStack } from "./AttachmentStack";
 import { PollSummary } from "./PollSummary";
 import { SignalAvatar } from "./SignalAvatar";
@@ -10,8 +8,6 @@ import { SignalAvatar } from "./SignalAvatar";
 const PREVIEW_LENGTH = 280;
 
 export function QuotePreview({ event }: { event: Event }) {
-  const profile = useProfile(event.pubkey);
-  const authorLabel = getDisplayName(profile, event.pubkey);
   const { comment, attachments } = parseContent(event);
   const bodyText = getNoteBodyText(event, comment);
   const preview =
@@ -25,13 +21,8 @@ export function QuotePreview({ event }: { event: Event }) {
       aria-label="quoted note"
     >
       <div className="mb-2 flex items-center gap-2 text-meta text-muted">
-        <SignalAvatar
-          pubkey={event.pubkey}
-          pictureUrl={profile?.picture}
-          label={`author ${authorLabel}`}
-          size="sm"
-        />
-        <span>{authorLabel}</span>
+        <SignalAvatar pubkey={event.pubkey} size="sm" />
+        <span>{event.pubkey.slice(0, 8)}</span>
       </div>
       {preview.length > 0 && (
         <p className="whitespace-pre-wrap text-body text-secondary">{preview}</p>

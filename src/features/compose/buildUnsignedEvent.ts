@@ -1,5 +1,4 @@
 import { Event, UnsignedEvent } from "nostr-tools";
-import { CLIENT_TAG } from "@lib/clientTag";
 
 export type ComposeDraft = {
   comment: string;
@@ -8,6 +7,8 @@ export type ComposeDraft = {
   pollOptions: string[];
   pollDifficulty: string;
 };
+
+const CLIENT_TAG: string[] = ["client", "getwired.app"];
 
 function dedupeTags(tags: string[][]): string[][] {
   return Array.from(

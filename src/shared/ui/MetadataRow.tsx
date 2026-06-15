@@ -1,5 +1,3 @@
-import { getDisplayName } from "@lib/profile";
-import { useProfile } from "../hooks/useProfiles";
 import { Button } from "./Button";
 import { SignalAvatar } from "./SignalAvatar";
 
@@ -15,21 +13,14 @@ type MetadataRowProps = {
 };
 
 function formatTelemetry({
-  authorLabel,
+  pubkey,
   signal,
   replySignal = 0,
   replyCount,
   timestamp,
   repostSignal,
-}: {
-  authorLabel: string;
-  signal: number;
-  replySignal?: number;
-  replyCount: number;
-  timestamp: string;
-  repostSignal?: number;
-}) {
-  const parts: string[] = [authorLabel];
+}: Omit<MetadataRowProps, "onOpenThread" | "forceSecondary">) {
+  const parts: string[] = [pubkey.slice(0, 8)];
 
   if (signal > 0) {
     parts.push(`signal ${signal}`);
@@ -61,11 +52,8 @@ export function MetadataRow({
   onOpenThread,
   forceSecondary = false,
 }: MetadataRowProps) {
-  const profile = useProfile(pubkey);
-  const authorLabel = getDisplayName(profile, pubkey);
-
   const telemetry = formatTelemetry({
-    authorLabel,
+    pubkey,
     signal,
     replySignal,
     replyCount,
@@ -91,12 +79,7 @@ export function MetadataRow({
         .join(" ")}
       onClick={handleRowClick}
     >
-      <SignalAvatar
-        pubkey={pubkey}
-        pictureUrl={profile?.picture}
-        label={`author ${authorLabel}`}
-        size="sm"
-      />
+      <SignalAvatar pubkey={pubkey} size="sm" />
       <span className="flex-1 min-w-0 truncate">{telemetry}</span>
       {onOpenThread && (
         <Button

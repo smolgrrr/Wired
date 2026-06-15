@@ -4,8 +4,6 @@ import { verifyPow } from "../../shared/pow/core";
 import { replyEquivalentDifficulty } from "../../nostr/processing/pow-score";
 import { uniqBy } from "@lib/collections";
 import { parseRepost } from "../../nostr/processing/repost";
-import { getDisplayName } from "@lib/profile";
-import { useProfile } from "../hooks/useProfiles";
 import { TextContent } from "./TextContent";
 import { MetadataRow } from "./MetadataRow";
 import { ReplyContext } from "./ReplyContext";
@@ -56,8 +54,6 @@ export function PostCard({
     return event;
   }, [event]);
   const replySumPow = useMemo(() => replyEquivalentDifficulty(replies), [replies]);
-  const profile = useProfile(parsedEvent.pubkey);
-  const authorLabel = getDisplayName(profile, parsedEvent.pubkey);
 
   const signal = verifyPow(parsedEvent);
   const repostSignal = repostedEvent ? verifyPow(repostedEvent) : undefined;
@@ -74,7 +70,7 @@ export function PostCard({
   return (
     <article
       role="group"
-      aria-label={`Post by ${authorLabel}, signal ${signal}, ${timestamp}`}
+      aria-label={`Post by ${parsedEvent.pubkey.slice(0, 8)}, signal ${signal}, ${timestamp}`}
       className={[
         "group py-4 border-b border-ghost",
         roleClass,
