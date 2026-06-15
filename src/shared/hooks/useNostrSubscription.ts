@@ -2,6 +2,8 @@ import { useEffect, useState, type DependencyList } from "react";
 import type { Event } from "nostr-tools";
 import type { SubCallback, SubHandle } from "../../nostr/types";
 
+const FLUSH_INTERVAL_MS = 50;
+
 function mergeEvents(current: Event[], incoming: Event[]): Event[] {
   if (incoming.length === 0) return current;
 
@@ -33,26 +35,35 @@ export function useNostrSubscription(
     setEvents([]);
 
     const pending: Event[] = [];
-    let flushScheduled = false;
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const flushPending = () => {
-      flushScheduled = false;
+      flushTimer = null;
       if (pending.length === 0) return;
 
       const batch = pending.splice(0);
       setEvents((current) => mergeEvents(current, batch));
     };
 
+    const scheduleFlush = () => {
+      if (flushTimer !== null) return;
+      flushTimer = setTimeout(flushPending, FLUSH_INTERVAL_MS);
+    };
+
     const onEvent = (event: Event) => {
       pending.push(event);
-      if (!flushScheduled) {
-        flushScheduled = true;
-        queueMicrotask(flushPending);
-      }
+      scheduleFlush();
     };
 
     const subscription = createSubscription(onEvent);
-    return () => subscription.close();
+
+    return () => {
+      if (flushTimer !== null) {
+        clearTimeout(flushTimer);
+      }
+      flushPending();
+      subscription.close();
+    };
     // Subscription factory is intentionally excluded; callers pass deps explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ...deps]);

@@ -1,11 +1,14 @@
 import type { Event } from "nostr-tools";
 import { DEFAULT_DIFFICULTY } from "../../config";
 import { isRootNote } from "@lib/noteEvents";
-import { verifyPow } from "../../shared/pow/core";
+import { hasNonceTag, verifyPow } from "../../shared/pow/core";
 import { getRegistry } from "../client";
 import { parseRepost } from "../processing/repost";
 import type { SubCallback, SubHandle } from "../types";
 import { composeSubHandle } from "./utils";
+
+const FEED_LIMIT_PER_RELAY = 100;
+const MAX_REPLY_ROOTS = 50;
 
 const trackRootNote = (notes: Set<string>, evt: Event) => {
   if (isRootNote(evt)) {
@@ -20,6 +23,16 @@ const trackRootNote = (notes: Set<string>, evt: Event) => {
     }
   }
 };
+
+function passesFeedFilter(event: Event, filterDifficulty: number): boolean {
+  return hasNonceTag(event) && verifyPow(event) >= filterDifficulty;
+}
+
+function replyRootIds(notes: Set<string>): string[] {
+  const ids = Array.from(notes);
+  if (ids.length <= MAX_REPLY_ROOTS) return ids;
+  return ids.slice(-MAX_REPLY_ROOTS);
+}
 
 export const subGlobalFeed = (
   onEvent: SubCallback,
@@ -38,10 +51,10 @@ export const subGlobalFeed = (
         filter: {
           kinds: [1, 6, 1068],
           since,
-          limit: 500,
+          limit: FEED_LIMIT_PER_RELAY,
         },
         cb: (evt, relay) => {
-          if (verifyPow(evt) < filterDifficulty) return;
+          if (!passesFeedFilter(evt, filterDifficulty)) return;
           trackRootNote(notes, evt);
           onEvent(evt, relay);
         },
@@ -51,15 +64,19 @@ export const subGlobalFeed = (
   );
 
   const stagedTimer = setTimeout(() => {
-    if (notes.size > 0) {
+    const rootIds = replyRootIds(notes);
+    if (rootIds.length > 0) {
       children.push(
         registry.subscribe([
           {
             filter: {
-              "#e": Array.from(notes),
+              "#e": rootIds,
               kinds: [1],
             },
-            cb: onEvent,
+            cb: (evt, relay) => {
+              if (!passesFeedFilter(evt, filterDifficulty)) return;
+              onEvent(evt, relay);
+            },
             closeOnEose: true,
           },
         ]),

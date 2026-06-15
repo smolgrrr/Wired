@@ -16,15 +16,17 @@ export function getPow(hex: string): number {
   return count;
 }
 
-export function verifyPow(event: Event): number {
-  const hash = getEventHash(event);
-  const count = getPow(hash);
-  const nonceTag = event.tags.find((tag) => tag[0] === "nonce");
+export function hasNonceTag(event: Event): boolean {
+  return event.tags.some((tag) => tag[0] === "nonce" && tag.length >= 3);
+}
 
+export function verifyPow(event: Event): number {
+  const nonceTag = event.tags.find((tag) => tag[0] === "nonce");
   if (!nonceTag || nonceTag.length < 3) {
     return 0;
   }
 
+  const hash = getEventHash(event);
   const targetDifficulty = parseInt(nonceTag[2], 10);
-  return Math.min(count, targetDifficulty);
+  return Math.min(getPow(hash), targetDifficulty);
 }
