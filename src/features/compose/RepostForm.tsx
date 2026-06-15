@@ -4,6 +4,7 @@ import { useSubmitForm } from "../../shared/hooks/useSubmitForm";
 import { useSettings } from "../../app/settings";
 import { Button } from "../../shared/ui/Button";
 import { PowTransmitStatus } from "../../shared/ui/PowTransmitStatus";
+import { CLIENT_TAG } from "@lib/clientTag";
 
 interface RepostFormProps {
   refEvent: NostrEvent;
@@ -15,7 +16,7 @@ export function RepostForm({ refEvent }: RepostFormProps) {
   const [unsigned] = useState<UnsignedEvent>({
     kind: 6,
     tags: [
-      ["client", "getwired.app"],
+      CLIENT_TAG,
       ["e", refEvent.id, "wss://relay.damus.io"],
       ["p", refEvent.pubkey],
     ],

@@ -8,6 +8,7 @@ import { useSubmitForm } from "../hooks/useSubmitForm";
 import { Button } from "./Button";
 import { PowTransmitStatus } from "./PowTransmitStatus";
 import { SignalStepper } from "./SignalStepper";
+import { CLIENT_TAG } from "@lib/clientTag";
 
 export function PollResponder({ eventdata }: { eventdata: Event }) {
   const [options, setOptions] = useState<[string, string][]>(() => getPollOptions(eventdata));
@@ -17,7 +18,7 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
   const [voteEvents, setVoteEvents] = useState<Event[]>([]);
   const [unsigned, setUnsigned] = useState<UnsignedEvent>({
     kind: 1018,
-    tags: [["client", "getwired.app"], ["e", eventdata.id]],
+    tags: [CLIENT_TAG, ["e", eventdata.id]],
     content: "",
     created_at: Math.floor(Date.now() / 1000),
     pubkey: "",
@@ -70,7 +71,7 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
       ...prevUnsigned,
       content: "",
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["client", "getwired.app"], ["e", eventdata.id]],
+      tags: [CLIENT_TAG, ["e", eventdata.id]],
     }));
     setSelectedOption("");
   };

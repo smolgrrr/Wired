@@ -3,7 +3,7 @@ import type { Event } from "nostr-tools";
 import { getThreadDepth } from "./getThreadDepth";
 
 function makeEvent(id: string, parentId?: string): Event {
-  const tags: string[][] = [["client", "getwired.app"]];
+  const tags: string[][] = [["client", "wired-green.vercel.app"]];
   if (parentId) {
     tags.push(["e", parentId]);
   }

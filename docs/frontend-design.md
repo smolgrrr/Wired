@@ -1,6 +1,6 @@
 # Wired Frontend Design
 
-**Project:** Wired (getwired.app)  
+**Project:** Wired (wired-green.vercel.app)
 **Concept:** Signal in the Void  
 **Stack:** React 18, TypeScript, Vite 6, Tailwind 3.4, Bun  
 **Deploy:** Vercel  

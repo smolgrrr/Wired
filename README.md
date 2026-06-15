@@ -28,7 +28,7 @@ bun run build
 
 ## Deployment
 
-Deploy on [Vercel](https://vercel.com). Connect the Git repo in the Vercel dashboard (Vite is auto-detected; build command: `bun run build`, output: `dist`).
+Deploy on [Vercel](https://vercel.com). Connect the Git repo in the Vercel dashboard (Vite is auto-detected; build command: `bun run build`, output: `dist`). Production: [wired-green.vercel.app](https://wired-green.vercel.app).
 
 [`vercel.json`](vercel.json) includes SPA rewrites so client-side routes work on refresh.
 
@@ -50,4 +50,4 @@ bun run preview
 
 ## Backup
 
-https://git.getwired.app/doot/TAO
+https://github.com/smolgrrr/Wired
