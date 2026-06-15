@@ -1,15 +1,15 @@
 import { Event } from "nostr-tools";
-import { parseContent } from "../../utils/content";
-import { getPollLabel } from "../../utils/pollUtils";
+import { parseContent } from "@lib/content";
+import { getNoteBodyText } from "@lib/pollUtils";
+import { AttachmentStack } from "./AttachmentStack";
 import { PollSummary } from "./PollSummary";
 import { SignalAvatar } from "./SignalAvatar";
 
 const PREVIEW_LENGTH = 280;
 
 export function QuotePreview({ event }: { event: Event }) {
-  const { comment, media } = parseContent(event);
-  const bodyText =
-    event.kind === 1068 ? comment.trim() || getPollLabel(event) : comment;
+  const { comment, attachments } = parseContent(event);
+  const bodyText = getNoteBodyText(event, comment);
   const preview =
     bodyText.length > PREVIEW_LENGTH
       ? `${bodyText.slice(0, PREVIEW_LENGTH)}…`
@@ -27,28 +27,9 @@ export function QuotePreview({ event }: { event: Event }) {
       {preview.length > 0 && (
         <p className="whitespace-pre-wrap text-body text-secondary">{preview}</p>
       )}
-      {media.length > 0 && (
+      {attachments.length > 0 && (
         <div className="mt-2">
-          {media[0].type === "image" ? (
-            <div className="relative inline-block">
-              <img
-                src={media[0].url}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                className="max-h-[120px] rounded border border-ghost object-contain"
-              />
-              {media.length > 1 && (
-                <span className="absolute bottom-1 right-1 rounded bg-void/80 px-1.5 py-0.5 text-meta text-secondary">
-                  +{media.length - 1}
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="text-meta text-muted">
-              {media.length} attachment{media.length === 1 ? "" : "s"}
-            </p>
-          )}
+          <AttachmentStack attachments={attachments} compact />
         </div>
       )}
       {event.kind === 1068 && <PollSummary eventdata={event} />}

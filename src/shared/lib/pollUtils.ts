@@ -16,3 +16,7 @@ export function getPollOptions(event: Event): [string, string][] {
 export function getPollLabel(event: Event): string {
   return event.tags.find((tag) => tag[0] === "label")?.[1] ?? event.content;
 }
+
+export function getNoteBodyText(event: Event, comment: string): string {
+  return event.kind === 1068 ? comment.trim() || getPollLabel(event) : comment;
+}

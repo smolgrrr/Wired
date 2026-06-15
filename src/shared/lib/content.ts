@@ -1,28 +1,21 @@
 import { Event } from "nostr-tools";
+import { normalizeUrl } from "@link/link";
 import {
   extractMedia,
-  normalizeUrl,
-  parseBareMediaUrls,
   parseImetaTags,
   stripMediaUrls,
   type MediaItem,
-} from "./mediaUtils";
-import { extractLinkUrls, stripLinkUrls, type LinkItem } from "./linkUtils";
+} from "@lib/mediaUtils";
+import { extractLinkUrls, stripLinkUrls, type LinkItem } from "@lib/linkUtils";
+import { normalizeStrippedContent } from "@lib/textCleanup";
+import { HTTP_URL_PATTERN } from "@lib/url";
 
 const NOSTR_REF_PATTERN =
   /nostr:(?:note|nevent|naddr|npub|nprofile|nrelay)1[a-z0-9]+/gi;
 
-const CONTENT_URL_PATTERN =
-  /https?:\/\/[^\s<>"')\]]+(?:\?[^\s<>"')\]]*)?/gi;
-
 /** Remove Nostr URI tokens from visible text — kept in event data, not shown. */
 function stripNostrRefs(content: string): string {
-  return content
-    .replace(NOSTR_REF_PATTERN, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return normalizeStrippedContent(content.replace(NOSTR_REF_PATTERN, ""));
 }
 
 export type { LinkItem };
@@ -33,36 +26,24 @@ export type Attachment =
 
 export type ParsedContent = {
   comment: string;
-  media: MediaItem[];
-  links: LinkItem[];
   attachments: Attachment[];
 };
 
-function buildAttachmentsFromEvent(
-  event: Event,
-  media: MediaItem[],
-  links: LinkItem[],
+function buildAttachmentsInOrder(
+  content: string,
+  imetaItems: MediaItem[],
+  mediaByUrl: Map<string, MediaItem>,
+  linkByUrl: Map<string, LinkItem>,
 ): Attachment[] {
-  const imetaItems = parseImetaTags(event.tags ?? []);
-  const bareMediaByUrl = new Map(
-    parseBareMediaUrls(event.content).map((item) => [item.url, item]),
-  );
-  const linkByUrl = new Map(links.map((item) => [item.url, item]));
-  const imetaUrls = new Set(imetaItems.map((item) => item.url));
+  const attachments: Attachment[] = [];
+  const seen = new Set<string>();
 
-  const attachments: Attachment[] = imetaItems.map((item) => ({
-    kind: "media",
-    item,
-  }));
-
-  const seen = new Set(imetaUrls);
-
-  for (const match of event.content.matchAll(CONTENT_URL_PATTERN)) {
+  for (const match of content.matchAll(HTTP_URL_PATTERN)) {
     const normalized = normalizeUrl(match[0]);
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
 
-    const mediaItem = bareMediaByUrl.get(normalized);
+    const mediaItem = mediaByUrl.get(normalized);
     if (mediaItem) {
       attachments.push({ kind: "media", item: mediaItem });
       continue;
@@ -74,21 +55,33 @@ function buildAttachmentsFromEvent(
     }
   }
 
+  for (const item of imetaItems) {
+    if (seen.has(item.url)) continue;
+    seen.add(item.url);
+    attachments.push({ kind: "media", item });
+  }
+
   return attachments;
 }
 
 export function parseContent(event: Event): ParsedContent {
+  const imetaItems = parseImetaTags(event.tags ?? []);
   const media = extractMedia(event);
   const withoutMedia = stripMediaUrls(event.content, media);
   const knownMediaUrls = new Set(media.map((item) => item.url));
   const links = extractLinkUrls(withoutMedia, knownMediaUrls);
   const withoutLinks = stripLinkUrls(withoutMedia, links);
-  const attachments = buildAttachmentsFromEvent(event, media, links);
+  const mediaByUrl = new Map(media.map((item) => [item.url, item]));
+  const linkByUrl = new Map(links.map((item) => [item.url, item]));
+  const attachments = buildAttachmentsInOrder(
+    event.content,
+    imetaItems,
+    mediaByUrl,
+    linkByUrl,
+  );
 
   return {
     comment: stripNostrRefs(withoutLinks),
-    media,
-    links,
     attachments,
   };
 }

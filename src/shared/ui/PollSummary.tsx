@@ -1,5 +1,5 @@
 import { Event } from "nostr-tools";
-import { getPollOptions } from "../../utils/pollUtils";
+import { getPollOptions } from "@lib/pollUtils";
 
 export function PollSummary({ eventdata }: { eventdata: Event }) {
   const options = getPollOptions(eventdata);

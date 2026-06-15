@@ -1,10 +1,12 @@
 import type { Event } from "nostr-tools";
+import { isRootNote } from "@lib/noteEvents";
+import { getRegistry } from "../client";
 import { parseRepost } from "../processing/repost";
-import type { SubscriptionRegistry } from "../subscription-registry";
 import type { SubCallback, SubHandle } from "../types";
+import { composeSubHandle } from "./utils";
 
 const trackRootNote = (notes: Set<string>, evt: Event) => {
-  if (evt.kind === 1 && !evt.tags.some((tag) => tag[0] === "e")) {
+  if (isRootNote(evt)) {
     notes.add(evt.id);
     return;
   }
@@ -17,11 +19,8 @@ const trackRootNote = (notes: Set<string>, evt: Event) => {
   }
 };
 
-export const subGlobalFeed = (
-  registry: SubscriptionRegistry,
-  onEvent: SubCallback,
-  ageHours: number,
-): SubHandle => {
+export const subGlobalFeed = (onEvent: SubCallback, ageHours: number): SubHandle => {
+  const registry = getRegistry();
   const children: SubHandle[] = [];
   const notes = new Set<string>();
   const now = Math.floor(Date.now() / 1000);
@@ -62,11 +61,9 @@ export const subGlobalFeed = (
     }
   }, 2000);
 
-  return {
-    id: `global-feed:${children[0]?.id ?? "pending"}`,
-    close: () => {
-      clearTimeout(stagedTimer);
-      children.forEach((child) => child.close());
-    },
-  };
+  return composeSubHandle(
+    `global-feed:${children[0]?.id ?? "pending"}`,
+    children,
+    () => clearTimeout(stagedTimer),
+  );
 };

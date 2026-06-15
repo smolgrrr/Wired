@@ -1,5 +1,8 @@
 import type { Event } from "nostr-tools";
-import { uniqBy } from "../../utils/otherUtils";
+import { uniqBy } from "./collections";
+
+export const isRootNote = (event: Event): boolean =>
+  event.kind === 1 && !event.tags.some((tag) => tag[0] === "e");
 
 export const filterNoteEvents = (events: Event[]): Event[] =>
   uniqBy(events, "id").filter(

@@ -1,8 +1,7 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { subNotifications } from "../nostr/subscriptions";
 import { useStoredKeys } from "../shared/hooks/useStoredKeys";
-import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
-import { filterNoteEvents } from "../shared/utils/noteEvents";
+import { useFilteredNoteSubscription } from "../shared/hooks/useFilteredNoteSubscription";
 
 export function useNotificationEvents() {
   const { pubkeys } = useStoredKeys();
@@ -14,8 +13,7 @@ export function useNotificationEvents() {
     [pubkeys],
   );
 
-  const rawEvents = useNostrSubscription(subscribe, [pubkeyKey]);
-  const noteEvents = useMemo(() => filterNoteEvents(rawEvents), [rawEvents]);
+  const noteEvents = useFilteredNoteSubscription(subscribe, [pubkeyKey]);
 
   return { noteEvents, pubkeys };
 }

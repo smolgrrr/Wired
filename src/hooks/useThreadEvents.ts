@@ -1,7 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { subNote } from "../nostr/subscriptions";
-import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
-import { filterNoteEvents } from "../shared/utils/noteEvents";
+import { useFilteredNoteSubscription } from "../shared/hooks/useFilteredNoteSubscription";
 
 export function useThreadEvents(hexID: string) {
   const subscribe = useCallback(
@@ -9,8 +8,7 @@ export function useThreadEvents(hexID: string) {
     [hexID],
   );
 
-  const rawEvents = useNostrSubscription(subscribe, [hexID]);
-  const noteEvents = useMemo(() => filterNoteEvents(rawEvents), [rawEvents]);
+  const noteEvents = useFilteredNoteSubscription(subscribe, [hexID]);
 
   return { noteEvents };
 }

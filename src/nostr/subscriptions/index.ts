@@ -1,24 +1,39 @@
 import { getRegistry } from "../client";
-import { subGlobalFeed as subGlobalFeedImpl } from "./global-feed";
-import { subNote as subNoteImpl } from "./thread";
-import { subNotifications as subNotificationsImpl } from "./notifications";
-import { subPoll as subPollImpl } from "./poll";
-import { subNotesOnce as subNotesOnceImpl } from "./notes-once";
 import type { SubCallback, SubHandle } from "../types";
+import { emptySubHandle } from "./utils";
 
 export type { SubCallback, SubHandle };
 
-export const subGlobalFeed = (onEvent: SubCallback, ageHours: number): SubHandle =>
-  subGlobalFeedImpl(getRegistry(), onEvent, ageHours);
-
-export const subNote = (eventId: string, onEvent: SubCallback): SubHandle =>
-  subNoteImpl(getRegistry(), eventId, onEvent);
-
-export const subNotifications = (pubkeys: string[], onEvent: SubCallback): SubHandle =>
-  subNotificationsImpl(getRegistry(), pubkeys, onEvent);
+export { subGlobalFeed } from "./global-feed";
+export { subNote } from "./thread";
+export { subNotifications } from "./notifications";
 
 export const subPoll = (eventId: string, onEvent: SubCallback): SubHandle =>
-  subPollImpl(getRegistry(), eventId, onEvent);
+  getRegistry().subscribe([
+    {
+      filter: {
+        "#e": [eventId],
+        kinds: [1018],
+      },
+      cb: onEvent,
+      closeOnEose: true,
+    },
+  ]);
 
-export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandle =>
-  subNotesOnceImpl(getRegistry(), eventIds, onEvent);
+export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandle => {
+  if (eventIds.length === 0) {
+    return emptySubHandle("notes-once:empty");
+  }
+
+  return getRegistry().subscribe([
+    {
+      filter: {
+        ids: eventIds,
+        kinds: [1],
+        limit: eventIds.length,
+      },
+      cb: onEvent,
+      closeOnEose: true,
+    },
+  ]);
+};

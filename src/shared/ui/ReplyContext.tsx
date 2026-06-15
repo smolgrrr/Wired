@@ -1,5 +1,5 @@
 import { Event } from "nostr-tools";
-import { uniqBy } from "../../utils/otherUtils";
+import { uniqBy } from "@lib/collections";
 
 type ReplyContextProps = {
   events: Event[];

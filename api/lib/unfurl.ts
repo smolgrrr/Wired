@@ -1,24 +1,10 @@
-export type LinkMetadata = {
-  title?: string;
-  description?: string;
-  image?: string;
-  domain: string;
-};
+import { normalizeUrl, type LinkMetadata } from "../../lib/link";
+
+export { normalizeUrl };
+export type { LinkMetadata };
 
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_HTML_BYTES = 512_000;
-
-export function normalizeUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return "";
-    }
-    return parsed.href;
-  } catch {
-    return "";
-  }
-}
 
 function isBlockedHostname(hostname: string): boolean {
   const lower = hostname.toLowerCase();

@@ -1,7 +1,9 @@
+import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { normalizeUrl, unfurlUrl } from "./api/lib/unfurl";
+import { normalizeUrl } from "./lib/link";
+import { unfurlUrl } from "./api/lib/unfurl";
 
 function unfurlDevApi(): Plugin {
   return {
@@ -48,6 +50,12 @@ function unfurlDevApi(): Plugin {
 
 export default defineConfig({
   plugins: [react(), unfurlDevApi()],
+  resolve: {
+    alias: {
+      "@link": path.resolve(__dirname, "lib"),
+      "@lib": path.resolve(__dirname, "src/shared/lib"),
+    },
+  },
   build: {
     outDir: "dist",
   },

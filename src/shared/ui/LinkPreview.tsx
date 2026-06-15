@@ -1,13 +1,6 @@
 import { useState } from "react";
+import { domainFromUrl } from "@lib/url";
 import { useLinkMetadata } from "../hooks/useLinkMetadata";
-
-function domainFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 export function LinkPreview({ url }: { url: string }) {
   const state = useLinkMetadata(url);

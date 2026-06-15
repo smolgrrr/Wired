@@ -1,21 +1,20 @@
 import { Event, nip19 } from "nostr-tools";
-import { timeAgo } from "../../utils/cardUtils";
+import { timeAgo } from "@lib/timeFormat";
 import { verifyPow } from "../../shared/pow/core";
 import { replyEquivalentDifficulty } from "../../nostr/processing/pow-score";
-import { uniqBy } from "../../utils/otherUtils";
+import { uniqBy } from "@lib/collections";
 import { parseRepost } from "../../nostr/processing/repost";
 import { TextContent } from "./TextContent";
 import { MetadataRow } from "./MetadataRow";
 import { ReplyContext } from "./ReplyContext";
-import { useState, useEffect, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface PostCardProps {
   event: Event;
   replies: Event[];
   repliedTo?: Event[];
-  type?: "OP" | "Reply" | "Post";
-  variant?: "default" | "context" | "op";
+  role?: "feed" | "threadOp" | "threadContext";
   depth?: number;
   animate?: boolean;
   animationIndex?: number;
@@ -38,54 +37,35 @@ export function PostCard({
   event,
   replies,
   repliedTo,
-  type,
-  variant = "default",
+  role = "feed",
   depth,
   animate = false,
   animationIndex = 0,
   fadeIn = false,
 }: PostCardProps) {
   const navigate = useNavigate();
-  const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
-  const [sumReplyPow, setReplySumPow] = useState(0);
-  const [repostedEvent, setRepostedEvent] = useState<Event>();
-  const [parsedEvent, setParsedEvent] = useState<Event>(event);
 
-  useEffect(() => {
-    const allRelatedEvents = [event, ...(replies || [])];
-    setRelatedEvents(allRelatedEvents);
-
+  const relatedEvents = useMemo(() => [event, ...(replies || [])], [event, replies]);
+  const repostedEvent = useMemo(() => (event.kind === 6 ? event : undefined), [event]);
+  const parsedEvent = useMemo(() => {
     if (event.kind === 6) {
-      setRepostedEvent(event);
-      const reposted = parseRepost(event);
-      if (reposted) {
-        setParsedEvent(reposted);
-      }
-    } else {
-      setParsedEvent(event);
+      return parseRepost(event) ?? event;
     }
-
-    setReplySumPow(replyEquivalentDifficulty(replies));
-  }, [event, replies]);
+    return event;
+  }, [event]);
+  const replySumPow = useMemo(() => replyEquivalentDifficulty(replies), [replies]);
 
   const signal = verifyPow(parsedEvent);
   const repostSignal = repostedEvent ? verifyPow(repostedEvent) : undefined;
   const timestamp = timeAgo(event.created_at);
-  const isNavigable = type !== "OP" && variant !== "op";
+  const isNavigable = role !== "threadOp";
 
   const handleNavigate = useCallback(() => {
     sessionStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
     navigate(`/thread/${nip19.noteEncode(parsedEvent.id)}`);
   }, [relatedEvents, navigate, parsedEvent.id]);
 
-  const variantClass =
-    variant === "context"
-      ? "opacity-70"
-      : variant === "op"
-        ? ""
-        : "";
-
-  const resolvedVariant = type === "OP" ? "op" : variant;
+  const roleClass = role === "threadContext" ? "opacity-70" : "";
 
   return (
     <article
@@ -93,7 +73,7 @@ export function PostCard({
       aria-label={`Post by ${parsedEvent.pubkey.slice(0, 8)}, signal ${signal}, ${timestamp}`}
       className={[
         "group py-4 border-b border-ghost",
-        variantClass,
+        roleClass,
         getDepthClass(depth),
         animate ? "motion-safe:animate-resolve-in" : "",
         fadeIn ? "motion-safe:animate-fade-in" : "",
@@ -112,12 +92,12 @@ export function PostCard({
       <MetadataRow
         pubkey={parsedEvent.pubkey}
         signal={signal}
-        replySignal={sumReplyPow}
+        replySignal={replySumPow}
         replyCount={replies.length}
         timestamp={timestamp}
         repostSignal={repostSignal}
         onOpenThread={isNavigable ? handleNavigate : undefined}
-        forceSecondary={resolvedVariant === "op"}
+        forceSecondary={role === "threadOp"}
       />
     </article>
   );

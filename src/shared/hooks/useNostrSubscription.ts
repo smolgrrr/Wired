@@ -18,7 +18,9 @@ export function useNostrSubscription(
     setEvents([]);
 
     const onEvent = (event: Event) => {
-      setEvents((current) => [...current, event]);
+      setEvents((current) =>
+        current.some((e) => e.id === event.id) ? current : [...current, event],
+      );
     };
 
     const subscription = createSubscription(onEvent);

@@ -1,11 +1,9 @@
-import type { SubscriptionRegistry } from "../subscription-registry";
+import { getRegistry } from "../client";
 import type { SubCallback, SubHandle } from "../types";
+import { composeSubHandle } from "./utils";
 
-export const subNote = (
-  registry: SubscriptionRegistry,
-  eventId: string,
-  onEvent: SubCallback,
-): SubHandle => {
+export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
+  const registry = getRegistry();
   const children: SubHandle[] = [];
   let replyHandle: SubHandle | null = null;
   const replies = new Set<string>([eventId]);
@@ -48,11 +46,5 @@ export const subNote = (
 
   refreshReplySubscription();
 
-  return {
-    id: `thread:${eventId}`,
-    close: () => {
-      replyHandle?.close();
-      children.forEach((child) => child.close());
-    },
-  };
+  return composeSubHandle(`thread:${eventId}`, children, () => replyHandle?.close());
 };

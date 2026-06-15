@@ -94,13 +94,21 @@ Renders `comment` as alternating plain-text and nostr-link segments.
 - Segment-based renderer only — no `dangerouslySetInnerHTML`
 - Collapse at 750 plain-text chars (`continue` / `collapse`); attachments always visible
 
-### `NoteMedia`
+### `NoteMedia` / `AttachmentStack`
 
-Unchanged behavior. Vertical stack `flex flex-col gap-3`.
+`AttachmentStack` renders the attachment list below text (used by `TextContent` and `QuotePreview`). Consecutive image runs use `MediaGrid`; links, video, and audio stay full-width and interleaved in source order.
 
-- Images: lazy, `max-h-[32rem]`, `object-contain`, `border border-ghost`
-- Video/audio: native controls
-- Per-item error: `signal lost` (`role="status"`)
+| Image count (consecutive run) | Layout |
+|-------------------------------|--------|
+| 1 | Full-width `MediaAttachment`, `object-contain`, `max-h-[32rem]` |
+| 2 | `grid-cols-2` mosaic, `object-cover`, square cells |
+| 3 | Tall left + two stacked right (`row-span-2`) |
+| 4 | `grid-cols-2` × 2 rows |
+| 5+ | Same 2×2 grid; fourth cell shows `+N` overlay for hidden extras |
+
+- Grid cells: lazy, `border border-ghost`, per-cell `signal lost` on error
+- Video/audio: native controls, never grouped into grids
+- Orphan `imeta` URLs (not in body text) append after content-order URLs
 
 ### `LinkPreview`
 
@@ -123,7 +131,7 @@ Block card aligned with `NoteMedia` — ghost border, no card chrome.
 | Failed | `signal lost` + domain label |
 | No image | Text-only layout |
 
-Stack: `flex flex-col gap-3` with `NoteMedia`. Multiple URLs → multiple cards.
+Stack: `flex flex-col gap-3` via `AttachmentStack`. Multiple link URLs → multiple cards; multiple images → mosaic grid when consecutive.
 
 **Metadata fetch:** UI and component contract defined here; fetch mechanism (likely server-side unfurl on Vercel) deferred to implementation.
 

@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
+import type { LinkMetadata } from "@link/link";
+import { domainFromUrl } from "@lib/url";
 
-export type LinkMetadata = {
-  title?: string;
-  description?: string;
-  image?: string;
-  domain: string;
-};
+export type { LinkMetadata };
 
 type LinkMetadataState =
   | { status: "loading" }
@@ -14,14 +11,6 @@ type LinkMetadataState =
 
 const cache = new Map<string, LinkMetadataState>();
 const inflight = new Map<string, Promise<LinkMetadataState>>();
-
-function domainFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 async function fetchMetadata(url: string): Promise<LinkMetadataState> {
   try {

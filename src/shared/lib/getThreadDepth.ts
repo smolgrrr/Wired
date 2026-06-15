@@ -1,5 +1,5 @@
 import type { Event } from "nostr-tools";
-import { parseRepost } from "../nostr/processing/repost";
+import { parseRepost } from "../../nostr/processing/repost";
 
 const MAX_DEPTH = 3;
 

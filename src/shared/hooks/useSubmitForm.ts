@@ -3,7 +3,7 @@ import { generateSecretKey, getPublicKey, finalizeEvent, UnsignedEvent, Event } 
 import { publish } from "../../nostr/client";
 import { bytesToHex } from "@noble/hashes/utils";
 import { useSettings } from "../../app/settings";
-import { useStoredKeys } from "../../shared/hooks/useStoredKeys";
+import { useStoredKeys } from "./useStoredKeys";
 import { usePowMining } from "./usePowMining";
 
 export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {

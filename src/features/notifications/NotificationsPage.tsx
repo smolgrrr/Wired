@@ -3,6 +3,7 @@ import { PostCard } from "../../shared/ui/PostCard";
 import { Event } from "nostr-tools";
 import { useNotificationEvents } from "../../hooks/useNotificationEvents";
 import { SegmentedControl } from "../../shared/ui/SegmentedControl";
+import { PageShell } from "../../shared/ui/PageShell";
 
 export default function NotificationsPage() {
   const [notifsView, setNotifsView] = useState<"yours" | "mentions">("yours");
@@ -26,7 +27,7 @@ export default function NotificationsPage() {
     noteEvents.filter((e) => e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id));
 
   return (
-    <main id="main-content" className="text-primary mb-20 max-w-content mx-auto px-4">
+    <PageShell className="max-w-content mx-auto px-4">
       <div className="block sm:hidden mb-4">
         <SegmentedControl
           aria-label="Notification view"
@@ -52,6 +53,6 @@ export default function NotificationsPage() {
           ))}
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

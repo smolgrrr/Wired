@@ -1,9 +1,8 @@
 import { Event } from "nostr-tools";
 import { useState } from "react";
-import { parseContent } from "../../utils/content";
-import { getPollLabel } from "../../utils/pollUtils";
-import { LinkPreview } from "./LinkPreview";
-import { MediaAttachment } from "./NoteMedia";
+import { parseContent } from "@lib/content";
+import { getNoteBodyText } from "@lib/pollUtils";
+import { AttachmentStack } from "./AttachmentStack";
 import { PollResponder } from "./PollResponder";
 import { Button } from "./Button";
 
@@ -11,8 +10,7 @@ const COLLAPSED_LENGTH = 750;
 
 export function TextContent({ eventdata }: { eventdata: Event }) {
   const { comment, attachments } = parseContent(eventdata);
-  const bodyText =
-    eventdata.kind === 1068 ? comment.trim() || getPollLabel(eventdata) : comment;
+  const bodyText = getNoteBodyText(eventdata, comment);
   const [isExpanded, setIsExpanded] = useState(false);
   const displayedComment = isExpanded ? bodyText : bodyText.slice(0, COLLAPSED_LENGTH);
 
@@ -31,22 +29,7 @@ export function TextContent({ eventdata }: { eventdata: Event }) {
           {isExpanded ? "collapse" : "continue"}
         </Button>
       )}
-      {attachments.length > 0 && (
-        <div
-          className="flex flex-col gap-3"
-          aria-label={
-            attachments.length > 1 ? `${attachments.length} attachments` : "attachment"
-          }
-        >
-          {attachments.map((attachment) =>
-            attachment.kind === "media" ? (
-              <MediaAttachment key={attachment.item.url} item={attachment.item} />
-            ) : (
-              <LinkPreview key={attachment.item.url} url={attachment.item.url} />
-            ),
-          )}
-        </div>
-      )}
+      {attachments.length > 0 && <AttachmentStack attachments={attachments} />}
       {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
     </div>
   );

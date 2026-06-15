@@ -5,6 +5,7 @@ import { useInfiniteScroll } from "../../shared/hooks/useInfiniteScroll";
 import { PostForm } from "../compose/PostForm";
 import { PostCard } from "../../shared/ui/PostCard";
 import { FeedSortToggle } from "./FeedSortToggle";
+import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
 
 const INITIAL_RESOLVE_COUNT = 20;
 const RESOLVE_DURATION_MS = 600;
@@ -34,7 +35,7 @@ export default function FeedPage() {
   }, [processedEvents, settings.sortByPow]);
 
   return (
-    <main id="main-content" className="text-primary mb-20">
+    <PageShell>
       <div className="my-3 px-3 sm:px-0">
         <div className="mx-auto flex max-w-content flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
           <FeedSortToggle
@@ -46,7 +47,7 @@ export default function FeedPage() {
           </div>
         </div>
       </div>
-      <div className="mx-auto flex max-w-content flex-col px-3 sm:px-0">
+      <ContentColumn>
         {sortedEvents.slice(0, visibleCount).map((event, index) => {
           const shouldResolve = resolveWindowOpen && index < INITIAL_RESOLVE_COUNT;
           const shouldFadeIn =
@@ -63,7 +64,7 @@ export default function FeedPage() {
             />
           );
         })}
-      </div>
-    </main>
+      </ContentColumn>
+    </PageShell>
   );
 }

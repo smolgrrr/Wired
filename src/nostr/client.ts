@@ -35,3 +35,7 @@ export async function publish(event: Event): Promise<Set<string>> {
 export function isNostrReady(): boolean {
   return pool?.isConnected ?? false;
 }
+
+export function closeAllSubscriptions(): void {
+  registry?.closeAll();
+}

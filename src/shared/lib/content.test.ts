@@ -9,8 +9,6 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "hello :custom_emoji:",
-      media: [{ url: "https://example.com/image.jpg", type: "image" }],
-      links: [],
       attachments: [
         { kind: "media", item: { url: "https://example.com/image.jpg", type: "image" } },
       ],
@@ -23,8 +21,6 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "visit",
-      media: [],
-      links: [{ url: "https://example.com/page" }],
       attachments: [
         { kind: "link", item: { url: "https://example.com/page" } },
       ],
@@ -38,8 +34,6 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "Wem nützt diese Näherung mehr?",
-      media: [],
-      links: [],
       attachments: [],
     });
   });
@@ -50,8 +44,6 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "see for context",
-      media: [],
-      links: [],
       attachments: [],
     });
   });
@@ -63,11 +55,6 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "shots end",
-      media: [
-        { url: "https://example.com/1.jpg", type: "image" },
-        { url: "https://example.com/2.mp4", type: "video" },
-      ],
-      links: [],
       attachments: [
         { kind: "media", item: { url: "https://example.com/1.jpg", type: "image" } },
         { kind: "media", item: { url: "https://example.com/2.mp4", type: "video" } },
@@ -82,8 +69,6 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "read then",
-      media: [{ url: "https://example.com/shot.jpg", type: "image" }],
-      links: [{ url: "https://example.com/article" }],
       attachments: [
         { kind: "link", item: { url: "https://example.com/article" } },
         { kind: "media", item: { url: "https://example.com/shot.jpg", type: "image" } },
@@ -99,16 +84,8 @@ describe("parseContent", () => {
 
     expect(parseContent(event)).toEqual({
       comment: "extra",
-      media: [
-        {
-          url: "https://example.com/tag.png",
-          type: "image",
-          mime: "image/png",
-        },
-        { url: "https://example.com/extra.webm", type: "video" },
-      ],
-      links: [],
       attachments: [
+        { kind: "media", item: { url: "https://example.com/extra.webm", type: "video" } },
         {
           kind: "media",
           item: {
@@ -117,7 +94,6 @@ describe("parseContent", () => {
             mime: "image/png",
           },
         },
-        { kind: "media", item: { url: "https://example.com/extra.webm", type: "video" } },
       ],
     });
   });

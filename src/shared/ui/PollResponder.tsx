@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Event, UnsignedEvent } from "nostr-tools";
 import { subPoll } from "../../nostr/subscriptions";
 import { verifyPow } from "../../shared/pow/core";
-import { timeToGoEst } from "../../shared/utils/timeEstimate";
-import { uniqBy } from "../../utils/otherUtils";
-import { getPollOptions } from "../../utils/pollUtils";
-import { useSubmitForm } from "../../features/compose/useSubmit";
+import { uniqBy } from "@lib/collections";
+import { getPollOptions } from "@lib/pollUtils";
+import { useSubmitForm } from "../hooks/useSubmitForm";
 import { Button } from "./Button";
+import { PowTransmitStatus } from "./PowTransmitStatus";
 import { SignalStepper } from "./SignalStepper";
 
 export function PollResponder({ eventdata }: { eventdata: Event }) {
@@ -43,6 +43,14 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
     return () => subscription.close();
   }, [showResults, eventdata]);
 
+  const submitEvent = useMemo(
+    () =>
+      selectedOption
+        ? { ...unsigned, tags: [...unsigned.tags, ["response", selectedOption]] }
+        : unsigned,
+    [unsigned, selectedOption],
+  );
+
   const uniqVoteEvents = uniqBy(voteEvents, "id");
   const sortedVoteEvents = uniqVoteEvents.map((event) => {
     const pow = verifyPow(event);
@@ -52,11 +60,10 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
   });
 
   const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow } =
-    useSubmitForm(unsigned, difficulty);
+    useSubmitForm(submitEvent, difficulty);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    unsigned.tags.push(["response", selectedOption]);
     await originalHandleSubmit(event);
 
     setUnsigned((prevUnsigned) => ({
@@ -65,6 +72,7 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
       created_at: Math.floor(Date.now() / 1000),
       tags: [["client", "getwired.app"], ["e", eventdata.id]],
     }));
+    setSelectedOption("");
   };
 
   return (
@@ -100,12 +108,12 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
             transmit
           </Button>
         </div>
-        {doingWorkProp ? (
-          <p className="text-meta text-secondary" role="status">
-            computing signal… ~{timeToGoEst(difficulty, hashrate)}
-            {bestPow > 0 ? ` · pb:${bestPow}` : ""}
-          </p>
-        ) : null}
+        <PowTransmitStatus
+          active={doingWorkProp}
+          difficulty={difficulty}
+          hashrate={hashrate}
+          bestPow={bestPow}
+        />
       </div>
     </form>
   );

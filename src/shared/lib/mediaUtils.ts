@@ -1,4 +1,6 @@
 import { Event } from "nostr-tools";
+import { normalizeUrl } from "@link/link";
+import { normalizeStrippedContent } from "@lib/textCleanup";
 
 export type MediaType = "image" | "video" | "audio";
 
@@ -41,18 +43,6 @@ const MIME_TYPE: Record<string, MediaType> = {
   "audio/ogg": "audio",
   "audio/mp4": "audio",
 };
-
-export function normalizeUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return "";
-    }
-    return parsed.href;
-  } catch {
-    return "";
-  }
-}
 
 function typeFromExtension(url: string): MediaType | null {
   const match = url.match(/\.([a-z0-9]+)(?:\?|$)/i);
@@ -152,9 +142,5 @@ export function stripMediaUrls(content: string, media: MediaItem[]): string {
     result = result.split(item.url).join("");
   }
 
-  return result
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return normalizeStrippedContent(result);
 }

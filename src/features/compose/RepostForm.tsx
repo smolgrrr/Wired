@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { UnsignedEvent, Event as NostrEvent } from "nostr-tools";
-import { useSubmitForm } from "./useSubmit";
+import { useSubmitForm } from "../../shared/hooks/useSubmitForm";
 import { useSettings } from "../../app/settings";
 import { Button } from "../../shared/ui/Button";
-import { timeToGoEst } from "../../shared/utils/timeEstimate";
+import { PowTransmitStatus } from "../../shared/ui/PowTransmitStatus";
 
 interface RepostFormProps {
   refEvent: NostrEvent;
@@ -35,11 +35,11 @@ export function RepostForm({ refEvent }: RepostFormProps) {
             transmit
           </Button>
         </div>
-        {doingWorkProp ? (
-          <p className="text-meta text-secondary" role="status">
-            computing signal… ~{timeToGoEst(difficulty, hashrate)}
-          </p>
-        ) : null}
+        <PowTransmitStatus
+          active={doingWorkProp}
+          difficulty={difficulty}
+          hashrate={hashrate}
+        />
       </div>
       <div id="postFormError" className="text-danger text-meta" />
     </form>

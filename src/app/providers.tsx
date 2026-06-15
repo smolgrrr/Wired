@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { initNostr, isNostrReady } from "../nostr/client";
+import { closeAllSubscriptions, initNostr, isNostrReady } from "../nostr/client";
 import { SettingsProvider } from "./settings";
 
 type NostrContextValue = {
@@ -22,6 +22,7 @@ export function NostrProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      closeAllSubscriptions();
     };
   }, []);
 

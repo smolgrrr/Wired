@@ -3,6 +3,7 @@ import { Event } from "nostr-tools";
 import { PostForm } from "./PostForm";
 import { RepostForm } from "./RepostForm";
 import { Button } from "../../shared/ui/Button";
+import { ContentColumn } from "../../shared/ui/PageShell";
 
 type PostType = "" | "Reply" | "Quote" | undefined;
 
@@ -51,16 +52,16 @@ export function ThreadComposer({ OPEvent }: { OPEvent: Event }) {
         </Button>
       </div>
       {showForm && postType && (
-        <div className="w-full px-4 sm:px-0 mx-auto my-2 max-w-content">
+        <ContentColumn className="my-2">
           <p className="text-meta text-muted text-center mb-2">{postType.toLowerCase()}</p>
           <PostForm refEvent={OPEvent} tagType={postType} />
-        </div>
+        </ContentColumn>
       )}
       {showRepost && OPEvent && (
-        <div className="w-full px-4 sm:px-0 mx-auto my-2 max-w-content">
+        <ContentColumn className="my-2">
           <p className="text-meta text-muted text-center mb-2">repost</p>
           <RepostForm refEvent={OPEvent} />
-        </div>
+        </ContentColumn>
       )}
     </>
   );

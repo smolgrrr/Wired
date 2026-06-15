@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../app/settings";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
+import { PageShell } from "../../shared/ui/PageShell";
 
 type TestResponse = {
   timeTaken: string;
@@ -51,10 +52,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <main
-      id="main-content"
-      className="settings-page bg-void text-primary p-8 flex flex-col h-full max-w-content mx-auto"
-    >
+    <PageShell className="settings-page bg-void p-8 flex flex-col h-full max-w-content mx-auto">
       <h1 className="text-display font-medium mb-4">settings</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -157,6 +155,6 @@ export default function SettingsPage() {
           <p>Source: https://github.com/smolgrrr/TAO</p>
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -2,8 +2,7 @@ import { useCallback, useMemo } from "react";
 import { subGlobalFeed } from "../nostr/subscriptions";
 import { processFeedEvents } from "../nostr/processEvents";
 import { useSettings } from "../app/settings";
-import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
-import { filterNoteEvents } from "../shared/utils/noteEvents";
+import { useFilteredNoteSubscription } from "../shared/hooks/useFilteredNoteSubscription";
 
 export function useFeed() {
   const { settings } = useSettings();
@@ -14,8 +13,7 @@ export function useFeed() {
     [settings.ageHours],
   );
 
-  const rawEvents = useNostrSubscription(subscribe, [settings.ageHours]);
-  const noteEvents = useMemo(() => filterNoteEvents(rawEvents), [rawEvents]);
+  const noteEvents = useFilteredNoteSubscription(subscribe, [settings.ageHours]);
   const processedEvents = useMemo(
     () => processFeedEvents(noteEvents, settings.filterDifficulty),
     [noteEvents, settings.filterDifficulty],

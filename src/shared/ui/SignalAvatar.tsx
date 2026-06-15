@@ -1,4 +1,4 @@
-import { pubkeyToGrid } from "../../utils/pubkeyToGrid";
+import { pubkeyToGrid } from "@lib/pubkeyToGrid";
 
 type SignalAvatarProps = {
   pubkey: string;
