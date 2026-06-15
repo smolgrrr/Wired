@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { normalizeUrl, unfurlUrl } from "./lib/unfurl";
+import { normalizeUrl } from "../lib/link.js";
+import { unfurlUrl } from "../lib/unfurl.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {

@@ -1,6 +1,5 @@
-import { normalizeUrl, type LinkMetadata } from "../../lib/link";
+import type { LinkMetadata } from "./link.js";
 
-export { normalizeUrl };
 export type { LinkMetadata };
 
 const FETCH_TIMEOUT_MS = 5000;

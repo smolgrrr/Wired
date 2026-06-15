@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { normalizeUrl } from "./lib/link";
-import { unfurlUrl } from "./api/lib/unfurl";
+import { unfurlUrl } from "./lib/unfurl";
 
 function unfurlDevApi(): Plugin {
   return {
