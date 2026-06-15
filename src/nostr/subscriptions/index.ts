@@ -1,5 +1,7 @@
-import { getRegistry } from "../client";
+import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
+import { ensureRelaysConnected, getRegistry } from "../client";
 import type { SubCallback, SubHandle } from "../types";
+import type { QuotedRef } from "@lib/quotedEvents";
 import { emptySubHandle } from "./utils";
 
 export type { SubCallback, SubHandle };
@@ -38,20 +40,33 @@ export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandl
   ]);
 };
 
-export const subQuotedEventsOnce = (eventIds: string[], onEvent: SubCallback): SubHandle => {
-  if (eventIds.length === 0) {
+function relayUrlsForQuote(ref: QuotedRef): string[] {
+  return [...new Set([...DEFAULT_RELAYS, ...ref.relays, ...QUOTE_FALLBACK_RELAYS])];
+}
+
+export async function subQuotedEventsOnce(
+  refs: QuotedRef[],
+  onEvent: SubCallback,
+  onEose?: (refId: string) => void,
+): Promise<SubHandle> {
+  if (refs.length === 0) {
     return emptySubHandle("quoted-events-once:empty");
   }
 
-  return getRegistry().subscribe([
-    {
+  const relayUrls = [...new Set(refs.flatMap(relayUrlsForQuote))];
+  await ensureRelaysConnected(relayUrls);
+
+  return getRegistry().subscribe(
+    refs.map((ref) => ({
       filter: {
-        ids: eventIds,
+        ids: [ref.id],
         kinds: [1, 1068],
-        limit: eventIds.length,
+        limit: 1,
       },
       cb: onEvent,
       closeOnEose: true,
-    },
-  ]);
-};
+      onEose: onEose ? () => onEose(ref.id) : undefined,
+      relayUrls: relayUrlsForQuote(ref),
+    })),
+  );
+}
