@@ -9,9 +9,7 @@ import {
 import { extractLinkUrls, stripLinkUrls, type LinkItem } from "@lib/linkUtils";
 import { normalizeStrippedContent } from "@lib/textCleanup";
 import { HTTP_URL_PATTERN } from "@lib/url";
-
-const NOSTR_REF_PATTERN =
-  /nostr:(?:note|nevent|naddr|npub|nprofile|nrelay)1[a-z0-9]+/gi;
+import { NOSTR_REF_PATTERN } from "./quotedEvents";
 
 /** Remove Nostr URI tokens from visible text — kept in event data, not shown. */
 function stripNostrRefs(content: string): string {

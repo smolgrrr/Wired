@@ -37,3 +37,21 @@ export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandl
     },
   ]);
 };
+
+export const subQuotedEventsOnce = (eventIds: string[], onEvent: SubCallback): SubHandle => {
+  if (eventIds.length === 0) {
+    return emptySubHandle("quoted-events-once:empty");
+  }
+
+  return getRegistry().subscribe([
+    {
+      filter: {
+        ids: eventIds,
+        kinds: [1, 1068],
+        limit: eventIds.length,
+      },
+      cb: onEvent,
+      closeOnEose: true,
+    },
+  ]);
+};

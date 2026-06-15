@@ -2,8 +2,10 @@ import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "@lib/content";
 import { getNoteBodyText } from "@lib/pollUtils";
+import { useQuotedEvents } from "../hooks/useQuotedEvents";
 import { AttachmentStack } from "./AttachmentStack";
 import { PollResponder } from "./PollResponder";
+import { QuotePreview } from "./QuotePreview";
 import { Button } from "./Button";
 
 const COLLAPSED_LENGTH = 750;
@@ -11,6 +13,7 @@ const COLLAPSED_LENGTH = 750;
 export function TextContent({ eventdata }: { eventdata: Event }) {
   const { comment, attachments } = parseContent(eventdata);
   const bodyText = getNoteBodyText(eventdata, comment);
+  const quotedEvents = useQuotedEvents(eventdata);
   const [isExpanded, setIsExpanded] = useState(false);
   const displayedComment = isExpanded ? bodyText : bodyText.slice(0, COLLAPSED_LENGTH);
 
@@ -29,6 +32,9 @@ export function TextContent({ eventdata }: { eventdata: Event }) {
           {isExpanded ? "collapse" : "continue"}
         </Button>
       )}
+      {quotedEvents.map((quoted) => (
+        <QuotePreview key={quoted.id} event={quoted} />
+      ))}
       {attachments.length > 0 && <AttachmentStack attachments={attachments} />}
       {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
     </div>
