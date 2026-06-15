@@ -1,5 +1,7 @@
 import type { Event } from "nostr-tools";
+import { DEFAULT_DIFFICULTY } from "../../config";
 import { isRootNote } from "@lib/noteEvents";
+import { verifyPow } from "../../shared/pow/core";
 import { getRegistry } from "../client";
 import { parseRepost } from "../processing/repost";
 import type { SubCallback, SubHandle } from "../types";
@@ -19,7 +21,11 @@ const trackRootNote = (notes: Set<string>, evt: Event) => {
   }
 };
 
-export const subGlobalFeed = (onEvent: SubCallback, ageHours: number): SubHandle => {
+export const subGlobalFeed = (
+  onEvent: SubCallback,
+  ageHours: number,
+  filterDifficulty = DEFAULT_DIFFICULTY,
+): SubHandle => {
   const registry = getRegistry();
   const children: SubHandle[] = [];
   const notes = new Set<string>();
@@ -35,6 +41,7 @@ export const subGlobalFeed = (onEvent: SubCallback, ageHours: number): SubHandle
           limit: 500,
         },
         cb: (evt, relay) => {
+          if (verifyPow(evt) < filterDifficulty) return;
           trackRootNote(notes, evt);
           onEvent(evt, relay);
         },

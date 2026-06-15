@@ -7,6 +7,8 @@ export type SubscribeOptions = {
   onEose?: () => void;
 };
 
+const RELAY_CONNECT_TIMEOUT_MS = 8_000;
+
 export class RelayPool {
   private readonly relays = new Map<string, Relay>();
   private defaultRelayUrls = new Set<string>();
@@ -31,7 +33,15 @@ export class RelayPool {
 
   private async connectRelay(url: string): Promise<void> {
     try {
-      const relay = await Relay.connect(url);
+      const relay = await Promise.race([
+        Relay.connect(url),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`relay connect timeout: ${url}`)),
+            RELAY_CONNECT_TIMEOUT_MS,
+          );
+        }),
+      ]);
       this.relays.set(url, relay);
     } catch {
       // Relay unavailable; other relays may still connect.

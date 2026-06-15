@@ -9,11 +9,14 @@ export function useFeed() {
 
   const subscribe = useCallback(
     (onEvent: Parameters<typeof subGlobalFeed>[0]) =>
-      subGlobalFeed(onEvent, settings.ageHours),
-    [settings.ageHours],
+      subGlobalFeed(onEvent, settings.ageHours, settings.filterDifficulty),
+    [settings.ageHours, settings.filterDifficulty],
   );
 
-  const noteEvents = useFilteredNoteSubscription(subscribe, [settings.ageHours]);
+  const noteEvents = useFilteredNoteSubscription(subscribe, [
+    settings.ageHours,
+    settings.filterDifficulty,
+  ]);
   const processedEvents = useMemo(
     () => processFeedEvents(noteEvents, settings.filterDifficulty),
     [noteEvents, settings.filterDifficulty],
