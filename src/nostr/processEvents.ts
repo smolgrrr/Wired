@@ -1,12 +1,12 @@
 import type { Event } from "nostr-tools";
-import { verifyPow } from "../shared/pow/core";
-import { isRootNote } from "../shared/lib/noteEvents";
-import { parseRepost } from "./processing/repost";
-import { totalWork } from "./processing/pow-score";
-import type { ProcessedEvent } from "./types";
+import { verifyPow } from "../shared/pow/core.js";
+import { isRootNote } from "../shared/lib/noteEvents.js";
+import { parseRepost } from "./processing/repost.js";
+import { totalWork } from "./processing/pow-score.js";
+import type { ProcessedEvent } from "./types.js";
 
-export type { ProcessedEvent } from "./types";
-export { parseRepost } from "./processing/repost";
+export type { ProcessedEvent } from "./types.js";
+export { parseRepost } from "./processing/repost.js";
 
 export function buildRepliesByParent(events: Event[]): Map<string, Event[]> {
   const repliesByParent = new Map<string, Event[]>();

@@ -1,5 +1,5 @@
 import type { Event } from "nostr-tools";
-import { verifyPow } from "../../shared/pow/core";
+import { verifyPow } from "../../shared/pow/core.js";
 
 export function eventWork(event: Event): number {
   return Math.pow(2, verifyPow(event));
