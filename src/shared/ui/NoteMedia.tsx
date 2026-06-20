@@ -1,5 +1,10 @@
 import { useState } from "react";
 import type { MediaItem } from "@lib/mediaUtils";
+import {
+  optimizedImageSrcSet,
+  optimizedImageUrl,
+  pickOptimizedWidth,
+} from "@lib/optimizedImageUrl";
 
 function MediaFallback() {
   return (
@@ -9,8 +14,38 @@ function MediaFallback() {
   );
 }
 
-function MediaImage({ item, compact }: { item: MediaItem; compact?: boolean }) {
+function useOptimizedImage(
+  url: string,
+  width: number,
+  srcSetWidths: readonly number[],
+) {
+  const [useRaw, setUseRaw] = useState(false);
+
+  if (useRaw) {
+    return { src: url, srcSet: undefined, onError: () => setUseRaw(true) };
+  }
+
+  return {
+    src: optimizedImageUrl(url, width),
+    srcSet: optimizedImageSrcSet(url, srcSetWidths),
+    onError: () => setUseRaw(true),
+  };
+}
+
+function MediaImage({
+  item,
+  compact,
+  priority = false,
+}: {
+  item: MediaItem;
+  compact?: boolean;
+  priority?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
+  const maxWidth = compact ? 384 : 828;
+  const width = pickOptimizedWidth(item.width, maxWidth);
+  const srcSetWidths = compact ? [384, 640] : [640, 828, 1200];
+  const { src, srcSet, onError } = useOptimizedImage(item.url, width, srcSetWidths);
 
   if (failed) return <MediaFallback />;
 
@@ -18,11 +53,17 @@ function MediaImage({ item, compact }: { item: MediaItem; compact?: boolean }) {
 
   return (
     <img
-      src={item.url}
+      src={src}
+      srcSet={srcSet}
+      sizes={compact ? "384px" : "(max-width: 768px) 100vw, 828px"}
       alt=""
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => {
+        onError();
+        if (src === item.url) setFailed(true);
+      }}
       className={[
         "w-full rounded border border-ghost object-contain",
         compact ? "max-h-[120px]" : "max-h-[32rem]",
@@ -41,13 +82,19 @@ function GridImage({
   compact,
   hiddenCount = 0,
   fillHeight = false,
+  priority = false,
 }: {
   item: MediaItem;
   compact?: boolean;
   hiddenCount?: number;
   fillHeight?: boolean;
+  priority?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  const maxWidth = compact ? 384 : 640;
+  const width = pickOptimizedWidth(item.width, maxWidth);
+  const srcSetWidths = compact ? [384, 640] : [384, 640, 828];
+  const { src, srcSet, onError } = useOptimizedImage(item.url, width, srcSetWidths);
 
   if (failed) return <MediaFallback />;
 
@@ -60,11 +107,17 @@ function GridImage({
       ].join(" ")}
     >
       <img
-        src={item.url}
+        src={src}
+        srcSet={srcSet}
+        sizes={compact ? "384px" : "(max-width: 768px) 50vw, 640px"}
         alt=""
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : undefined}
         decoding="async"
-        onError={() => setFailed(true)}
+        onError={() => {
+          onError();
+          if (src === item.url) setFailed(true);
+        }}
         className={[
           "h-full w-full object-cover",
           fillHeight ? "min-h-full" : "aspect-square",
@@ -115,10 +168,18 @@ function MediaAudio({ item }: { item: MediaItem }) {
   );
 }
 
-export function MediaAttachment({ item, compact }: { item: MediaItem; compact?: boolean }) {
+export function MediaAttachment({
+  item,
+  compact,
+  priority = false,
+}: {
+  item: MediaItem;
+  compact?: boolean;
+  priority?: boolean;
+}) {
   switch (item.type) {
     case "image":
-      return <MediaImage item={item} compact={compact} />;
+      return <MediaImage item={item} compact={compact} priority={priority} />;
     case "video":
       return <MediaVideo item={item} />;
     case "audio":
@@ -130,17 +191,19 @@ export function MediaGrid({
   items,
   hiddenCount = 0,
   compact,
+  priority = false,
 }: {
   items: MediaItem[];
   hiddenCount?: number;
   compact?: boolean;
+  priority?: boolean;
 }) {
   if (items.length === 0) return null;
 
   if (items.length === 2) {
     return (
       <div className="grid grid-cols-2 gap-3">
-        <GridImage item={items[0]} compact={compact} />
+        <GridImage item={items[0]} compact={compact} priority={priority} />
         <GridImage item={items[1]} compact={compact} />
       </div>
     );
@@ -150,7 +213,7 @@ export function MediaGrid({
     return (
       <div className="grid grid-cols-2 grid-rows-2 gap-3">
         <div className="row-span-2 min-h-0">
-          <GridImage item={items[0]} compact={compact} fillHeight />
+          <GridImage item={items[0]} compact={compact} fillHeight priority={priority} />
         </div>
         <GridImage item={items[1]} compact={compact} />
         <GridImage item={items[2]} compact={compact} />
@@ -160,7 +223,7 @@ export function MediaGrid({
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      <GridImage item={items[0]} compact={compact} />
+      <GridImage item={items[0]} compact={compact} priority={priority} />
       <GridImage item={items[1]} compact={compact} />
       <GridImage item={items[2]} compact={compact} />
       <GridImage

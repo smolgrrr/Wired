@@ -65,6 +65,8 @@ export default function FeedPage() {
               animate={shouldResolve}
               animationIndex={index - SKIP_RESOLVE_COUNT}
               fadeIn={shouldFadeIn}
+              imagePriority={index < SKIP_RESOLVE_COUNT}
+              avatarPriority={index < SKIP_RESOLVE_COUNT}
             />
           );
         })}

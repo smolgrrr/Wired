@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pubkeyToGrid } from "@lib/pubkeyToGrid";
+import { optimizedAvatarUrl } from "@lib/optimizedImageUrl";
 
 type SignalAvatarProps = {
   pubkey: string;
@@ -7,6 +8,7 @@ type SignalAvatarProps = {
   label?: string;
   size?: "sm" | "md";
   className?: string;
+  priority?: boolean;
 };
 
 const sizePixels = {
@@ -62,22 +64,35 @@ export function SignalAvatar({
   label,
   size = "sm",
   className = "",
+  priority = false,
 }: SignalAvatarProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [useRawUrl, setUseRawUrl] = useState(false);
   const pixels = sizePixels[size];
   const ariaLabel = label ?? `author ${pubkey.slice(0, 8)}`;
 
   if (pictureUrl && !imageFailed) {
+    const src = useRawUrl
+      ? pictureUrl
+      : optimizedAvatarUrl(pictureUrl, pixels);
+
     return (
       <img
-        src={pictureUrl}
+        src={src}
         alt=""
         width={pixels}
         height={pixels}
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : undefined}
         decoding="async"
         aria-label={ariaLabel}
-        onError={() => setImageFailed(true)}
+        onError={() => {
+          if (!useRawUrl) {
+            setUseRawUrl(true);
+            return;
+          }
+          setImageFailed(true);
+        }}
         className={[
           "shrink-0 rounded-sm border border-ghost object-cover",
           className,

@@ -11,7 +11,13 @@ import { Button } from "./Button";
 
 const COLLAPSED_LENGTH = 750;
 
-export function TextContent({ eventdata }: { eventdata: Event }) {
+export function TextContent({
+  eventdata,
+  imagePriority = false,
+}: {
+  eventdata: Event;
+  imagePriority?: boolean;
+}) {
   const { comment, attachments } = parseContent(eventdata);
   const bodyText = getNoteBodyText(eventdata, comment);
   const { quotedEvents, pendingRefs, failedRefs } = useQuotedEvents(eventdata);
@@ -42,7 +48,9 @@ export function TextContent({ eventdata }: { eventdata: Event }) {
       {failedRefs.map((ref) => (
         <QuotePreviewPlaceholder key={ref.id} message="quoted post unavailable" />
       ))}
-      {attachments.length > 0 && <AttachmentStack attachments={attachments} />}
+      {attachments.length > 0 && (
+        <AttachmentStack attachments={attachments} imagePriority={imagePriority} />
+      )}
       {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
     </div>
   );

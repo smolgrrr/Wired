@@ -20,6 +20,8 @@ interface PostCardProps {
   animate?: boolean;
   animationIndex?: number;
   fadeIn?: boolean;
+  imagePriority?: boolean;
+  avatarPriority?: boolean;
 }
 
 const depthClasses: Record<number, string> = {
@@ -43,6 +45,8 @@ export function PostCard({
   animate = false,
   animationIndex = 0,
   fadeIn = false,
+  imagePriority = false,
+  avatarPriority = false,
 }: PostCardProps) {
   const navigate = useNavigate();
 
@@ -85,7 +89,7 @@ export function PostCard({
       style={animate ? { animationDelay: `${animationIndex * 40}ms` } : undefined}
     >
       <div className="post-content flex flex-col gap-2 break-words">
-        <TextContent eventdata={parsedEvent} />
+        <TextContent eventdata={parsedEvent} imagePriority={imagePriority} />
         {repliedTo && repliedTo.length > 0 && (
           <ReplyContext events={uniqBy(repliedTo, "pubkey")} />
         )}
@@ -100,6 +104,7 @@ export function PostCard({
         repostSignal={repostSignal}
         onOpenThread={isNavigable ? handleNavigate : undefined}
         forceSecondary={role === "threadOp"}
+        avatarPriority={avatarPriority}
       />
     </article>
   );
