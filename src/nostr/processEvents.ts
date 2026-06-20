@@ -1,6 +1,6 @@
 import type { Event } from "nostr-tools";
 import { verifyPow } from "../shared/pow/core";
-import { isRootNote } from "@lib/noteEvents";
+import { isRootNote } from "../shared/lib/noteEvents";
 import { parseRepost } from "./processing/repost";
 import { totalWork } from "./processing/pow-score";
 import type { ProcessedEvent } from "./types";

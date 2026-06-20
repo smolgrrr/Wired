@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/refresh-feed",
+      "schedule": "*/3 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/|src/|@|node_modules/|assets/|fonts/|favicon\\.svg|robots\\.txt|noise\\.png).*)",
