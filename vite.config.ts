@@ -44,6 +44,66 @@ function unfurlDevApi(): Plugin {
         },
       );
 
+      server.middlewares.use(
+        "/api/feed/bootstrap",
+        async (req: IncomingMessage, res: ServerResponse) => {
+          if (req.method !== "GET") {
+            res.statusCode = 405;
+            res.setHeader("Allow", "GET");
+            res.end(JSON.stringify({ error: "method not allowed" }));
+            return;
+          }
+
+          const { getFeedBootstrapSnapshot } = await import("./lib/feedBootstrapCache");
+          const snapshot = await getFeedBootstrapSnapshot();
+          res.setHeader("Content-Type", "application/json");
+
+          if (!snapshot) {
+            res.statusCode = 503;
+            res.end(JSON.stringify({ error: "bootstrap unavailable" }));
+            return;
+          }
+
+          res.statusCode = 200;
+          res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
+          res.end(JSON.stringify(snapshot));
+        },
+      );
+
+      server.middlewares.use(
+        "/api/cron/refresh-feed",
+        async (req: IncomingMessage, res: ServerResponse) => {
+          if (req.method !== "GET") {
+            res.statusCode = 405;
+            res.setHeader("Allow", "GET");
+            res.end(JSON.stringify({ error: "method not allowed" }));
+            return;
+          }
+
+          res.setHeader("Content-Type", "application/json");
+
+          try {
+            const { refreshFeedBootstrapSnapshot } = await import("./lib/feedBootstrapCache");
+            const snapshot = await refreshFeedBootstrapSnapshot();
+            res.statusCode = 200;
+            res.end(
+              JSON.stringify({
+                ok: true,
+                fetchedAt: snapshot.fetchedAt,
+                postCount: snapshot.processedEvents.length,
+                profileCount: Object.keys(snapshot.profiles).length,
+              }),
+            );
+          } catch (error) {
+            res.statusCode = 500;
+            res.end(
+              JSON.stringify({
+                error: error instanceof Error ? error.message : "refresh failed",
+              }),
+            );
+          }
+        },
+      );
     },
   };
 }

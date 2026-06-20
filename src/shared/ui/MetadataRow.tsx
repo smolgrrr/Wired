@@ -12,6 +12,7 @@ type MetadataRowProps = {
   repostSignal?: number;
   onOpenThread?: () => void;
   forceSecondary?: boolean;
+  avatarPriority?: boolean;
 };
 
 function formatTelemetry({
@@ -60,6 +61,7 @@ export function MetadataRow({
   repostSignal,
   onOpenThread,
   forceSecondary = false,
+  avatarPriority = false,
 }: MetadataRowProps) {
   const profile = useProfile(pubkey);
   const authorLabel = getDisplayName(profile, pubkey);
@@ -96,6 +98,7 @@ export function MetadataRow({
         pictureUrl={profile?.picture}
         label={`author ${authorLabel}`}
         size="sm"
+        priority={avatarPriority}
       />
       <span className="flex-1 min-w-0 truncate">{telemetry}</span>
       {onOpenThread && (

@@ -6,9 +6,11 @@ import { MediaAttachment, MediaGrid } from "./NoteMedia";
 export function AttachmentStack({
   attachments,
   compact,
+  imagePriority = false,
 }: {
   attachments: Attachment[];
   compact?: boolean;
+  imagePriority?: boolean;
 }) {
   if (attachments.length === 0) return null;
 
@@ -29,6 +31,7 @@ export function AttachmentStack({
               items={segment.items}
               hiddenCount={segment.hiddenCount}
               compact={compact}
+              priority={imagePriority}
             />
           );
         }
@@ -40,6 +43,7 @@ export function AttachmentStack({
               key={attachment.item.url}
               item={attachment.item}
               compact={compact}
+              priority={imagePriority}
             />
           );
         }

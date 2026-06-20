@@ -1,5 +1,5 @@
 import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
-import { ensureRelaysConnected, getRegistry } from "../client";
+import { ensureRelaysConnected, initNostr, PROFILE_RELAYS, getRegistry } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
 import { emptySubHandle } from "./utils";
@@ -49,7 +49,7 @@ export async function subProfilesOnce(
     return emptySubHandle("profiles-once:empty");
   }
 
-  await ensureRelaysConnected([...QUOTE_FALLBACK_RELAYS]);
+  await initNostr();
 
   return getRegistry().subscribe([
     {
@@ -60,7 +60,7 @@ export async function subProfilesOnce(
       cb: onEvent,
       closeOnEose: true,
       onEose,
-      relayUrls: [...QUOTE_FALLBACK_RELAYS],
+      relayUrls: PROFILE_RELAYS,
     },
   ]);
 }

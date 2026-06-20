@@ -7,6 +7,7 @@ import { PostCard } from "../../shared/ui/PostCard";
 import { FeedSortToggle } from "./FeedSortToggle";
 import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
 
+const SKIP_RESOLVE_COUNT = 3;
 const INITIAL_RESOLVE_COUNT = 20;
 const RESOLVE_DURATION_MS = 600;
 const STAGGER_MS = 40;
@@ -49,7 +50,10 @@ export default function FeedPage() {
       </div>
       <ContentColumn>
         {sortedEvents.slice(0, visibleCount).map((event, index) => {
-          const shouldResolve = resolveWindowOpen && index < INITIAL_RESOLVE_COUNT;
+          const shouldResolve =
+            resolveWindowOpen &&
+            index >= SKIP_RESOLVE_COUNT &&
+            index < INITIAL_RESOLVE_COUNT;
           const shouldFadeIn =
             !resolveWindowOpen && index >= INITIAL_RESOLVE_COUNT;
 
@@ -59,8 +63,10 @@ export default function FeedPage() {
               event={event.postEvent}
               replies={event.replies}
               animate={shouldResolve}
-              animationIndex={index}
+              animationIndex={index - SKIP_RESOLVE_COUNT}
               fadeIn={shouldFadeIn}
+              imagePriority={index < SKIP_RESOLVE_COUNT}
+              avatarPriority={index < SKIP_RESOLVE_COUNT}
             />
           );
         })}

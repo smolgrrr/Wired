@@ -5,10 +5,12 @@
   "private": false,
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+    "@vercel/functions": "^3.7.1",
     "nostr-tools": "2.5.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.15.0"
+    "react-router-dom": "^6.15.0",
+    "ws": "^8.21.0"
   },
   "scripts": {
     "dev": "vite",
@@ -23,6 +25,7 @@
     "@tailwindcss/forms": "^0.5.6",
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
+    "@types/ws": "^8.18.1",
     "@vercel/node": "^5.8.17",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",

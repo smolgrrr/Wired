@@ -95,6 +95,25 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+export function seedProfiles(profiles: Record<string, ProfileMetadata>): void {
+  let changed = false;
+
+  Object.entries(profiles).forEach(([pubkey, profile]) => {
+    const existing = profileCache.get(pubkey);
+    if (existing?.profile === profile) return;
+
+    profileCache.set(pubkey, {
+      profile,
+      createdAt: existing?.createdAt ?? Math.floor(Date.now() / 1000),
+    });
+    changed = true;
+  });
+
+  if (changed) {
+    notifyListeners();
+  }
+}
+
 export function useProfile(pubkey: string): ProfileMetadata | undefined {
   const [, setVersion] = useState(0);
 

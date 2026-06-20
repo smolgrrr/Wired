@@ -5,7 +5,6 @@ import { replyEquivalentDifficulty } from "../../nostr/processing/pow-score";
 import { uniqBy } from "@lib/collections";
 import { parseRepost } from "../../nostr/processing/repost";
 import { getDisplayName } from "@lib/profile";
-import { useProfile } from "../hooks/useProfiles";
 import { TextContent } from "./TextContent";
 import { MetadataRow } from "./MetadataRow";
 import { ReplyContext } from "./ReplyContext";
@@ -21,6 +20,8 @@ interface PostCardProps {
   animate?: boolean;
   animationIndex?: number;
   fadeIn?: boolean;
+  imagePriority?: boolean;
+  avatarPriority?: boolean;
 }
 
 const depthClasses: Record<number, string> = {
@@ -44,6 +45,8 @@ export function PostCard({
   animate = false,
   animationIndex = 0,
   fadeIn = false,
+  imagePriority = false,
+  avatarPriority = false,
 }: PostCardProps) {
   const navigate = useNavigate();
 
@@ -56,8 +59,7 @@ export function PostCard({
     return event;
   }, [event]);
   const replySumPow = useMemo(() => replyEquivalentDifficulty(replies), [replies]);
-  const profile = useProfile(parsedEvent.pubkey);
-  const authorLabel = getDisplayName(profile, parsedEvent.pubkey);
+  const authorLabel = getDisplayName(undefined, parsedEvent.pubkey);
 
   const signal = verifyPow(parsedEvent);
   const repostSignal = repostedEvent ? verifyPow(repostedEvent) : undefined;
@@ -87,7 +89,7 @@ export function PostCard({
       style={animate ? { animationDelay: `${animationIndex * 40}ms` } : undefined}
     >
       <div className="post-content flex flex-col gap-2 break-words">
-        <TextContent eventdata={parsedEvent} />
+        <TextContent eventdata={parsedEvent} imagePriority={imagePriority} />
         {repliedTo && repliedTo.length > 0 && (
           <ReplyContext events={uniqBy(repliedTo, "pubkey")} />
         )}
@@ -102,6 +104,7 @@ export function PostCard({
         repostSignal={repostSignal}
         onOpenThread={isNavigable ? handleNavigate : undefined}
         forceSecondary={role === "threadOp"}
+        avatarPriority={avatarPriority}
       />
     </article>
   );

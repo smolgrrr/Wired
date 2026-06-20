@@ -39,31 +39,31 @@ export const subGlobalFeed = (onEvent: SubCallback, ageHours: number): SubHandle
           onEvent(evt, relay);
         },
         closeOnEose: true,
+        onEose: () => {
+          if (notes.size === 0) return;
+
+          const noteIds = Array.from(notes);
+          notes.clear();
+
+          children.push(
+            registry.subscribe([
+              {
+                filter: {
+                  "#e": noteIds,
+                  kinds: [1],
+                },
+                cb: onEvent,
+                closeOnEose: true,
+              },
+            ]),
+          );
+        },
       },
     ]),
   );
 
-  const stagedTimer = setTimeout(() => {
-    if (notes.size > 0) {
-      children.push(
-        registry.subscribe([
-          {
-            filter: {
-              "#e": Array.from(notes),
-              kinds: [1],
-            },
-            cb: onEvent,
-            closeOnEose: true,
-          },
-        ]),
-      );
-      notes.clear();
-    }
-  }, 2000);
-
   return composeSubHandle(
     `global-feed:${children[0]?.id ?? "pending"}`,
     children,
-    () => clearTimeout(stagedTimer),
   );
 };
