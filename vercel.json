@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/refresh-feed",
-      "schedule": "*/3 * * * *"
+      "schedule": "0 4 * * *"
     }
   ],
   "images": {
