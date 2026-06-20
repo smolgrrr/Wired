@@ -28,11 +28,7 @@ export function NostrProvider({ children }: { children: ReactNode }) {
 
   return (
     <NostrContext.Provider value={{ ready }}>
-      {ready ? children : (
-        <main className="bg-void text-primary min-h-screen flex items-center justify-center">
-          <p className="text-secondary text-meta">Connecting to relays…</p>
-        </main>
-      )}
+      {children}
     </NostrContext.Provider>
   );
 }

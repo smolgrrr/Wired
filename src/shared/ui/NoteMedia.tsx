@@ -14,6 +14,8 @@ function MediaImage({ item, compact }: { item: MediaItem; compact?: boolean }) {
 
   if (failed) return <MediaFallback />;
 
+  const hasDimensions = Boolean(item.width && item.height);
+
   return (
     <img
       src={item.url}
@@ -26,9 +28,9 @@ function MediaImage({ item, compact }: { item: MediaItem; compact?: boolean }) {
         compact ? "max-h-[120px]" : "max-h-[32rem]",
       ].join(" ")}
       style={
-        item.width && item.height
+        hasDimensions
           ? { aspectRatio: `${item.width} / ${item.height}` }
-          : undefined
+          : { aspectRatio: "4 / 3", minHeight: compact ? "5rem" : "12rem" }
       }
     />
   );

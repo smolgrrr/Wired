@@ -237,7 +237,8 @@ Navigable posts expose summary via `article aria-label` regardless of visual con
 
 | Interaction | Animation | Duration | Reduced motion |
 |-------------|-----------|----------|----------------|
-| Initial feed batch (first 20) | `resolve-in` + 40ms stagger | 600ms | Disabled — instant opacity 1, no blur/transform |
+| Initial feed batch (posts 3–19) | `resolve-in` + 40ms stagger | 600ms | Disabled — instant opacity 1, no blur/transform |
+| First 3 feed posts | none (LCP) | 0 | Same |
 | Infinite-scroll append | `fade-in` or none | 200ms / 0 | Instant |
 | Metadata row | color transition | 150ms | Same |
 | Focus ring | box-shadow | 100ms | Same |

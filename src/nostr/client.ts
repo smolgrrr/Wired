@@ -1,5 +1,5 @@
 import type { Event } from "nostr-tools";
-import { DEFAULT_RELAYS } from "../config";
+import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../config";
 import { RelayPool } from "./relay-pool";
 import { SubscriptionRegistry } from "./subscription-registry";
 
@@ -7,17 +7,35 @@ let pool: RelayPool | null = null;
 let registry: SubscriptionRegistry | null = null;
 let connectPromise: Promise<void> | null = null;
 
-export function initNostr(relayUrls: readonly string[] = DEFAULT_RELAYS): Promise<void> {
-  if (!connectPromise) {
+export const PROFILE_RELAYS = [
+  ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
+] as string[];
+
+function ensureNostrClient(): void {
+  if (!pool) {
     pool = new RelayPool();
     registry = new SubscriptionRegistry(pool);
-    connectPromise = pool.connect(relayUrls);
+  }
+}
+
+export function initNostr(): Promise<void> {
+  ensureNostrClient();
+  if (!pool) {
+    throw new Error("Nostr client failed to initialize.");
+  }
+
+  if (!connectPromise) {
+    connectPromise = Promise.all([
+      pool.connect(DEFAULT_RELAYS),
+      pool.ensureConnected(QUOTE_FALLBACK_RELAYS),
+    ]).then(() => {});
   }
 
   return connectPromise;
 }
 
 export function getRegistry(): SubscriptionRegistry {
+  ensureNostrClient();
   if (!registry) {
     throw new Error("Nostr client is not initialized. Wrap the app in NostrProvider.");
   }

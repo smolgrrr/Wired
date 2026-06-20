@@ -5,6 +5,7 @@ import { domainFromUrl } from "@lib/url";
 export type { LinkMetadata };
 
 type LinkMetadataState =
+  | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; metadata: LinkMetadata }
   | { status: "failed" };
@@ -52,12 +53,25 @@ function loadMetadata(url: string): Promise<LinkMetadataState> {
   return request;
 }
 
-export function useLinkMetadata(url: string): LinkMetadataState {
-  const [state, setState] = useState<LinkMetadataState>(
-    () => cache.get(url) ?? { status: "loading" },
-  );
+export function useLinkMetadata(url: string, enabled = true): LinkMetadataState {
+  const [state, setState] = useState<LinkMetadataState>(() => {
+    if (!enabled) return { status: "idle" };
+    const cached = cache.get(url);
+    return cached && cached.status !== "loading" ? cached : { status: "loading" };
+  });
 
   useEffect(() => {
+    if (!enabled) {
+      setState({ status: "idle" });
+      return;
+    }
+
+    const cached = cache.get(url);
+    if (cached && cached.status !== "loading") {
+      setState(cached);
+      return;
+    }
+
     let cancelled = false;
 
     void loadMetadata(url).then((result) => {
@@ -69,7 +83,7 @@ export function useLinkMetadata(url: string): LinkMetadataState {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, enabled]);
 
   return state;
 }
