@@ -51,6 +51,10 @@ const trackRootNote = (notes: Set<string>, evt: Event) => {
   }
 };
 
+function normalizeRelayUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
 async function connectRelays(urls: readonly string[], timeoutMs: number): Promise<Relay[]> {
   const relays = await Promise.all(
     urls.map(async (url) => {
@@ -86,7 +90,11 @@ async function subscribeOnce(
   }
 
   const targetRelays = relayUrls
-    ? relays.filter((relay) => relayUrls.includes(relay.url))
+    ? relays.filter((relay) =>
+        relayUrls.some(
+          (url) => normalizeRelayUrl(url) === normalizeRelayUrl(relay.url),
+        ),
+      )
     : relays;
 
   if (targetRelays.length === 0) {
