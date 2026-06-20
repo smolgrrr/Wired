@@ -7,9 +7,11 @@ let pool: RelayPool | null = null;
 let registry: SubscriptionRegistry | null = null;
 let connectPromise: Promise<void> | null = null;
 
-export const PROFILE_RELAYS = [
+export const THREAD_RELAYS = [
   ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
 ] as string[];
+
+export const PROFILE_RELAYS = THREAD_RELAYS;
 
 function ensureNostrClient(): void {
   if (!pool) {

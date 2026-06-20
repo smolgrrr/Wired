@@ -35,7 +35,7 @@ export function toProcessedEvents(
       const replies = repliesByParent.get(postEvent.id) ?? [];
       return { postEvent, replies, totalWork: totalWork(postEvent, replies) };
     })
-    .sort((a, b) => b.totalWork - a.totalWork || b.postEvent.created_at - a.postEvent.created_at);
+    .sort((a, b) => a.postEvent.created_at - b.postEvent.created_at);
 }
 
 export const processFeedEvents = (events: Event[], filterDifficulty = 0): ProcessedEvent[] => {

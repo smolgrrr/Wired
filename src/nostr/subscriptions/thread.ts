@@ -1,4 +1,4 @@
-import { getRegistry } from "../client";
+import { getRegistry, THREAD_RELAYS } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import { composeSubHandle } from "./utils";
 
@@ -16,6 +16,7 @@ export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
           "#e": Array.from(replies),
           kinds: [1],
         },
+        relayUrls: THREAD_RELAYS,
         cb: (evt, relay) => {
           const isNew = !replies.has(evt.id);
           if (isNew) {
@@ -38,6 +39,7 @@ export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
           kinds: [1, 1068],
           limit: 1,
         },
+        relayUrls: THREAD_RELAYS,
         cb: onEvent,
         closeOnEose: true,
       },

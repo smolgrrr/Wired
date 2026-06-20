@@ -7,7 +7,7 @@ import { useThreadEvents } from "./useThreadEvents";
 import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
 
 export function useThreadViewModel(hexID: string) {
-  const [showAllReplies, setShowAllReplies] = useState(false);
+  const [showAllReplies, setShowAllReplies] = useState(true);
   const { noteEvents } = useThreadEvents(hexID);
 
   const allEvents = useMemo(() => {
@@ -35,9 +35,6 @@ export function useThreadViewModel(hexID: string) {
     [opMentionIds.join(",")],
     Boolean(opEvent && opMentionIds.length > 0),
   );
-
-  const repliedList = (event: Event): Event[] =>
-    allEvents.filter((e) => event.tags.some((tag) => tag[0] === "p" && tag[1] === e.pubkey));
 
   const replyEvents = useMemo(() => {
     if (!opEvent) return [];
@@ -71,7 +68,6 @@ export function useThreadViewModel(hexID: string) {
     earlierEvents,
     replyEvents,
     eventsById,
-    repliedList,
     showAllReplies,
     setShowAllReplies,
     uniqMentions,

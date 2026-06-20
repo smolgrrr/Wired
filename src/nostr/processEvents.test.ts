@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Event } from "nostr-tools";
-import { parseRepost, processFeedEvents } from "./processEvents";
+import { parseRepost, processFeedEvents, toProcessedEvents } from "./processEvents";
 
 const event = (overrides: Partial<Event> = {}): Event => ({
   id: "f".repeat(64),
@@ -16,6 +16,28 @@ const event = (overrides: Partial<Event> = {}): Event => ({
 describe("parseRepost", () => {
   it("rejects malformed repost content", () => {
     expect(parseRepost(event({ kind: 6, content: "not-json" }))).toBeNull();
+  });
+});
+
+describe("toProcessedEvents", () => {
+  it("sorts replies oldest first regardless of signal", () => {
+    const op = event({ id: "1".repeat(64), created_at: 100 });
+    const olderReply = event({
+      id: "2".repeat(64),
+      pubkey: "b".repeat(64),
+      created_at: 101,
+      tags: [["e", op.id]],
+    });
+    const newerReply = event({
+      id: "3".repeat(64),
+      pubkey: "c".repeat(64),
+      created_at: 200,
+      tags: [["e", op.id]],
+    });
+
+    const result = toProcessedEvents([olderReply, newerReply], [olderReply, newerReply]);
+
+    expect(result.map((item) => item.postEvent.id)).toEqual([olderReply.id, newerReply.id]);
   });
 });
 

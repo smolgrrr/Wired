@@ -1,5 +1,11 @@
 import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
-import { ensureRelaysConnected, initNostr, PROFILE_RELAYS, getRegistry } from "../client";
+import {
+  ensureRelaysConnected,
+  initNostr,
+  PROFILE_RELAYS,
+  THREAD_RELAYS,
+  getRegistry,
+} from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
 import { emptySubHandle } from "./utils";
@@ -22,7 +28,11 @@ export const subPoll = (eventId: string, onEvent: SubCallback): SubHandle =>
     },
   ]);
 
-export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandle => {
+export const subNotesOnce = (
+  eventIds: string[],
+  onEvent: SubCallback,
+  relayUrls: string[] = THREAD_RELAYS,
+): SubHandle => {
   if (eventIds.length === 0) {
     return emptySubHandle("notes-once:empty");
   }
@@ -34,6 +44,7 @@ export const subNotesOnce = (eventIds: string[], onEvent: SubCallback): SubHandl
         kinds: [1],
         limit: eventIds.length,
       },
+      relayUrls,
       cb: onEvent,
       closeOnEose: true,
     },

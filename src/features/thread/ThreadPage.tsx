@@ -26,7 +26,6 @@ function ThreadView({ hexID }: { hexID: string }) {
     earlierEvents,
     replyEvents,
     eventsById,
-    repliedList,
     showAllReplies,
     setShowAllReplies,
     uniqMentions,
@@ -77,7 +76,6 @@ function ThreadView({ hexID }: { hexID: string }) {
                 key={event.postEvent.id}
                 event={event.postEvent}
                 replies={event.replies}
-                repliedTo={repliedList(event.postEvent)}
                 depth={getThreadDepth(event.postEvent, opEvent.id, eventsById)}
               />
             ))}
