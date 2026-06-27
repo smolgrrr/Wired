@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
-import { generateSecretKey, getPublicKey, finalizeEvent, UnsignedEvent, Event } from "nostr-tools";
+import { generateSecretKey, getPublicKey, finalizeEvent, type UnsignedEvent, type Event } from "nostr-tools";
 import { publish } from "../../nostr/client";
 import { bytesToHex } from "@noble/hashes/utils";
 import { useSettings } from "../../app/settings";
 import { useStoredKeys } from "./useStoredKeys";
 import { usePowMining } from "./usePowMining";
 
+export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
+
 export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
   const { settings } = useSettings();
   const { appendKey } = useStoredKeys();
-  const [doingWorkProp, setDoingWorkProp] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [acceptedRelays, setAcceptedRelays] = useState<string[]>([]);
   const [sk, setSk] = useState(generateSecretKey());
   const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
   const [unsignedPoWEvent, setUnsignedPoWEvent] = useState<UnsignedEvent>();
@@ -17,20 +21,61 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
 
   const numCores = navigator.hardwareConcurrency || 4;
   const { startWork, messageFromWorker, hashrate, bestPow } = usePowMining(numCores, unsignedWithPubkey, difficulty);
+  const doingWorkProp = submitStatus === "mining" || submitStatus === "publishing";
 
   useEffect(() => {
-    if (unsignedPoWEvent) {
-      setDoingWorkProp(false);
-      const signedEvent = finalizeEvent(unsignedPoWEvent, sk);
-      publish(signedEvent);
-      setSignedPoWEvent(signedEvent);
-      setSk(generateSecretKey());
-    }
-  }, [unsignedPoWEvent]);
+    if (!unsignedPoWEvent) return;
+
+    let cancelled = false;
+
+    const publishMinedEvent = async () => {
+      setSubmitStatus("publishing");
+      setSubmitError(null);
+
+      try {
+        const signedEvent = finalizeEvent(unsignedPoWEvent, sk);
+        const accepted = await publish(signedEvent);
+        if (cancelled) return;
+
+        if (accepted.size === 0) {
+          setSubmitStatus("failed");
+          setSubmitError("No relay accepted the event. Your draft was not posted.");
+          setSignedPoWEvent(undefined);
+          setAcceptedRelays([]);
+          return;
+        }
+
+        setAcceptedRelays([...accepted]);
+        setSignedPoWEvent(signedEvent);
+        appendKey(bytesToHex(sk), getPublicKey(sk));
+        setSk(generateSecretKey());
+        setSubmitStatus("published");
+      } catch {
+        if (cancelled) return;
+        setSubmitStatus("failed");
+        setSubmitError("Publishing failed. Your draft was not posted.");
+        setSignedPoWEvent(undefined);
+        setAcceptedRelays([]);
+      } finally {
+        if (!cancelled) {
+          setUnsignedPoWEvent(undefined);
+        }
+      }
+    };
+
+    void publishMinedEvent();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appendKey, sk, unsignedPoWEvent]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    setDoingWorkProp(true);
+    setSubmitStatus("mining");
+    setSubmitError(null);
+    setAcceptedRelays([]);
+    setSignedPoWEvent(undefined);
 
     if (settings.powServerUrl) {
       const inEventFormat = { ...unsignedWithPubkey, sig: "" };
@@ -46,19 +91,22 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
         },
         body: JSON.stringify(powRequest),
       })
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("PoW server failed.");
+          }
+          return response.json();
+        })
         .then((data) => {
           setUnsignedPoWEvent(data.event);
         })
-        .catch((error) => {
-          console.error("Error:", error);
-          setDoingWorkProp(false);
+        .catch(() => {
+          setSubmitStatus("failed");
+          setSubmitError("Signal generation failed. Your draft was not posted.");
         });
     } else {
       startWork();
     }
-
-    appendKey(bytesToHex(sk), getPublicKey(sk));
   };
 
   useEffect(() => {
@@ -67,5 +115,14 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     }
   }, [messageFromWorker]);
 
-  return { handleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent };
+  return {
+    handleSubmit,
+    doingWorkProp,
+    submitStatus,
+    submitError,
+    acceptedRelays,
+    hashrate,
+    bestPow,
+    signedPoWEvent,
+  };
 };
