@@ -1,5 +1,4 @@
 import type { Event } from "nostr-tools";
-import { parseRepost } from "../../nostr/processing/repost";
 
 const MAX_DEPTH = 3;
 
@@ -9,13 +8,6 @@ export function getThreadDepth(
   eventsById: Map<string, Event>,
 ): number {
   if (event.id === rootId) return 0;
-
-  if (event.kind === 6) {
-    const reposted = parseRepost(event);
-    if (reposted) {
-      return getThreadDepth(reposted, rootId, eventsById);
-    }
-  }
 
   let depth = 0;
   let current: Event | undefined = event;

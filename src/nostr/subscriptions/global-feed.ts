@@ -1,21 +1,12 @@
 import type { Event } from "nostr-tools";
 import { isRootNote } from "@lib/noteEvents";
 import { getRegistry } from "../client";
-import { parseRepost } from "../processing/repost";
 import type { SubCallback, SubHandle } from "../types";
 import { composeSubHandle } from "./utils";
 
 const trackRootNote = (notes: Set<string>, evt: Event) => {
   if (isRootNote(evt)) {
     notes.add(evt.id);
-    return;
-  }
-
-  if (evt.kind === 6) {
-    const reposted = parseRepost(evt);
-    if (reposted?.kind === 1) {
-      notes.add(reposted.id);
-    }
   }
 };
 
@@ -30,7 +21,7 @@ export const subGlobalFeed = (onEvent: SubCallback, ageHours: number): SubHandle
     registry.subscribe([
       {
         filter: {
-          kinds: [1, 6, 1068],
+          kinds: [1, 1068],
           since,
           limit: 500,
         },

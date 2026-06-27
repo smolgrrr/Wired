@@ -373,7 +373,7 @@ Flat directory: [`src/shared/ui/`](../src/shared/ui/).
 
 Mobile: `your transmissions` → `yours` in `SegmentedControl`.
 
-Metadata format: `{pubkey8} · signal {n} · {count} replies · {time}` — omit signal when zero; reposts append `· signal +{n}`.
+Metadata format: `{pubkey8} · signal {n} · {count} replies · {time}` — omit signal when zero.
 
 ---
 

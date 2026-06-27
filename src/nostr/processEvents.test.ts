@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Event } from "nostr-tools";
-import { parseRepost, processFeedEvents, toProcessedEvents } from "./processEvents";
+import { processFeedEvents, toProcessedEvents } from "./processEvents";
 
 const event = (overrides: Partial<Event> = {}): Event => ({
   id: "f".repeat(64),
@@ -11,12 +11,6 @@ const event = (overrides: Partial<Event> = {}): Event => ({
   content: "plain text https://example.com/image.jpg nostr:note1example :emoji:",
   sig: "b".repeat(128),
   ...overrides,
-});
-
-describe("parseRepost", () => {
-  it("rejects malformed repost content", () => {
-    expect(parseRepost(event({ kind: 6, content: "not-json" }))).toBeNull();
-  });
 });
 
 describe("toProcessedEvents", () => {
@@ -52,5 +46,11 @@ describe("processFeedEvents", () => {
     expect(result).toHaveLength(1);
     expect(result[0].postEvent.id).toBe(root.id);
     expect(result[0].replies).toEqual([reply]);
+  });
+
+  it("ignores plain repost events", () => {
+    const repost = event({ kind: 6, content: JSON.stringify(event()) });
+
+    expect(processFeedEvents([repost])).toEqual([]);
   });
 });

@@ -79,7 +79,7 @@ Tags are pushed onto `unsigned` in-place; React never re-renders, and re-running
 | 3 | Whitespace cleanup copied 3× | `linkUtils.ts`, `mediaUtils.ts`, `content.ts` | Extract `normalizeStrippedContent()` |
 | 4 | Identical URL regex 2× | `linkUtils.ts`, `content.ts` | Shared `HTTP_URL_PATTERN` |
 | 5 | Poll body text duplicated | `TextContent.tsx`, `QuotePreview.tsx` | `getNoteBodyText(event)` helper |
-| 6 | PoW transmit status duplicated 3× | `PostForm.tsx`, `RepostForm.tsx`, `PollResponder.tsx` | `PowTransmitStatus` component |
+| 6 | PoW transmit status duplicated 2× | `PostForm.tsx`, `PollResponder.tsx` | `PowTransmitStatus` component |
 | 7 | `domainFromUrl` duplicated | `LinkPreview.tsx`, `useLinkMetadata.ts` | Single export in `url.ts` |
 
 ### P1 — Low effort, high clarity
@@ -130,7 +130,6 @@ Tags are pushed onto `unsigned` in-place; React never re-renders, and re-running
 | `SubscriptionRegistry` | Centralized sub ID tracking + close handles |
 | `global-feed.ts` two-phase subscribe | Domain-specific: roots first, then `#e` replies after delay |
 | `thread.ts` dynamic resubscribe | Growing reply trees need refresh |
-| `parseRepost` + tests | Focused, tested utility |
 | `pow-score.ts` + tests | Scoring rules isolated with tests |
 | `useNostrSubscription` | Good React boundary for nostr subs |
 | `useSubmit` + `usePowMining` | Clean publish vs worker separation |
