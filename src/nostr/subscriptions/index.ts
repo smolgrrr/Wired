@@ -1,8 +1,9 @@
-import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
+import { DEFAULT_RELAYS } from "../../config";
 import {
   ensureRelaysConnected,
   initNostr,
   PROFILE_RELAYS,
+  QUOTE_RELAYS,
   THREAD_RELAYS,
   getRegistry,
 } from "../client";
@@ -77,7 +78,7 @@ export async function subProfilesOnce(
 }
 
 function relayUrlsForQuote(ref: QuotedRef): string[] {
-  return [...new Set([...DEFAULT_RELAYS, ...ref.relays, ...QUOTE_FALLBACK_RELAYS])];
+  return [...new Set([...DEFAULT_RELAYS, ...ref.relays, ...QUOTE_RELAYS])];
 }
 
 export async function subQuotedEventsOnce(
