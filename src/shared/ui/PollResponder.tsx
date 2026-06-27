@@ -59,12 +59,25 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
     return { voteResponse: pow, optionLabel };
   });
 
-  const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow } =
+  const {
+    handleSubmit: originalHandleSubmit,
+    doingWorkProp,
+    submitStatus,
+    submitError,
+    acceptedRelays,
+    hashrate,
+    bestPow,
+    signedPoWEvent,
+  } =
     useSubmitForm(submitEvent, difficulty);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     await originalHandleSubmit(event);
+  };
+
+  useEffect(() => {
+    if (!signedPoWEvent) return;
 
     setUnsigned((prevUnsigned) => ({
       ...prevUnsigned,
@@ -73,7 +86,7 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
       tags: [["client", "getwired.app"], ["e", eventdata.id]],
     }));
     setSelectedOption("");
-  };
+  }, [eventdata.id, signedPoWEvent]);
 
   return (
     <form name="post" method="post" encType="multipart/form-data" onSubmit={handleSubmit}>
@@ -113,7 +126,14 @@ export function PollResponder({ eventdata }: { eventdata: Event }) {
           difficulty={difficulty}
           hashrate={hashrate}
           bestPow={bestPow}
+          status={submitStatus}
         />
+        {submitError && <p className="text-danger text-meta">{submitError}</p>}
+        {submitStatus === "published" && acceptedRelays.length > 0 && (
+          <p className="text-meta text-secondary">
+            posted to {acceptedRelays.length} relay{acceptedRelays.length === 1 ? "" : "s"}
+          </p>
+        )}
       </div>
     </form>
   );

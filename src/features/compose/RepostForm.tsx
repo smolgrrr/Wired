@@ -24,7 +24,8 @@ export function RepostForm({ refEvent }: RepostFormProps) {
     pubkey: "",
   });
 
-  const { handleSubmit, doingWorkProp, hashrate } = useSubmitForm(unsigned, difficulty);
+  const { handleSubmit, doingWorkProp, submitStatus, submitError, acceptedRelays, hashrate } =
+    useSubmitForm(unsigned, difficulty);
 
   return (
     <form name="post" method="post" encType="multipart/form-data" onSubmit={handleSubmit}>
@@ -39,9 +40,15 @@ export function RepostForm({ refEvent }: RepostFormProps) {
           active={doingWorkProp}
           difficulty={difficulty}
           hashrate={hashrate}
+          status={submitStatus}
         />
+        {submitError && <p className="text-danger text-meta">{submitError}</p>}
+        {submitStatus === "published" && acceptedRelays.length > 0 && (
+          <p className="text-meta text-secondary">
+            posted to {acceptedRelays.length} relay{acceptedRelays.length === 1 ? "" : "s"}
+          </p>
+        )}
       </div>
-      <div id="postFormError" className="text-danger text-meta" />
     </form>
   );
 }

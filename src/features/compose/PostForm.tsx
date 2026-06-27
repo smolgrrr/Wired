@@ -39,7 +39,16 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     setDifficulty(String(settings.difficulty));
   }, [settings.difficulty]);
 
-  const { handleSubmit: originalHandleSubmit, doingWorkProp, hashrate, bestPow, signedPoWEvent } =
+  const {
+    handleSubmit: originalHandleSubmit,
+    doingWorkProp,
+    submitStatus,
+    submitError,
+    acceptedRelays,
+    hashrate,
+    bestPow,
+    signedPoWEvent,
+  } =
     useSubmitForm(unsigned, difficulty);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -50,10 +59,14 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     }
 
     await originalHandleSubmit(event);
+  };
+
+  useEffect(() => {
+    if (!signedPoWEvent) return;
 
     setPollOptions(["", ""]);
     setComment("");
-  };
+  }, [signedPoWEvent]);
 
   return (
     <form name="post" method="post" encType="multipart/form-data" onSubmit={handleSubmit}>
@@ -121,11 +134,17 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           difficulty={difficulty}
           hashrate={hashrate}
           bestPow={bestPow}
+          status={submitStatus}
           className="text-right"
         />
+        {submitError && <p className="text-danger text-meta text-right">{submitError}</p>}
+        {submitStatus === "published" && acceptedRelays.length > 0 && (
+          <p className="text-meta text-secondary text-right">
+            posted to {acceptedRelays.length} relay{acceptedRelays.length === 1 ? "" : "s"}
+          </p>
+        )}
         {signedPoWEvent && <PostCard event={signedPoWEvent} replies={[]} />}
       </div>
-      <div id="postFormError" className="text-danger text-meta" />
     </form>
   );
 }
