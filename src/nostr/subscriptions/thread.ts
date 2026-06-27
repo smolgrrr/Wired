@@ -2,14 +2,11 @@ import { getRegistry, THREAD_RELAYS } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import { composeSubHandle } from "./utils";
 
-export const getThreadRelayUrls = (): string[] => THREAD_RELAYS;
-
 export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
   const registry = getRegistry();
   const children: SubHandle[] = [];
   let replyHandle: SubHandle | null = null;
   const replies = new Set<string>([eventId]);
-  const relayUrls = getThreadRelayUrls();
 
   const refreshReplySubscription = () => {
     replyHandle?.close();
@@ -19,7 +16,7 @@ export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
           "#e": Array.from(replies),
           kinds: [1],
         },
-        relayUrls,
+        relayUrls: THREAD_RELAYS,
         cb: (evt, relay) => {
           const isNew = !replies.has(evt.id);
           if (isNew) {
@@ -42,7 +39,7 @@ export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
           kinds: [1, 1068],
           limit: 1,
         },
-        relayUrls,
+        relayUrls: THREAD_RELAYS,
         cb: onEvent,
         closeOnEose: true,
       },

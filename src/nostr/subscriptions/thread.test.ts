@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { DEFAULT_RELAYS, ENRICHMENT_RELAYS } from "../../config";
+import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
 
 const subscribeMock = vi.fn();
 
@@ -7,12 +7,12 @@ vi.mock("../client", () => ({
   getRegistry: () => ({
     subscribe: subscribeMock,
   }),
-  THREAD_RELAYS: [...new Set([...DEFAULT_RELAYS, ...ENRICHMENT_RELAYS])],
+  THREAD_RELAYS: [...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS])],
 }));
 
-import { getThreadRelayUrls, subNote } from "./thread";
+import { subNote } from "./thread";
 
-const expectedRelays = [...new Set([...DEFAULT_RELAYS, ...ENRICHMENT_RELAYS])];
+const expectedRelays = [...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS])];
 
 describe("subNote", () => {
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe("subNote", () => {
     subscribeMock.mockImplementation(() => ({ id: "1", close: vi.fn() }));
   });
 
-  it("subscribes to the OP and replies on default and enrichment relays", () => {
+  it("subscribes to the OP and replies on default and fallback relays", () => {
     subNote("1".repeat(64), vi.fn());
 
     expect(subscribeMock).toHaveBeenCalledTimes(2);
@@ -34,9 +34,5 @@ describe("subNote", () => {
       "#e": ["1".repeat(64)],
       kinds: [1],
     });
-  });
-
-  it("exposes thread relay selection for lookup subscriptions", () => {
-    expect(getThreadRelayUrls()).toEqual(expectedRelays);
   });
 });
