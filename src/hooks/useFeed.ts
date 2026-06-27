@@ -8,7 +8,7 @@ import { seedProfiles } from "../shared/hooks/useProfiles";
 import {
   canUseFeedBootstrap,
   eventsFromProcessed,
-  type FeedBootstrapResponse,
+  fetchFeedBootstrapSnapshot,
 } from "../shared/lib/feedBootstrapClient";
 
 function mergeNoteEvents(bootstrapEvents: Event[], liveEvents: Event[]): Event[] {
@@ -31,11 +31,7 @@ export function useFeed() {
 
     let cancelled = false;
 
-    void fetch("/api/feed/bootstrap")
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return response.json() as Promise<FeedBootstrapResponse>;
-      })
+    void fetchFeedBootstrapSnapshot()
       .then((snapshot) => {
         if (cancelled || !snapshot) return;
         setBootstrapEvents(eventsFromProcessed(snapshot.processedEvents));

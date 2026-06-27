@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Event } from "nostr-tools";
 import { subNotesOnce } from "../nostr/subscriptions";
 import { toProcessedEvents } from "../nostr/processEvents";
 import { uniqBy } from "@lib/collections";
