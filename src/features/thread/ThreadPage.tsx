@@ -8,6 +8,7 @@ import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
 import { ThreadComposer } from "../compose/ThreadComposer";
 import { useInfiniteScroll } from "../../shared/hooks/useInfiniteScroll";
 import { useThreadViewModel } from "../../hooks/useThreadViewModel";
+import { isThreadDescendant } from "@lib/threadVisibility";
 
 function decodeNoteId(id: string | undefined): string | null {
   if (!id) return null;
@@ -69,7 +70,7 @@ function ThreadView({ hexID }: { hexID: string }) {
             .filter(
               (event) =>
                 (showAllReplies || Math.log2(event.totalWork) > 10) &&
-                event.postEvent.tags.some((tag) => tag[0] === "e" && tag[1] === opEvent.id),
+                isThreadDescendant(event.postEvent, opEvent.id, eventsById),
             )
             .map((event) => (
               <PostCard
