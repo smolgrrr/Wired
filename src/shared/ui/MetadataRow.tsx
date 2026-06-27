@@ -9,7 +9,6 @@ type MetadataRowProps = {
   replySignal?: number;
   replyCount: number;
   timestamp: string;
-  repostSignal?: number;
   onOpenThread?: () => void;
   forceSecondary?: boolean;
   avatarPriority?: boolean;
@@ -21,23 +20,17 @@ function formatTelemetry({
   replySignal = 0,
   replyCount,
   timestamp,
-  repostSignal,
 }: {
   authorLabel: string;
   signal: number;
   replySignal?: number;
   replyCount: number;
   timestamp: string;
-  repostSignal?: number;
 }) {
   const parts: string[] = [authorLabel];
 
   if (signal > 0) {
     parts.push(`signal ${signal}`);
-  }
-
-  if (repostSignal && repostSignal > 0) {
-    parts.push(`signal +${repostSignal}`);
   }
 
   const replyLabel = `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`;
@@ -58,7 +51,6 @@ export function MetadataRow({
   replySignal = 0,
   replyCount,
   timestamp,
-  repostSignal,
   onOpenThread,
   forceSecondary = false,
   avatarPriority = false,
@@ -72,7 +64,6 @@ export function MetadataRow({
     replySignal,
     replyCount,
     timestamp,
-    repostSignal,
   });
 
   const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {

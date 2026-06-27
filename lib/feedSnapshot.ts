@@ -10,7 +10,6 @@ import {
 } from "./feedBootstrap.js";
 import { processFeedEvents } from "../src/nostr/processEvents.js";
 import type { ProcessedEvent } from "../src/nostr/types.js";
-import { parseRepost } from "../src/nostr/processing/repost.js";
 import { isRootNote } from "../src/shared/lib/noteEvents.js";
 import {
   parseProfileEvent,
@@ -40,14 +39,6 @@ export type FeedSnapshotOptions = {
 const trackRootNote = (notes: Set<string>, evt: Event) => {
   if (isRootNote(evt)) {
     notes.add(evt.id);
-    return;
-  }
-
-  if (evt.kind === 6) {
-    const reposted = parseRepost(evt);
-    if (reposted?.kind === 1) {
-      notes.add(reposted.id);
-    }
   }
 };
 
@@ -153,7 +144,7 @@ async function fetchGlobalFeedEvents(
 
     const rootEvents = await subscribeOnce(
       relays,
-      { kinds: [1, 6, 1068], since, limit: 500 },
+      { kinds: [1, 1068], since, limit: 500 },
       timeoutMs,
     );
 
@@ -226,10 +217,7 @@ function pubkeysFromProcessedEvents(processedEvents: ProcessedEvent[]): string[]
   const pubkeys = new Set<string>();
 
   processedEvents.forEach((processed) => {
-    const displayed = parseRepost(processed.postEvent);
-    if (displayed?.pubkey) {
-      pubkeys.add(displayed.pubkey);
-    }
+    pubkeys.add(processed.postEvent.pubkey);
   });
 
   return [...pubkeys];
@@ -255,4 +243,3 @@ export async function fetchFeedSnapshot(
     profiles,
   };
 }
-

@@ -6,5 +6,5 @@ export const isRootNote = (event: Event): boolean =>
 
 export const filterNoteEvents = (events: Event[]): Event[] =>
   uniqBy(events, "id").filter(
-    (event) => event.kind === 1 || event.kind === 6 || event.kind === 1068,
+    (event) => event.kind === 1 || event.kind === 1068,
   );
