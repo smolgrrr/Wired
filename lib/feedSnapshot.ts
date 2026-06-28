@@ -8,6 +8,12 @@ import {
   BOOTSTRAP_AGE_HOURS,
   BOOTSTRAP_FILTER_DIFFICULTY,
 } from "./feedBootstrap.js";
+import {
+  buildReplyFilter,
+  clampReplyDepth,
+  profileQueryLimit,
+  sinceFromAgeHours,
+} from "../src/nostr/subscriptions/query-limits.js";
 import { processFeedEvents } from "../src/nostr/processEvents.js";
 import type { ProcessedEvent } from "../src/nostr/types.js";
 import { isRootNote } from "../src/shared/lib/noteEvents.js";
@@ -140,8 +146,7 @@ async function fetchGlobalFeedEvents(
 
   try {
     const notes = new Set<string>();
-    const now = Math.floor(Date.now() / 1000);
-    const since = now - ageHours * 60 * 60;
+    const since = sinceFromAgeHours(ageHours);
 
     const rootEvents = await subscribeOnce(
       relays,
@@ -160,10 +165,14 @@ async function fetchGlobalFeedEvents(
     const seenReplyIds = new Set<string>();
     let parentIds = [...notes];
 
-    for (let depth = 0; depth < REPLY_FETCH_DEPTH && parentIds.length > 0; depth += 1) {
+    const replyDepth = clampReplyDepth(REPLY_FETCH_DEPTH);
+    for (let depth = 0; depth < replyDepth && parentIds.length > 0; depth += 1) {
+      const replyFilter = buildReplyFilter(parentIds, since);
+      if (!replyFilter) break;
+
       const nextReplies = await subscribeOnce(
         relays,
-        { "#e": parentIds, kinds: [1] },
+        replyFilter,
         timeoutMs,
         REPLY_RELAYS,
       );
@@ -204,7 +213,11 @@ async function fetchProfileMetadata(
   try {
     const events = await subscribeOnce(
       relays,
-      { authors: pubkeys, kinds: [0] },
+      {
+        authors: pubkeys,
+        kinds: [0],
+        limit: profileQueryLimit(pubkeys.length),
+      },
       timeoutMs,
       PROFILE_RELAYS,
     );
