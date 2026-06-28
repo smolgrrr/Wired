@@ -5,7 +5,9 @@ import { processFeedEvents } from "../nostr/processEvents";
 import { useSettings } from "../app/settings";
 import { POW_RELAYS, THREAD_RELAYS } from "../config";
 import { useFilteredNoteSubscription } from "../shared/hooks/useFilteredNoteSubscription";
+import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { seedProfiles } from "../shared/hooks/useProfiles";
+import { filterModeratedEvents } from "../shared/lib/moderation";
 import {
   canUseFeedBootstrap,
   eventsFromProcessed,
@@ -26,6 +28,7 @@ function mergeNoteEvents(...eventGroups: Event[][]): Event[] {
 
 export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   const { settings } = useSettings();
+  const moderationManifest = useModerationManifest();
   const isRawMode = mode === "raw";
   const rawFilterDifficulty = isRawMode ? settings.filterDifficulty : undefined;
   const bootstrapEligible = !isRawMode && canUseFeedBootstrap(settings);
@@ -78,7 +81,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
           replyDepth: FEED_REPLY_DEPTH,
         },
       ),
-    [isRawMode, rawFilterDifficulty, settings.ageHours],
+    [rawFilterDifficulty, settings.ageHours],
   );
 
   const liveEvents = useFilteredNoteSubscription(subscribe, [
@@ -108,10 +111,14 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     () => mergeNoteEvents(bootstrapEvents, liveEvents, bootstrapReplyEvents),
     [bootstrapEvents, liveEvents, bootstrapReplyEvents],
   );
+  const visibleNoteEvents = useMemo(
+    () => filterModeratedEvents(noteEvents, moderationManifest),
+    [noteEvents, moderationManifest],
+  );
   const processedEvents = useMemo(
-    () => processFeedEvents(noteEvents, settings.filterDifficulty),
-    [noteEvents, settings.filterDifficulty],
+    () => processFeedEvents(visibleNoteEvents, settings.filterDifficulty),
+    [visibleNoteEvents, settings.filterDifficulty],
   );
 
-  return { processedEvents, noteEvents };
+  return { processedEvents, noteEvents: visibleNoteEvents };
 }

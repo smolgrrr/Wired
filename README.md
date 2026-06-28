@@ -38,6 +38,12 @@ Optional feed snapshot bootstrap:
 - The client tries that snapshot first, falls back to `/api/feed/bootstrap`, then falls back to live Nostr relay subscriptions if both bootstrap sources fail.
 - The snapshot response should match `/api/feed/bootstrap`: `{ "fetchedAt": number, "processedEvents": [], "profiles": {} }`.
 
+Optional moderation filtering:
+
+- Set `VITE_MODERATION_MANIFEST_URL` to the public manifest endpoint exposed by the Wired relay app, for example `https://relay.wiredsignal.online/api/moderation/manifest`.
+- The web client only consumes the manifest for client-side filtering. Moderation management and admin actions stay in the local Umbrel relay app and are not part of this Vercel deployment.
+- If the manifest URL is unset or unavailable, moderation filtering fails open and the feed continues to use snapshots/live relays.
+
 Run a durable local snapshot origin:
 
 ```sh
