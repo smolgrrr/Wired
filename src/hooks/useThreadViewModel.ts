@@ -4,15 +4,18 @@ import { toProcessedEvents } from "../nostr/processEvents";
 import { uniqBy } from "@lib/collections";
 import { useThreadEvents } from "./useThreadEvents";
 import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
+import { useModerationManifest } from "../shared/hooks/useModerationManifest";
+import { filterModeratedEvents } from "../shared/lib/moderation";
 
 export function useThreadViewModel(hexID: string) {
   const [showAllReplies, setShowAllReplies] = useState(true);
+  const moderationManifest = useModerationManifest();
   const { noteEvents } = useThreadEvents(hexID);
 
   const allEvents = useMemo(() => {
     const threadCache = JSON.parse(sessionStorage.getItem("cachedThread") || "[]");
-    return [...noteEvents, ...threadCache];
-  }, [noteEvents]);
+    return filterModeratedEvents([...noteEvents, ...threadCache], moderationManifest);
+  }, [noteEvents, moderationManifest]);
 
   const eventsById = useMemo(
     () => new Map(allEvents.map((event) => [event.id, event])),
@@ -38,7 +41,8 @@ export function useThreadViewModel(hexID: string) {
   const replyEvents = useMemo(() => {
     if (!opEvent) return [];
 
-    const uniqMentions = uniqBy(prevMentions, "id");
+    const visibleMentions = filterModeratedEvents(prevMentions, moderationManifest);
+    const uniqMentions = uniqBy(visibleMentions, "id");
     const earlierIds = new Set(
       uniqMentions
         .filter((e) => e.created_at < opEvent.created_at)
@@ -48,19 +52,25 @@ export function useThreadViewModel(hexID: string) {
       (event) => !earlierIds.has(event.id) && opEvent.id !== event.id,
     );
 
-    return toProcessedEvents(posts, noteEvents);
-  }, [opEvent, prevMentions, allEvents, noteEvents]);
+    return toProcessedEvents(
+      posts,
+      filterModeratedEvents(noteEvents, moderationManifest),
+    );
+  }, [opEvent, prevMentions, allEvents, noteEvents, moderationManifest]);
 
   const earlierEvents = useMemo(() => {
     if (!opEvent) return [];
 
-    return uniqBy(prevMentions, "id")
+    return uniqBy(filterModeratedEvents(prevMentions, moderationManifest), "id")
       .filter((e) => e.created_at < opEvent.created_at)
       .filter((event) => event.kind === 1)
       .sort((a, b) => a.created_at - b.created_at);
-  }, [opEvent, prevMentions]);
+  }, [opEvent, prevMentions, moderationManifest]);
 
-  const uniqMentions = useMemo(() => uniqBy(prevMentions, "id"), [prevMentions]);
+  const uniqMentions = useMemo(
+    () => uniqBy(filterModeratedEvents(prevMentions, moderationManifest), "id"),
+    [prevMentions, moderationManifest],
+  );
 
   return {
     opEvent,
