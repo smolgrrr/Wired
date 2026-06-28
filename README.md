@@ -38,6 +38,12 @@ Optional feed snapshot bootstrap:
 - The client tries that snapshot first, falls back to `/api/feed/bootstrap`, then falls back to live Nostr relay subscriptions if both bootstrap sources fail.
 - The snapshot response should match `/api/feed/bootstrap`: `{ "fetchedAt": number, "processedEvents": [], "profiles": {} }`.
 
+Optional relay configuration:
+
+- Set `VITE_POW_RELAYS` to a comma-separated list of public PoW relay WebSocket URLs, for example `wss://relay.wiredsignal.online`.
+- Set `VITE_ENRICHMENT_RELAYS` to a comma-separated list of read/enrichment relay WebSocket URLs if the defaults should be replaced.
+- If unset, the client uses the built-in relay defaults.
+
 Optional moderation filtering:
 
 - Set `VITE_MODERATION_MANIFEST_URL` to the public manifest endpoint exposed by the Wired relay app, for example `https://relay.wiredsignal.online/api/moderation/manifest`.
