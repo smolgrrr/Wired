@@ -29,6 +29,26 @@ export function buildRepliesByParent(events: Event[]): Map<string, Event[]> {
   return repliesByParent;
 }
 
+export function collectThreadReplies(
+  rootId: string,
+  repliesByParent: Map<string, Event[]>,
+): Event[] {
+  const replies: Event[] = [];
+  const seen = new Set<string>();
+  const pending = [...(repliesByParent.get(rootId) ?? [])];
+
+  while (pending.length > 0) {
+    const reply = pending.shift();
+    if (!reply || seen.has(reply.id)) continue;
+
+    seen.add(reply.id);
+    replies.push(reply);
+    pending.push(...(repliesByParent.get(reply.id) ?? []));
+  }
+
+  return replies;
+}
+
 export function toProcessedEvents(
   posts: Event[],
   replySource: Event[],
@@ -41,6 +61,7 @@ export function toProcessedEvents(
       return {
         postEvent,
         replies,
+        threadReplyCount: replies.length,
         ...workScoreBreakdown(postEvent, replies),
       };
     })
@@ -64,10 +85,11 @@ export const processFeedEvents = (events: Event[], filterDifficulty = 0): Proces
 
   return posts
     .map((postEvent) => {
-      const replies = repliesByParent.get(postEvent.id) ?? [];
+      const replies = collectThreadReplies(postEvent.id, repliesByParent);
       return {
         postEvent,
         replies,
+        threadReplyCount: replies.length,
         ...workScoreBreakdown(postEvent, replies, {
           minReplyDifficulty: filterDifficulty,
         }),

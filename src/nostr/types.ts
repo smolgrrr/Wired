@@ -7,6 +7,7 @@ export type ProcessedEvent = {
   rootWork?: number;
   replyWork?: number;
   rankingReplyCount?: number;
+  threadReplyCount?: number;
 };
 
 export type SubCallback = (event: Event, relay: string) => void;

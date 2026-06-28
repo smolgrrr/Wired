@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Event } from "nostr-tools";
 import {
+  collectThreadReplies,
   compareProcessedEventsByWork,
   processFeedEvents,
   toProcessedEvents,
@@ -55,6 +56,38 @@ describe("processFeedEvents", () => {
     expect(result).toHaveLength(1);
     expect(result[0].postEvent.id).toBe(root.id);
     expect(result[0].replies).toEqual([reply]);
+    expect(result[0].threadReplyCount).toBe(1);
+  });
+
+  it("includes nested thread replies in feed reply count and total work", () => {
+    const root = event({
+      id: "1".repeat(64),
+      pubkey: "1".repeat(64),
+      tags: [["nonce", "root", "16"]],
+    });
+    const directReply = event({
+      id: "2".repeat(64),
+      pubkey: "2".repeat(64),
+      tags: [["e", root.id], ["nonce", "direct", "16"]],
+    });
+    const nestedReply = event({
+      id: "3".repeat(64),
+      pubkey: "3".repeat(64),
+      tags: [["e", directReply.id], ["nonce", "nested", "16"]],
+    });
+
+    const result = processFeedEvents([root, directReply, nestedReply], 16);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].replies.map((reply) => reply.id)).toEqual([
+      directReply.id,
+      nestedReply.id,
+    ]);
+    expect(result[0]).toMatchObject({
+      threadReplyCount: 2,
+      replyWork: Math.pow(2, 17),
+      rankingReplyCount: 2,
+    });
   });
 
   it("ignores plain repost events", () => {
@@ -136,6 +169,29 @@ describe("processFeedEvents", () => {
       replyWork: Math.pow(2, 20),
       rankingReplyCount: 16,
     });
+  });
+});
+
+describe("collectThreadReplies", () => {
+  it("deduplicates replies that tag both root and parent", () => {
+    const root = event({ id: "1".repeat(64) });
+    const directReply = event({
+      id: "2".repeat(64),
+      tags: [["e", root.id]],
+    });
+    const nestedReply = event({
+      id: "3".repeat(64),
+      tags: [["e", root.id], ["e", directReply.id]],
+    });
+    const repliesByParent = new Map([
+      [root.id, [directReply, nestedReply]],
+      [directReply.id, [nestedReply]],
+    ]);
+
+    expect(collectThreadReplies(root.id, repliesByParent).map((reply) => reply.id)).toEqual([
+      directReply.id,
+      nestedReply.id,
+    ]);
   });
 });
 

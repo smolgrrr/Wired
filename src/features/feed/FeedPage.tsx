@@ -62,6 +62,8 @@ export default function FeedPage() {
               key={event.postEvent.id}
               event={event.postEvent}
               replies={event.replies}
+              totalWork={event.totalWork}
+              replyCount={event.threadReplyCount}
               animate={shouldResolve}
               animationIndex={index - SKIP_RESOLVE_COUNT}
               fadeIn={shouldFadeIn}
