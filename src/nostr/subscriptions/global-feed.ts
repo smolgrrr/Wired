@@ -4,6 +4,11 @@ import { getRegistry } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import { composeSubHandle } from "./utils";
 import { verifyPow } from "../../shared/pow/core";
+import {
+  buildReplyFilter,
+  clampReplyDepth,
+  sinceFromAgeHours,
+} from "./query-limits";
 
 type GlobalFeedOptions = {
   rootRelayUrls?: readonly string[];
@@ -41,19 +46,19 @@ const subRepliesForParents = (
   onEvent: SubCallback,
   relayUrls: readonly string[] | undefined,
   depth: number,
+  since: number,
   children: SubHandle[],
 ) => {
   if (parentIds.length === 0 || depth <= 0) return;
 
   const childReplyIds = new Set<string>();
+  const filter = buildReplyFilter(parentIds, since);
+  if (!filter) return;
 
   children.push(
     getRegistry().subscribe([
       {
-        filter: {
-          "#e": parentIds,
-          kinds: [1],
-        },
+        filter,
         relayUrls: relayUrls ? [...relayUrls] : undefined,
         cb: (evt, relay) => {
           childReplyIds.add(evt.id);
@@ -66,6 +71,7 @@ const subRepliesForParents = (
             onEvent,
             relayUrls,
             depth - 1,
+            since,
             children,
           );
         },
@@ -80,6 +86,7 @@ export const subRepliesForRootIds = (
   options: {
     relayUrls?: readonly string[];
     depth?: number;
+    since?: number;
   } = {},
 ): SubHandle => {
   const children: SubHandle[] = [];
@@ -87,7 +94,8 @@ export const subRepliesForRootIds = (
     rootIds,
     onEvent,
     options.relayUrls,
-    options.depth ?? 1,
+    clampReplyDepth(options.depth ?? 1),
+    options.since ?? sinceFromAgeHours(24),
     children,
   );
 
@@ -104,8 +112,8 @@ export const subGlobalFeed = (
   const notes = new Set<string>();
   const seenPubkeys = new Set<string>();
   const now = Math.floor(Date.now() / 1000);
-  const since = now - ageHours * 60 * 60;
-  const replyDepth = options.replyDepth ?? 1;
+  const since = sinceFromAgeHours(ageHours, now);
+  const replyDepth = clampReplyDepth(options.replyDepth ?? 1);
 
   children.push(
     registry.subscribe([
@@ -143,6 +151,7 @@ export const subGlobalFeed = (
             onEvent,
             options.replyRelayUrls,
             replyDepth,
+            since,
             children,
           );
         },

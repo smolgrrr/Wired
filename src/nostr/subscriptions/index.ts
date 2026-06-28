@@ -9,6 +9,7 @@ import {
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
 import { emptySubHandle } from "./utils";
+import { profileQueryLimit } from "./query-limits";
 
 export type { SubCallback, SubHandle };
 
@@ -67,6 +68,7 @@ export async function subProfilesOnce(
       filter: {
         authors: pubkeys,
         kinds: [0],
+        limit: profileQueryLimit(pubkeys.length),
       },
       cb: onEvent,
       closeOnEose: true,

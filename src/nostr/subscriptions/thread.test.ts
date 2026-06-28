@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { THREAD_RELAYS } from "../../config";
+import { REPLY_QUERY_LIMIT } from "./query-limits";
 
 const subscribeMock = vi.fn();
 
@@ -33,6 +34,8 @@ describe("subNote", () => {
     expect(replyRequest.filter).toMatchObject({
       "#e": ["1".repeat(64)],
       kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
     });
+    expect(replyRequest.filter.since).toBeUndefined();
   });
 });

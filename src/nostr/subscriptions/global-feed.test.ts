@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Event } from "nostr-tools";
 import type { SubCallback } from "../types";
+import {
+  MAX_REPLY_FETCH_DEPTH,
+  MAX_REPLY_PARENT_IDS,
+  REPLY_QUERY_LIMIT,
+} from "./query-limits";
 
 const subscribeMock = vi.fn();
 
@@ -55,6 +60,8 @@ describe("subGlobalFeed", () => {
     expect(replyRequest.filter).toMatchObject({
       "#e": ["1".repeat(64)],
       kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+      since: expect.any(Number),
     });
     expect(replyRequest.closeOnEose).toBe(true);
   });
@@ -114,6 +121,8 @@ describe("subGlobalFeed", () => {
     expect(replyRequest.filter).toMatchObject({
       "#e": [rootId],
       kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+      since: expect.any(Number),
     });
     expect(replyRequest.relayUrls).toEqual(enrichmentRelays);
 
@@ -121,6 +130,8 @@ describe("subGlobalFeed", () => {
     expect(nestedReplyRequest.filter).toMatchObject({
       "#e": [replyId],
       kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+      since: expect.any(Number),
     });
     expect(nestedReplyRequest.relayUrls).toEqual(enrichmentRelays);
   });
@@ -153,6 +164,8 @@ describe("subGlobalFeed", () => {
     expect(replyRequest.filter).toMatchObject({
       "#e": [rootId],
       kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+      since: expect.any(Number),
     });
     expect(replyRequest.relayUrls).toEqual(enrichmentRelays);
 
@@ -160,6 +173,35 @@ describe("subGlobalFeed", () => {
     expect(nestedReplyRequest.filter).toMatchObject({
       "#e": [replyId],
       kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+      since: expect.any(Number),
+    });
+  });
+
+  it("caps reply parent ids and requested depth", () => {
+    const rootIds = Array.from({ length: MAX_REPLY_PARENT_IDS + 10 }, (_, index) =>
+      String(index).padStart(64, "0"),
+    );
+
+    subscribeMock.mockImplementation((requests) => {
+      const id = String(subscribeMock.mock.calls.length);
+      if (Number(id) <= MAX_REPLY_FETCH_DEPTH) {
+        const { cb, onEose } = requests[0];
+        cb(rootNote(String(Number(id)).repeat(64)), "wss://relay.damus.io");
+        onEose?.();
+      }
+      return { id, close: vi.fn() };
+    });
+
+    subRepliesForRootIds(rootIds, vi.fn(), { depth: MAX_REPLY_FETCH_DEPTH + 3 });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(MAX_REPLY_FETCH_DEPTH);
+    const firstReplyRequest = subscribeMock.mock.calls[0][0][0];
+    expect(firstReplyRequest.filter["#e"]).toHaveLength(MAX_REPLY_PARENT_IDS);
+    expect(firstReplyRequest.filter).toMatchObject({
+      kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+      since: expect.any(Number),
     });
   });
 });
