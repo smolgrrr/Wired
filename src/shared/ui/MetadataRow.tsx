@@ -6,7 +6,6 @@ import { SignalAvatar } from "./SignalAvatar";
 type MetadataRowProps = {
   pubkey: string;
   signal: number;
-  replySignal?: number;
   replyCount: number;
   timestamp: string;
   onOpenThread?: () => void;
@@ -17,13 +16,11 @@ type MetadataRowProps = {
 function formatTelemetry({
   authorLabel,
   signal,
-  replySignal = 0,
   replyCount,
   timestamp,
 }: {
   authorLabel: string;
   signal: number;
-  replySignal?: number;
   replyCount: number;
   timestamp: string;
 }) {
@@ -34,11 +31,7 @@ function formatTelemetry({
   }
 
   const replyLabel = `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`;
-  parts.push(
-    replySignal > 0
-      ? `${replyLabel} · signal ${Math.round(replySignal)}`
-      : replyLabel,
-  );
+  parts.push(replyLabel);
 
   parts.push(timestamp);
 
@@ -48,7 +41,6 @@ function formatTelemetry({
 export function MetadataRow({
   pubkey,
   signal,
-  replySignal = 0,
   replyCount,
   timestamp,
   onOpenThread,
@@ -61,7 +53,6 @@ export function MetadataRow({
   const telemetry = formatTelemetry({
     authorLabel,
     signal,
-    replySignal,
     replyCount,
     timestamp,
   });

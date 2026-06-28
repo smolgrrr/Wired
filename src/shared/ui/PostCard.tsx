@@ -1,7 +1,6 @@
 import { Event, nip19 } from "nostr-tools";
 import { timeAgo } from "@lib/timeFormat";
 import { verifyPow } from "../../shared/pow/core";
-import { replyEquivalentDifficulty } from "../../nostr/processing/pow-score";
 import { uniqBy } from "@lib/collections";
 import { getDisplayName } from "@lib/profile";
 import { TextContent } from "./TextContent";
@@ -54,12 +53,10 @@ export function PostCard({
   const navigate = useNavigate();
 
   const relatedEvents = useMemo(() => [event, ...(replies || [])], [event, replies]);
-  const replySumPow = useMemo(() => replyEquivalentDifficulty(replies), [replies]);
   const authorLabel = getDisplayName(undefined, event.pubkey);
 
   const signal = totalWork ? Math.floor(Math.log2(totalWork)) : verifyPow(event);
   const displayedReplyCount = replyCount ?? replies.length;
-  const displayedReplySignal = totalWork ? undefined : replySumPow;
   const timestamp = timeAgo(event.created_at);
   const isNavigable = role !== "threadOp";
 
@@ -95,7 +92,6 @@ export function PostCard({
       <MetadataRow
         pubkey={event.pubkey}
         signal={signal}
-        replySignal={displayedReplySignal}
         replyCount={displayedReplyCount}
         timestamp={timestamp}
         onOpenThread={isNavigable ? handleNavigate : undefined}
