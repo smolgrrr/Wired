@@ -10,7 +10,7 @@ vi.mock("../client", () => ({
   }),
 }));
 
-import { subGlobalFeed } from "./global-feed";
+import { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
 
 const rootNote = (id: string): Event => ({
   id,
@@ -123,5 +123,43 @@ describe("subGlobalFeed", () => {
       kinds: [1],
     });
     expect(nestedReplyRequest.relayUrls).toEqual(enrichmentRelays);
+  });
+
+  it("can enrich replies for known root ids", () => {
+    const rootId = `${"1".repeat(64)}`;
+    const replyId = `${"2".repeat(64)}`;
+    const enrichmentRelays = ["wss://relay.damus.io"];
+
+    subscribeMock.mockImplementation((requests) => {
+      const id = String(subscribeMock.mock.calls.length);
+
+      if (id === "1") {
+        const { cb, onEose } = requests[0];
+        cb(rootNote(replyId), enrichmentRelays[0]);
+        onEose?.();
+      }
+
+      return { id, close: vi.fn() };
+    });
+
+    subRepliesForRootIds([rootId], vi.fn(), {
+      relayUrls: enrichmentRelays,
+      depth: 2,
+    });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+
+    const replyRequest = subscribeMock.mock.calls[0][0][0];
+    expect(replyRequest.filter).toMatchObject({
+      "#e": [rootId],
+      kinds: [1],
+    });
+    expect(replyRequest.relayUrls).toEqual(enrichmentRelays);
+
+    const nestedReplyRequest = subscribeMock.mock.calls[1][0][0];
+    expect(nestedReplyRequest.filter).toMatchObject({
+      "#e": [replyId],
+      kinds: [1],
+    });
   });
 });

@@ -1,8 +1,8 @@
 import { Relay, type Event, type Filter, useWebSocketImplementation } from "nostr-tools";
 import { WebSocket } from "ws";
 import {
-  DEFAULT_RELAYS,
-  QUOTE_FALLBACK_RELAYS,
+  POW_RELAYS,
+  THREAD_RELAYS,
 } from "../src/config.js";
 import {
   BOOTSTRAP_AGE_HOURS,
@@ -18,13 +18,9 @@ import {
 
 useWebSocketImplementation(WebSocket);
 
-const PROFILE_RELAYS = [
-  ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
-] as string[];
-const FEED_SNAPSHOT_RELAYS = [
-  ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
-] as string[];
-const REPLY_RELAYS = FEED_SNAPSHOT_RELAYS;
+const PROFILE_RELAYS = [...THREAD_RELAYS];
+const FEED_SNAPSHOT_RELAYS = [...THREAD_RELAYS];
+const REPLY_RELAYS = [...THREAD_RELAYS];
 
 const DEFAULT_TIMEOUT_MS = 12_000;
 const REPLY_FETCH_DEPTH = 3;
@@ -151,7 +147,7 @@ async function fetchGlobalFeedEvents(
       relays,
       { kinds: [1, 1068], since, limit: 500 },
       timeoutMs,
-      [...DEFAULT_RELAYS],
+      [...POW_RELAYS],
     );
 
     rootEvents.forEach((event) => trackRootNote(notes, event));

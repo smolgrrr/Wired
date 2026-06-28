@@ -74,6 +74,26 @@ const subRepliesForParents = (
   );
 };
 
+export const subRepliesForRootIds = (
+  rootIds: string[],
+  onEvent: SubCallback,
+  options: {
+    relayUrls?: readonly string[];
+    depth?: number;
+  } = {},
+): SubHandle => {
+  const children: SubHandle[] = [];
+  subRepliesForParents(
+    rootIds,
+    onEvent,
+    options.relayUrls,
+    options.depth ?? 1,
+    children,
+  );
+
+  return composeSubHandle("feed-replies", children);
+};
+
 export const subGlobalFeed = (
   onEvent: SubCallback,
   ageHours: number,

@@ -1,17 +1,19 @@
 import type { Event } from "nostr-tools";
-import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../config";
+import {
+  ENRICHMENT_RELAYS,
+  POW_RELAYS,
+  THREAD_RELAYS as CONFIG_THREAD_RELAYS,
+} from "../config";
 import { RelayPool } from "./relay-pool";
 import { SubscriptionRegistry } from "./subscription-registry";
+
+export { THREAD_RELAYS } from "../config";
 
 let pool: RelayPool | null = null;
 let registry: SubscriptionRegistry | null = null;
 let connectPromise: Promise<void> | null = null;
 
-export const THREAD_RELAYS = [
-  ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
-] as string[];
-
-export const PROFILE_RELAYS = THREAD_RELAYS;
+export const PROFILE_RELAYS = [...CONFIG_THREAD_RELAYS];
 
 function ensureNostrClient(): void {
   if (!pool) {
@@ -28,8 +30,8 @@ export function initNostr(): Promise<void> {
 
   if (!connectPromise) {
     connectPromise = Promise.all([
-      pool.connect(DEFAULT_RELAYS),
-      pool.ensureConnected(QUOTE_FALLBACK_RELAYS),
+      pool.connect(POW_RELAYS),
+      pool.ensureConnected(ENRICHMENT_RELAYS),
     ]).then(() => {});
   }
 

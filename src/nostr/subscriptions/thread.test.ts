@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
+import { THREAD_RELAYS } from "../../config";
 
 const subscribeMock = vi.fn();
 
@@ -7,12 +7,12 @@ vi.mock("../client", () => ({
   getRegistry: () => ({
     subscribe: subscribeMock,
   }),
-  THREAD_RELAYS: [...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS])],
+  THREAD_RELAYS,
 }));
 
 import { subNote } from "./thread";
 
-const expectedRelays = [...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS])];
+const expectedRelays = [...THREAD_RELAYS];
 
 describe("subNote", () => {
   beforeEach(() => {
