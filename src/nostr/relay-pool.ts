@@ -3,7 +3,7 @@ import type { SubCallback } from "./types";
 
 export type SubscribeOptions = {
   closeOnEose?: boolean;
-  relayUrls?: string[];
+  relayUrls?: readonly string[];
   onEose?: () => void;
 };
 

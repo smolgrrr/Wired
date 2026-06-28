@@ -9,6 +9,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/" element={<FeedPage />} />
+      <Route path="/raw" element={<FeedPage mode="raw" />} />
       <Route path="/thread/:id" element={<ThreadPage />} />
       <Route path="/notifications" element={<NotificationsPage />} />
     </Routes>

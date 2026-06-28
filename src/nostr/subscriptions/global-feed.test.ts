@@ -10,7 +10,7 @@ vi.mock("../client", () => ({
   }),
 }));
 
-import { subGlobalFeed } from "./global-feed";
+import { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
 
 const rootNote = (id: string): Event => ({
   id,
@@ -20,6 +20,11 @@ const rootNote = (id: string): Event => ({
   tags: [],
   content: "hello",
   sig: "b".repeat(128),
+});
+
+const rootNoteFromPubkey = (id: string, pubkey: string): Event => ({
+  ...rootNote(id),
+  pubkey,
 });
 
 describe("subGlobalFeed", () => {
@@ -64,5 +69,97 @@ describe("subGlobalFeed", () => {
     subGlobalFeed(vi.fn(), 24);
 
     expect(subscribeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("can fetch PoW roots first and then enrich accepted roots from separate reply relays", () => {
+    const rootId = `${"1".repeat(64)}`;
+    const replyId = `${"2".repeat(64)}`;
+    const powRelays = ["wss://powrelay.xyz"];
+    const enrichmentRelays = ["wss://relay.damus.io"];
+
+    subscribeMock.mockImplementation((requests) => {
+      const id = String(subscribeMock.mock.calls.length);
+
+      if (id === "1") {
+        const { cb, onEose } = requests[0];
+        cb(rootNoteFromPubkey(rootId, "a".repeat(64)), powRelays[0]);
+        onEose?.();
+        return { id, close: vi.fn() };
+      }
+
+      if (id === "2") {
+        const { cb, onEose } = requests[0];
+        cb(rootNote(replyId), enrichmentRelays[0]);
+        onEose?.();
+        return { id, close: vi.fn() };
+      }
+
+      return { id, close: vi.fn() };
+    });
+
+    const onEvent = vi.fn() as SubCallback;
+    subGlobalFeed(onEvent, 24, {
+      rootRelayUrls: powRelays,
+      replyRelayUrls: enrichmentRelays,
+      rootFilterDifficulty: 0,
+      replyDepth: 2,
+    });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(3);
+
+    const rootRequest = subscribeMock.mock.calls[0][0][0];
+    expect(rootRequest.relayUrls).toEqual(powRelays);
+
+    const replyRequest = subscribeMock.mock.calls[1][0][0];
+    expect(replyRequest.filter).toMatchObject({
+      "#e": [rootId],
+      kinds: [1],
+    });
+    expect(replyRequest.relayUrls).toEqual(enrichmentRelays);
+
+    const nestedReplyRequest = subscribeMock.mock.calls[2][0][0];
+    expect(nestedReplyRequest.filter).toMatchObject({
+      "#e": [replyId],
+      kinds: [1],
+    });
+    expect(nestedReplyRequest.relayUrls).toEqual(enrichmentRelays);
+  });
+
+  it("can enrich replies for known root ids", () => {
+    const rootId = `${"1".repeat(64)}`;
+    const replyId = `${"2".repeat(64)}`;
+    const enrichmentRelays = ["wss://relay.damus.io"];
+
+    subscribeMock.mockImplementation((requests) => {
+      const id = String(subscribeMock.mock.calls.length);
+
+      if (id === "1") {
+        const { cb, onEose } = requests[0];
+        cb(rootNote(replyId), enrichmentRelays[0]);
+        onEose?.();
+      }
+
+      return { id, close: vi.fn() };
+    });
+
+    subRepliesForRootIds([rootId], vi.fn(), {
+      relayUrls: enrichmentRelays,
+      depth: 2,
+    });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+
+    const replyRequest = subscribeMock.mock.calls[0][0][0];
+    expect(replyRequest.filter).toMatchObject({
+      "#e": [rootId],
+      kinds: [1],
+    });
+    expect(replyRequest.relayUrls).toEqual(enrichmentRelays);
+
+    const nestedReplyRequest = subscribeMock.mock.calls[1][0][0];
+    expect(nestedReplyRequest.filter).toMatchObject({
+      "#e": [replyId],
+      kinds: [1],
+    });
   });
 });

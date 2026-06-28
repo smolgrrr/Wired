@@ -6,7 +6,7 @@ type SubscribeRequest = {
   filter: Filter;
   cb: SubCallback;
   closeOnEose?: boolean;
-  relayUrls?: string[];
+  relayUrls?: readonly string[];
   onEose?: () => void;
 };
 

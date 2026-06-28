@@ -1,4 +1,4 @@
-import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
+import { ENRICHMENT_RELAYS, POW_RELAYS } from "../../config";
 import {
   ensureRelaysConnected,
   initNostr,
@@ -12,7 +12,7 @@ import { emptySubHandle } from "./utils";
 
 export type { SubCallback, SubHandle };
 
-export { subGlobalFeed } from "./global-feed";
+export { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
 export { subNote } from "./thread";
 export { subNotifications } from "./notifications";
 
@@ -31,7 +31,7 @@ export const subPoll = (eventId: string, onEvent: SubCallback): SubHandle =>
 export const subNotesOnce = (
   eventIds: string[],
   onEvent: SubCallback,
-  relayUrls: string[] = THREAD_RELAYS,
+  relayUrls: readonly string[] = THREAD_RELAYS,
 ): SubHandle => {
   if (eventIds.length === 0) {
     return emptySubHandle("notes-once:empty");
@@ -77,7 +77,7 @@ export async function subProfilesOnce(
 }
 
 function relayUrlsForQuote(ref: QuotedRef): string[] {
-  return [...new Set([...DEFAULT_RELAYS, ...ref.relays, ...QUOTE_FALLBACK_RELAYS])];
+  return [...new Set([...POW_RELAYS, ...ref.relays, ...ENRICHMENT_RELAYS])];
 }
 
 export async function subQuotedEventsOnce(
