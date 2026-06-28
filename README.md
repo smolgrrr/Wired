@@ -38,6 +38,20 @@ Optional feed snapshot bootstrap:
 - The client tries that snapshot first, falls back to `/api/feed/bootstrap`, then falls back to live Nostr relay subscriptions if both bootstrap sources fail.
 - The snapshot response should match `/api/feed/bootstrap`: `{ "fetchedAt": number, "processedEvents": [], "profiles": {} }`.
 
+Run a durable local snapshot origin:
+
+```sh
+npm run snapshot:serve
+```
+
+The server listens on `0.0.0.0:5192` by default, serves `/api/feed/bootstrap`, persists its latest snapshot to `.cache/feed-bootstrap.json`, and refreshes every 5 minutes. Useful environment variables:
+
+- `FEED_SNAPSHOT_PORT`: HTTP port, default `5192`
+- `FEED_SNAPSHOT_HOST`: bind host, default `0.0.0.0`
+- `FEED_SNAPSHOT_REFRESH_SECONDS`: refresh interval, default `300`
+- `FEED_SNAPSHOT_CACHE_FILE`: persisted cache path, default `.cache/feed-bootstrap.json`
+- `CRON_SECRET`: optional bearer token for `/api/cron/refresh-feed`
+
 Local production check:
 
 ```sh

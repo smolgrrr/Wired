@@ -17,6 +17,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "snapshot:serve": "vite-node scripts/feed-snapshot-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint src"
