@@ -56,6 +56,10 @@ export async function getFeedBootstrapSnapshot(): Promise<FeedBootstrapSnapshot 
     return cached;
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
   try {
     return await refreshFeedBootstrapSnapshot();
   } catch {
