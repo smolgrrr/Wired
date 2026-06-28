@@ -12,9 +12,13 @@ const INITIAL_RESOLVE_COUNT = 20;
 const RESOLVE_DURATION_MS = 600;
 const STAGGER_MS = 40;
 
-export default function FeedPage() {
+type FeedPageProps = {
+  mode?: "default" | "raw";
+};
+
+export default function FeedPage({ mode = "default" }: FeedPageProps) {
   const { settings, updateSettings } = useSettings();
-  const { processedEvents } = useFeed();
+  const { processedEvents } = useFeed({ mode });
   const visibleCount = useInfiniteScroll();
   const [resolveWindowOpen, setResolveWindowOpen] = useState(true);
 

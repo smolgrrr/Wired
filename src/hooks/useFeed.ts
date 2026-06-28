@@ -3,6 +3,7 @@ import type { Event } from "nostr-tools";
 import { subGlobalFeed } from "../nostr/subscriptions";
 import { processFeedEvents } from "../nostr/processEvents";
 import { useSettings } from "../app/settings";
+import { DEFAULT_RELAYS, QUOTE_FALLBACK_RELAYS } from "../config";
 import { useFilteredNoteSubscription } from "../shared/hooks/useFilteredNoteSubscription";
 import { seedProfiles } from "../shared/hooks/useProfiles";
 import {
@@ -11,6 +12,13 @@ import {
   fetchFeedBootstrapSnapshot,
 } from "../shared/lib/feedBootstrapClient";
 
+const RAW_REPLY_RELAYS = [
+  ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
+];
+const RAW_REPLY_DEPTH = 3;
+
+type FeedMode = "default" | "raw";
+
 function mergeNoteEvents(bootstrapEvents: Event[], liveEvents: Event[]): Event[] {
   const merged = new Map<string, Event>();
   bootstrapEvents.forEach((event) => merged.set(event.id, event));
@@ -18,9 +26,11 @@ function mergeNoteEvents(bootstrapEvents: Event[], liveEvents: Event[]): Event[]
   return [...merged.values()];
 }
 
-export function useFeed() {
+export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   const { settings } = useSettings();
-  const bootstrapEligible = canUseFeedBootstrap(settings);
+  const isRawMode = mode === "raw";
+  const rawFilterDifficulty = isRawMode ? settings.filterDifficulty : undefined;
+  const bootstrapEligible = !isRawMode && canUseFeedBootstrap(settings);
   const [bootstrapEvents, setBootstrapEvents] = useState<Event[]>([]);
 
   useEffect(() => {
@@ -48,11 +58,26 @@ export function useFeed() {
 
   const subscribe = useCallback(
     (onEvent: Parameters<typeof subGlobalFeed>[0]) =>
-      subGlobalFeed(onEvent, settings.ageHours),
-    [settings.ageHours],
+      subGlobalFeed(
+        onEvent,
+        settings.ageHours,
+        isRawMode
+          ? {
+              rootRelayUrls: DEFAULT_RELAYS,
+              replyRelayUrls: RAW_REPLY_RELAYS,
+              rootFilterDifficulty: rawFilterDifficulty,
+              replyDepth: RAW_REPLY_DEPTH,
+            }
+          : undefined,
+      ),
+    [isRawMode, rawFilterDifficulty, settings.ageHours],
   );
 
-  const liveEvents = useFilteredNoteSubscription(subscribe, [settings.ageHours]);
+  const liveEvents = useFilteredNoteSubscription(subscribe, [
+    mode,
+    settings.ageHours,
+    rawFilterDifficulty,
+  ]);
   const noteEvents = useMemo(
     () => mergeNoteEvents(bootstrapEvents, liveEvents),
     [bootstrapEvents, liveEvents],
