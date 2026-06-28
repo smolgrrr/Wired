@@ -1,7 +1,6 @@
 import { Event, nip19 } from "nostr-tools";
 import { timeAgo } from "@lib/timeFormat";
 import { verifyPow } from "../../shared/pow/core";
-import { replyEquivalentDifficulty } from "../../nostr/processing/pow-score";
 import { uniqBy } from "@lib/collections";
 import { getDisplayName } from "@lib/profile";
 import { TextContent } from "./TextContent";
@@ -21,6 +20,8 @@ interface PostCardProps {
   fadeIn?: boolean;
   imagePriority?: boolean;
   avatarPriority?: boolean;
+  totalWork?: number;
+  replyCount?: number;
 }
 
 const depthClasses: Record<number, string> = {
@@ -46,14 +47,16 @@ export function PostCard({
   fadeIn = false,
   imagePriority = false,
   avatarPriority = false,
+  totalWork,
+  replyCount,
 }: PostCardProps) {
   const navigate = useNavigate();
 
   const relatedEvents = useMemo(() => [event, ...(replies || [])], [event, replies]);
-  const replySumPow = useMemo(() => replyEquivalentDifficulty(replies), [replies]);
   const authorLabel = getDisplayName(undefined, event.pubkey);
 
-  const signal = verifyPow(event);
+  const signal = totalWork ? Math.floor(Math.log2(totalWork)) : verifyPow(event);
+  const displayedReplyCount = replyCount ?? replies.length;
   const timestamp = timeAgo(event.created_at);
   const isNavigable = role !== "threadOp";
 
@@ -89,8 +92,7 @@ export function PostCard({
       <MetadataRow
         pubkey={event.pubkey}
         signal={signal}
-        replySignal={replySumPow}
-        replyCount={replies.length}
+        replyCount={displayedReplyCount}
         timestamp={timestamp}
         onOpenThread={isNavigable ? handleNavigate : undefined}
         forceSecondary={role === "threadOp"}

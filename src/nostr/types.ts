@@ -4,6 +4,10 @@ export type ProcessedEvent = {
   postEvent: Event;
   replies: Event[];
   totalWork: number;
+  rootWork?: number;
+  replyWork?: number;
+  rankingReplyCount?: number;
+  threadReplyCount?: number;
 };
 
 export type SubCallback = (event: Event, relay: string) => void;

@@ -1,10 +1,17 @@
 import type { Event } from "nostr-tools";
 import { verifyPow } from "../shared/pow/core.js";
 import { isRootNote } from "../shared/lib/noteEvents.js";
-import { totalWork } from "./processing/pow-score.js";
+import { workScoreBreakdown } from "./processing/pow-score.js";
 import type { ProcessedEvent } from "./types.js";
 
 export type { ProcessedEvent } from "./types.js";
+
+export function compareProcessedEventsByWork(
+  a: ProcessedEvent,
+  b: ProcessedEvent,
+): number {
+  return b.totalWork - a.totalWork || b.postEvent.created_at - a.postEvent.created_at;
+}
 
 export function buildRepliesByParent(events: Event[]): Map<string, Event[]> {
   const repliesByParent = new Map<string, Event[]>();
@@ -22,6 +29,26 @@ export function buildRepliesByParent(events: Event[]): Map<string, Event[]> {
   return repliesByParent;
 }
 
+export function collectThreadReplies(
+  rootId: string,
+  repliesByParent: Map<string, Event[]>,
+): Event[] {
+  const replies: Event[] = [];
+  const seen = new Set<string>();
+  const pending = [...(repliesByParent.get(rootId) ?? [])];
+
+  while (pending.length > 0) {
+    const reply = pending.shift();
+    if (!reply || seen.has(reply.id)) continue;
+
+    seen.add(reply.id);
+    replies.push(reply);
+    pending.push(...(repliesByParent.get(reply.id) ?? []));
+  }
+
+  return replies;
+}
+
 export function toProcessedEvents(
   posts: Event[],
   replySource: Event[],
@@ -31,7 +58,12 @@ export function toProcessedEvents(
   return posts
     .map((postEvent) => {
       const replies = repliesByParent.get(postEvent.id) ?? [];
-      return { postEvent, replies, totalWork: totalWork(postEvent, replies) };
+      return {
+        postEvent,
+        replies,
+        threadReplyCount: replies.length,
+        ...workScoreBreakdown(postEvent, replies),
+      };
     })
     .sort((a, b) => a.postEvent.created_at - b.postEvent.created_at);
 }
@@ -53,8 +85,15 @@ export const processFeedEvents = (events: Event[], filterDifficulty = 0): Proces
 
   return posts
     .map((postEvent) => {
-      const replies = repliesByParent.get(postEvent.id) ?? [];
-      return { postEvent, replies, totalWork: totalWork(postEvent, replies) };
+      const replies = collectThreadReplies(postEvent.id, repliesByParent);
+      return {
+        postEvent,
+        replies,
+        threadReplyCount: replies.length,
+        ...workScoreBreakdown(postEvent, replies, {
+          minReplyDifficulty: filterDifficulty,
+        }),
+      };
     })
-    .sort((a, b) => b.totalWork - a.totalWork || b.postEvent.created_at - a.postEvent.created_at);
+    .sort(compareProcessedEventsByWork);
 };

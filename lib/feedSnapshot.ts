@@ -21,8 +21,13 @@ useWebSocketImplementation(WebSocket);
 const PROFILE_RELAYS = [
   ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
 ] as string[];
+const FEED_SNAPSHOT_RELAYS = [
+  ...new Set([...DEFAULT_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
+] as string[];
+const REPLY_RELAYS = FEED_SNAPSHOT_RELAYS;
 
 const DEFAULT_TIMEOUT_MS = 12_000;
+const REPLY_FETCH_DEPTH = 3;
 
 export type FeedBootstrapSnapshot = {
   fetchedAt: number;
@@ -135,7 +140,7 @@ async function fetchGlobalFeedEvents(
   ageHours: number,
   timeoutMs: number,
 ): Promise<Event[]> {
-  const relays = await connectRelays(DEFAULT_RELAYS, timeoutMs);
+  const relays = await connectRelays(FEED_SNAPSHOT_RELAYS, timeoutMs);
 
   try {
     const notes = new Set<string>();
@@ -146,6 +151,7 @@ async function fetchGlobalFeedEvents(
       relays,
       { kinds: [1, 1068], since, limit: 500 },
       timeoutMs,
+      [...DEFAULT_RELAYS],
     );
 
     rootEvents.forEach((event) => trackRootNote(notes, event));
@@ -154,11 +160,29 @@ async function fetchGlobalFeedEvents(
       return rootEvents;
     }
 
-    const replyEvents = await subscribeOnce(
-      relays,
-      { "#e": [...notes], kinds: [1] },
-      timeoutMs,
-    );
+    const replyEvents: Event[] = [];
+    const seenReplyIds = new Set<string>();
+    let parentIds = [...notes];
+
+    for (let depth = 0; depth < REPLY_FETCH_DEPTH && parentIds.length > 0; depth += 1) {
+      const nextReplies = await subscribeOnce(
+        relays,
+        { "#e": parentIds, kinds: [1] },
+        timeoutMs,
+        REPLY_RELAYS,
+      );
+      const nextParentIds: string[] = [];
+
+      nextReplies.forEach((event) => {
+        if (seenReplyIds.has(event.id)) return;
+
+        seenReplyIds.add(event.id);
+        replyEvents.push(event);
+        nextParentIds.push(event.id);
+      });
+
+      parentIds = nextParentIds;
+    }
 
     const merged = new Map<string, Event>();
     [...rootEvents, ...replyEvents].forEach((event) => {
