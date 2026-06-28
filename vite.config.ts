@@ -9,6 +9,12 @@ function unfurlDevApi(): Plugin {
   return {
     name: "unfurl-dev-api",
     configureServer(server) {
+      const setSnapshotCorsHeaders = (res: ServerResponse) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      };
+
       server.middlewares.use(
         "/api/unfurl",
         async (req: IncomingMessage, res: ServerResponse, next) => {
@@ -47,6 +53,14 @@ function unfurlDevApi(): Plugin {
       server.middlewares.use(
         "/api/feed/bootstrap",
         async (req: IncomingMessage, res: ServerResponse) => {
+          setSnapshotCorsHeaders(res);
+
+          if (req.method === "OPTIONS") {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+
           if (req.method !== "GET") {
             res.statusCode = 405;
             res.setHeader("Allow", "GET");

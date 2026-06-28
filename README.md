@@ -32,6 +32,12 @@ Deploy on [Vercel](https://vercel.com). Connect the Git repo in the Vercel dashb
 
 [`vercel.json`](vercel.json) includes SPA rewrites so client-side routes work on refresh.
 
+Optional feed snapshot bootstrap:
+
+- Set `VITE_FEED_SNAPSHOT_URL` to a public JSON snapshot URL, such as an Umbrel service exposed through Cloudflare Tunnel.
+- The client tries that snapshot first, falls back to `/api/feed/bootstrap`, then falls back to live Nostr relay subscriptions if both bootstrap sources fail.
+- The snapshot response should match `/api/feed/bootstrap`: `{ "fetchedAt": number, "processedEvents": [], "profiles": {} }`.
+
 Local production check:
 
 ```sh
