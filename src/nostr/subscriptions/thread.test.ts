@@ -35,7 +35,7 @@ describe("subNote", () => {
       "#e": ["1".repeat(64)],
       kinds: [1],
       limit: REPLY_QUERY_LIMIT,
-      since: expect.any(Number),
     });
+    expect(replyRequest.filter.since).toBeUndefined();
   });
 });

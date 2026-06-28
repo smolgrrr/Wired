@@ -36,6 +36,17 @@ export function buildReplyFilter(
   };
 }
 
+export function buildThreadReplyFilter(parentIds: readonly string[]): Filter | null {
+  const limitedParentIds = limitReplyParentIds(parentIds);
+  if (limitedParentIds.length === 0) return null;
+
+  return {
+    "#e": limitedParentIds,
+    kinds: [1],
+    limit: REPLY_QUERY_LIMIT,
+  };
+}
+
 export function profileQueryLimit(pubkeyCount: number): number {
   return Math.min(pubkeyCount, PROFILE_QUERY_LIMIT);
 }

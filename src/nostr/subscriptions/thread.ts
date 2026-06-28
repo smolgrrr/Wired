@@ -1,25 +1,16 @@
 import { getRegistry, THREAD_RELAYS } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import { composeSubHandle } from "./utils";
-import {
-  buildReplyFilter,
-  DEFAULT_THREAD_AGE_HOURS,
-  sinceFromAgeHours,
-} from "./query-limits";
+import { buildThreadReplyFilter } from "./query-limits";
 
-export const subNote = (
-  eventId: string,
-  onEvent: SubCallback,
-  ageHours = DEFAULT_THREAD_AGE_HOURS,
-): SubHandle => {
+export const subNote = (eventId: string, onEvent: SubCallback): SubHandle => {
   const registry = getRegistry();
   const children: SubHandle[] = [];
   let replyHandle: SubHandle | null = null;
   const replies = new Set<string>([eventId]);
-  const since = sinceFromAgeHours(ageHours);
 
   const refreshReplySubscription = () => {
-    const filter = buildReplyFilter(Array.from(replies), since);
+    const filter = buildThreadReplyFilter(Array.from(replies));
     if (!filter) return;
 
     replyHandle?.close();

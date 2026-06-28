@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReplyFilter,
+  buildThreadReplyFilter,
   clampReplyDepth,
   MAX_REPLY_FETCH_DEPTH,
   MAX_REPLY_PARENT_IDS,
@@ -26,6 +27,15 @@ describe("query limits", () => {
 
   it("does not build empty reply filters", () => {
     expect(buildReplyFilter([], 123)).toBeNull();
+    expect(buildThreadReplyFilter([])).toBeNull();
+  });
+
+  it("builds thread reply filters without age bounds", () => {
+    expect(buildThreadReplyFilter(["1".repeat(64)])).toEqual({
+      "#e": ["1".repeat(64)],
+      kinds: [1],
+      limit: REPLY_QUERY_LIMIT,
+    });
   });
 
   it("clamps reply depth and computes age windows", () => {
