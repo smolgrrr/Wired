@@ -1,10 +1,17 @@
 import type { Event } from "nostr-tools";
 import { verifyPow } from "../shared/pow/core.js";
 import { isRootNote } from "../shared/lib/noteEvents.js";
-import { totalWork } from "./processing/pow-score.js";
+import { workScoreBreakdown } from "./processing/pow-score.js";
 import type { ProcessedEvent } from "./types.js";
 
 export type { ProcessedEvent } from "./types.js";
+
+export function compareProcessedEventsByWork(
+  a: ProcessedEvent,
+  b: ProcessedEvent,
+): number {
+  return b.totalWork - a.totalWork || b.postEvent.created_at - a.postEvent.created_at;
+}
 
 export function buildRepliesByParent(events: Event[]): Map<string, Event[]> {
   const repliesByParent = new Map<string, Event[]>();
@@ -31,7 +38,11 @@ export function toProcessedEvents(
   return posts
     .map((postEvent) => {
       const replies = repliesByParent.get(postEvent.id) ?? [];
-      return { postEvent, replies, totalWork: totalWork(postEvent, replies) };
+      return {
+        postEvent,
+        replies,
+        ...workScoreBreakdown(postEvent, replies),
+      };
     })
     .sort((a, b) => a.postEvent.created_at - b.postEvent.created_at);
 }
@@ -54,7 +65,13 @@ export const processFeedEvents = (events: Event[], filterDifficulty = 0): Proces
   return posts
     .map((postEvent) => {
       const replies = repliesByParent.get(postEvent.id) ?? [];
-      return { postEvent, replies, totalWork: totalWork(postEvent, replies) };
+      return {
+        postEvent,
+        replies,
+        ...workScoreBreakdown(postEvent, replies, {
+          minReplyDifficulty: filterDifficulty,
+        }),
+      };
     })
-    .sort((a, b) => b.totalWork - a.totalWork || b.postEvent.created_at - a.postEvent.created_at);
+    .sort(compareProcessedEventsByWork);
 };
