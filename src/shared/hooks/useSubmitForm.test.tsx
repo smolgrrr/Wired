@@ -31,10 +31,6 @@ vi.mock("../../nostr/client", () => ({
   publish: mocks.publish,
 }));
 
-vi.mock("../../app/settings", () => ({
-  useSettings: () => ({ settings: { powServerUrl: "" } }),
-}));
-
 vi.mock("./useStoredKeys", () => ({
   useStoredKeys: () => ({ appendKey: mocks.appendKey }),
 }));

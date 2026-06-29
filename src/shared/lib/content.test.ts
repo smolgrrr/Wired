@@ -62,28 +62,30 @@ describe("parseContent", () => {
     });
   });
 
-  it("keeps non-media URLs in the comment when media exists", () => {
+  it("interleaves media and link attachments in source order", () => {
     const content =
       "read https://example.com/article then https://example.com/shot.jpg";
     const event = { content } as Event;
 
     expect(parseContent(event)).toEqual({
-      comment: "read https://example.com/article then",
+      comment: "read then",
       attachments: [
+        { kind: "link", item: { url: "https://example.com/article" } },
         { kind: "media", item: { url: "https://example.com/shot.jpg", type: "image" } },
       ],
     });
   });
 
-  it("keeps non-media URLs in the comment when imeta media exists", () => {
+  it("keeps imeta media and link attachments when both exist", () => {
     const event = {
       content: "read https://example.com/article",
       tags: [["imeta", "url https://example.com/tag.png", "m image/png"]],
     } as Event;
 
     expect(parseContent(event)).toEqual({
-      comment: "read https://example.com/article",
+      comment: "read",
       attachments: [
+        { kind: "link", item: { url: "https://example.com/article" } },
         {
           kind: "media",
           item: {

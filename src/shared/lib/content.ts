@@ -67,8 +67,7 @@ export function parseContent(event: Event): ParsedContent {
   const media = extractMedia(event);
   const withoutMedia = stripMediaUrls(event.content, media);
   const knownMediaUrls = new Set(media.map((item) => item.url));
-  const links =
-    media.length > 0 ? [] : extractLinkUrls(withoutMedia, knownMediaUrls);
+  const links = extractLinkUrls(withoutMedia, knownMediaUrls);
   const withoutLinks = stripLinkUrls(withoutMedia, links);
   const mediaByUrl = new Map(media.map((item) => [item.url, item]));
   const linkByUrl = new Map(links.map((item) => [item.url, item]));

@@ -12,33 +12,11 @@ const STANDARD_PORTS: Record<string, string> = {
   "https:": "443",
 };
 
-function isBlockedHostname(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
-
-  if (
-    lower === "localhost" ||
-    lower.endsWith(".localhost") ||
-    lower === "0.0.0.0" ||
-    lower === "[::1]" ||
-    lower === "::1"
-  ) {
-    return true;
-  }
-
-  if (lower.startsWith("127.")) return true;
-  if (lower.startsWith("10.")) return true;
-  if (lower.startsWith("192.168.")) return true;
-  if (/^169\.254\./.test(lower)) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(lower)) return true;
-
-  return false;
-}
-
-function isBlockedIpAddress(address: string): boolean {
+function isPrivateAddress(address: string): boolean {
   const normalized = address.toLowerCase();
 
   if (normalized.startsWith("::ffff:")) {
-    return isBlockedIpAddress(normalized.slice("::ffff:".length));
+    return isPrivateAddress(normalized.slice("::ffff:".length));
   }
 
   if (isIP(normalized) === 4) {
@@ -61,6 +39,11 @@ function isBlockedIpAddress(address: string): boolean {
   return false;
 }
 
+function isLocalHostname(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  return lower === "localhost" || lower.endsWith(".localhost");
+}
+
 function usesStandardPort(url: URL): boolean {
   const defaultPort = STANDARD_PORTS[url.protocol];
   return Boolean(defaultPort) && (!url.port || url.port === defaultPort);
@@ -73,8 +56,8 @@ export function isSafeUrl(url: string): boolean {
       return false;
     }
     if (!usesStandardPort(parsed)) return false;
-    if (isBlockedHostname(parsed.hostname)) return false;
-    if (isIP(parsed.hostname) && isBlockedIpAddress(parsed.hostname)) return false;
+    if (isLocalHostname(parsed.hostname)) return false;
+    if (isIP(parsed.hostname) && isPrivateAddress(parsed.hostname)) return false;
     return true;
   } catch {
     return false;
@@ -83,12 +66,12 @@ export function isSafeUrl(url: string): boolean {
 
 async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
   if (isIP(hostname)) {
-    return !isBlockedIpAddress(hostname);
+    return !isPrivateAddress(hostname);
   }
 
   try {
     const records = await lookup(hostname, { all: true, verbatim: true });
-    return records.length > 0 && records.every((record) => !isBlockedIpAddress(record.address));
+    return records.length > 0 && records.every((record) => !isPrivateAddress(record.address));
   } catch {
     return false;
   }
@@ -198,7 +181,12 @@ function isRedirectStatus(status: number): boolean {
   return status >= 300 && status < 400;
 }
 
-async function fetchWithSafeRedirects(target: string): Promise<Response | null> {
+type FetchResult = {
+  response: Response;
+  finalUrl: string;
+};
+
+async function fetchWithSafeRedirects(target: string): Promise<FetchResult | null> {
   let currentUrl = target;
 
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
@@ -216,12 +204,12 @@ async function fetchWithSafeRedirects(target: string): Promise<Response | null> 
     });
 
     if (!isRedirectStatus(response.status)) {
-      return response;
+      return { response, finalUrl: currentUrl };
     }
 
     const location = response.headers.get("location");
     if (!location) {
-      return response;
+      return { response, finalUrl: currentUrl };
     }
 
     try {
@@ -240,25 +228,26 @@ export async function unfurlUrl(target: string): Promise<LinkMetadata | null> {
   }
 
   try {
-    const response = await fetchWithSafeRedirects(target);
-    if (!response) {
+    const result = await fetchWithSafeRedirects(target);
+    if (!result) {
       return null;
     }
 
+    const { response, finalUrl } = result;
     if (!response.ok) {
       return null;
     }
 
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
-      const parsed = new URL(target);
+      const parsed = new URL(finalUrl);
       return {
         domain: parsed.hostname.replace(/^www\./, ""),
       };
     }
 
     const html = await readLimitedHtml(response);
-    return extractMetadata(html, response.url || target);
+    return extractMetadata(html, finalUrl);
   } catch {
     return null;
   }

@@ -2,14 +2,12 @@ import { useState, useEffect } from "react";
 import { generateSecretKey, getPublicKey, finalizeEvent, type UnsignedEvent, type Event } from "nostr-tools";
 import { publish } from "../../nostr/client";
 import { bytesToHex } from "@noble/hashes/utils";
-import { useSettings } from "../../app/settings";
 import { useStoredKeys } from "./useStoredKeys";
 import { usePowMining } from "./usePowMining";
 
 export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
 
 export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
-  const { settings } = useSettings();
   const { appendKey } = useStoredKeys();
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -76,37 +74,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     setSubmitError(null);
     setAcceptedRelays([]);
     setSignedPoWEvent(undefined);
-
-    if (settings.powServerUrl) {
-      const inEventFormat = { ...unsignedWithPubkey, sig: "" };
-      const powRequest = {
-        req_event: inEventFormat,
-        difficulty,
-      };
-
-      fetch(`${settings.powServerUrl}/powgen`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(powRequest),
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("PoW server failed.");
-          }
-          return response.json();
-        })
-        .then((data) => {
-          setUnsignedPoWEvent(data.event);
-        })
-        .catch(() => {
-          setSubmitStatus("failed");
-          setSubmitError("Signal generation failed. Your draft was not posted.");
-        });
-    } else {
-      startWork();
-    }
+    startWork();
   };
 
   useEffect(() => {

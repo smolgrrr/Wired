@@ -12,7 +12,6 @@ export type Settings = {
   difficulty: number;
   filterDifficulty: number;
   ageHours: number;
-  powServerUrl: string;
   sortByPow: boolean;
 };
 
@@ -27,7 +26,6 @@ const loadSettings = (): Settings => ({
   difficulty: Number(localStorage.getItem("difficulty")) || DEFAULT_DIFFICULTY,
   filterDifficulty: Number(localStorage.getItem("filterDifficulty")) || DEFAULT_DIFFICULTY,
   ageHours: Number(localStorage.getItem("age")) || 24,
-  powServerUrl: localStorage.getItem("powserver") || "",
   sortByPow: localStorage.getItem("sortBy") !== "false",
 });
 
@@ -35,7 +33,6 @@ const persistSettings = (settings: Settings) => {
   localStorage.setItem("difficulty", String(settings.difficulty));
   localStorage.setItem("filterDifficulty", String(settings.filterDifficulty));
   localStorage.setItem("age", String(settings.ageHours));
-  localStorage.setItem("powserver", settings.powServerUrl);
   localStorage.setItem("sortBy", String(settings.sortByPow));
 };
 
