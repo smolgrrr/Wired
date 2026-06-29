@@ -63,4 +63,29 @@ describe("unfurlUrl", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("uses the final redirect URL as the metadata base", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://cdn.example.org/post" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          '<html><head><meta property="og:image" content="/image.png"></head></html>',
+          {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          },
+        ),
+      );
+
+    await expect(unfurlUrl("https://example.com/post")).resolves.toMatchObject({
+      domain: "cdn.example.org",
+      image: "https://cdn.example.org/image.png",
+    });
+  });
 });

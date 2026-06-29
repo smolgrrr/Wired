@@ -8,7 +8,7 @@ dist
 coverage
 .cache
 bun.lockb
-package-lock.json
+bun.lock
 yarn.lock
 .vercel
 .env*
