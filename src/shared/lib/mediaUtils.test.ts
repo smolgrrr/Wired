@@ -41,6 +41,44 @@ describe("parseImetaTags", () => {
     ]);
   });
 
+  it("parses video poster images from imeta tags", () => {
+    const tags = [
+      [
+        "imeta",
+        "url https://example.com/clip.mp4",
+        "m video/mp4",
+        "dim 1280x720",
+        "image https://example.com/poster.jpg",
+      ],
+    ];
+
+    expect(parseImetaTags(tags)).toEqual([
+      {
+        url: "https://example.com/clip.mp4",
+        type: "video",
+        mime: "video/mp4",
+        width: 1280,
+        height: 720,
+        posterUrl: "https://example.com/poster.jpg",
+      },
+    ]);
+  });
+
+  it("rejects non-http poster images", () => {
+    const tags = [
+      [
+        "imeta",
+        "url https://example.com/clip.mp4",
+        "m video/mp4",
+        "image javascript:alert(1)",
+      ],
+    ];
+
+    expect(parseImetaTags(tags)).toEqual([
+      { url: "https://example.com/clip.mp4", type: "video", mime: "video/mp4" },
+    ]);
+  });
+
   it("rejects non-http schemes", () => {
     const tags = [["imeta", "url javascript:alert(1)", "m image/png"]];
     expect(parseImetaTags(tags)).toEqual([]);
