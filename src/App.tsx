@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter as Router, useLocation, useNavigationType } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AppProviders } from "./app/providers";
@@ -12,11 +13,27 @@ function AppSpeedInsights() {
   return <SpeedInsights route={getPathDisplay(pathname)} />;
 }
 
+export function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+
+  useEffect(() => {
+    if (navigationType === "POP") {
+      return;
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [navigationType, pathname]);
+
+  return null;
+}
+
 function App() {
   return (
     <AppProviders>
       <NoiseOverlay />
       <Router>
+        <ScrollToTop />
         <Header />
         <AppRoutes />
         <Analytics />
