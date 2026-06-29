@@ -6,6 +6,8 @@ import { getDisplayName } from "@lib/profile";
 import { TextContent } from "./TextContent";
 import { MetadataRow } from "./MetadataRow";
 import { ReplyContext } from "./ReplyContext";
+import { SignalAvatar } from "./SignalAvatar";
+import { useProfile } from "../hooks/useProfiles";
 import { useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -53,7 +55,8 @@ export function PostCard({
   const navigate = useNavigate();
 
   const relatedEvents = useMemo(() => [event, ...(replies || [])], [event, replies]);
-  const authorLabel = getDisplayName(undefined, event.pubkey);
+  const profile = useProfile(event.pubkey);
+  const authorLabel = getDisplayName(profile, event.pubkey);
 
   const signal = totalWork ? Math.floor(Math.log2(totalWork)) : verifyPow(event);
   const displayedReplyCount = replyCount ?? replies.length;
@@ -82,6 +85,17 @@ export function PostCard({
         .join(" ")}
       style={animate ? { animationDelay: `${animationIndex * 40}ms` } : undefined}
     >
+      <header className="mb-2 flex min-w-0 items-center gap-2 text-meta text-secondary">
+        <SignalAvatar
+          pubkey={event.pubkey}
+          pictureUrl={profile?.picture}
+          label={`author ${authorLabel}`}
+          size="sm"
+          priority={avatarPriority}
+        />
+        <span className="min-w-0 truncate">{authorLabel}</span>
+      </header>
+
       <div className="post-content flex flex-col gap-2 break-words">
         <TextContent eventdata={event} imagePriority={imagePriority} />
         {repliedTo && repliedTo.length > 0 && (
@@ -90,13 +104,11 @@ export function PostCard({
       </div>
 
       <MetadataRow
-        pubkey={event.pubkey}
         signal={signal}
         replyCount={displayedReplyCount}
         timestamp={timestamp}
         onOpenThread={isNavigable ? handleNavigate : undefined}
         forceSecondary={role === "threadOp"}
-        avatarPriority={avatarPriority}
       />
     </article>
   );
