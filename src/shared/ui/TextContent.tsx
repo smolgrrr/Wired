@@ -8,6 +8,7 @@ import { PollResponder } from "./PollResponder";
 import { QuotePreview } from "./QuotePreview";
 import { QuotePreviewPlaceholder } from "./QuotePreviewPlaceholder";
 import { Button } from "./Button";
+import { LinkedBodyText } from "./LinkedBodyText";
 
 const COLLAPSED_LENGTH = 750;
 
@@ -27,7 +28,9 @@ export function TextContent({
   return (
     <div className="gap-2 flex flex-col break-words text-body text-primary">
       {bodyText.length > 0 && (
-        <p className="whitespace-pre-wrap">{displayedComment}</p>
+        <LinkedBodyText className="whitespace-pre-wrap">
+          {displayedComment}
+        </LinkedBodyText>
       )}
       {bodyText.length > COLLAPSED_LENGTH && (
         <Button

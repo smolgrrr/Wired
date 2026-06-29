@@ -4,6 +4,7 @@ import { getDisplayName } from "@lib/profile";
 import { getNoteBodyText } from "@lib/pollUtils";
 import { useProfile } from "../hooks/useProfiles";
 import { AttachmentStack } from "./AttachmentStack";
+import { LinkedBodyText } from "./LinkedBodyText";
 import { PollSummary } from "./PollSummary";
 import { SignalAvatar } from "./SignalAvatar";
 
@@ -34,7 +35,9 @@ export function QuotePreview({ event }: { event: Event }) {
         <span>{authorLabel}</span>
       </div>
       {preview.length > 0 && (
-        <p className="whitespace-pre-wrap text-body text-secondary">{preview}</p>
+        <LinkedBodyText className="whitespace-pre-wrap text-body text-secondary">
+          {preview}
+        </LinkedBodyText>
       )}
       {attachments.length > 0 && (
         <div className="mt-2">
