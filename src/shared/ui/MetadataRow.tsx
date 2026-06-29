@@ -1,63 +1,27 @@
-import { getDisplayName } from "@lib/profile";
-import { useProfile } from "../hooks/useProfiles";
+import type { MouseEvent } from "react";
+import { Activity, Network } from "lucide-react";
 import { Button } from "./Button";
-import { SignalAvatar } from "./SignalAvatar";
 
 type MetadataRowProps = {
-  pubkey: string;
   signal: number;
   replyCount: number;
   timestamp: string;
   onOpenThread?: () => void;
   forceSecondary?: boolean;
-  avatarPriority?: boolean;
 };
 
-function formatTelemetry({
-  authorLabel,
-  signal,
-  replyCount,
-  timestamp,
-}: {
-  authorLabel: string;
-  signal: number;
-  replyCount: number;
-  timestamp: string;
-}) {
-  const parts: string[] = [authorLabel];
-
-  if (signal > 0) {
-    parts.push(`signal ${signal}`);
-  }
-
-  const replyLabel = `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`;
-  parts.push(replyLabel);
-
-  parts.push(timestamp);
-
-  return parts.join(" · ");
+function getReplyLabel(replyCount: number) {
+  return `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`;
 }
 
 export function MetadataRow({
-  pubkey,
   signal,
   replyCount,
   timestamp,
   onOpenThread,
   forceSecondary = false,
-  avatarPriority = false,
 }: MetadataRowProps) {
-  const profile = useProfile(pubkey);
-  const authorLabel = getDisplayName(profile, pubkey);
-
-  const telemetry = formatTelemetry({
-    authorLabel,
-    signal,
-    replyCount,
-    timestamp,
-  });
-
-  const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!onOpenThread) return;
     if (event.target === event.currentTarget) {
       onOpenThread();
@@ -67,7 +31,7 @@ export function MetadataRow({
   return (
     <div
       className={[
-        "metadata-row flex items-center gap-2 pt-3 text-meta",
+        "metadata-row flex items-center justify-between gap-3 pt-3 text-meta",
         forceSecondary ? "metadata-row--secondary" : "",
         onOpenThread ? "cursor-pointer" : "",
       ]
@@ -75,14 +39,23 @@ export function MetadataRow({
         .join(" ")}
       onClick={handleRowClick}
     >
-      <SignalAvatar
-        pubkey={pubkey}
-        pictureUrl={profile?.picture}
-        label={`author ${authorLabel}`}
-        size="sm"
-        priority={avatarPriority}
-      />
-      <span className="flex-1 min-w-0 truncate">{telemetry}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <span
+          className="inline-flex items-center gap-1 whitespace-nowrap text-signal drop-shadow-[0_0_6px_var(--signal-dim)]"
+          aria-label={`signal ${signal}`}
+        >
+          <Activity aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+          <span aria-hidden="true">{signal}</span>
+        </span>
+        <span
+          className="inline-flex items-center gap-1 whitespace-nowrap"
+          aria-label={getReplyLabel(replyCount)}
+        >
+          <Network aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+          <span aria-hidden="true">{replyCount}</span>
+        </span>
+        <span className="whitespace-nowrap">{timestamp}</span>
+      </div>
       {onOpenThread && (
         <Button
           type="button"
@@ -90,6 +63,7 @@ export function MetadataRow({
           size="sm"
           onClick={onOpenThread}
           aria-label="open thread"
+          className="shrink-0"
         >
           open
         </Button>
