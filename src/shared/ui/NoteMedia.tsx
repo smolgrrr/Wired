@@ -135,20 +135,52 @@ function GridImage({
   );
 }
 
-function MediaVideo({ item }: { item: MediaItem }) {
+function MediaVideo({
+  item,
+  compact,
+}: {
+  item: MediaItem;
+  compact?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
+  const [started, setStarted] = useState(false);
 
   if (failed) return <MediaFallback />;
 
+  const hasDimensions = Boolean(item.width && item.height);
+  const aspectRatio = hasDimensions ? `${item.width} / ${item.height}` : "16 / 9";
+
   return (
-    <video
-      src={item.url}
-      controls
-      preload="metadata"
-      playsInline
-      onError={() => setFailed(true)}
-      className="max-h-[32rem] w-full rounded border border-ghost"
-    />
+    <div
+      className={[
+        "relative overflow-hidden rounded border border-ghost bg-surface",
+        compact ? "max-h-[120px]" : "max-h-[min(60vh,24rem)]",
+      ].join(" ")}
+      style={{ aspectRatio }}
+    >
+      <video
+        src={item.url}
+        poster={item.posterUrl}
+        controls
+        preload="metadata"
+        playsInline
+        onPlay={() => setStarted(true)}
+        onLoadedData={() => setStarted(true)}
+        onError={() => setFailed(true)}
+        className="h-full w-full object-contain"
+      />
+      {!item.posterUrl && !started && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface text-meta text-muted">
+          <span
+            aria-hidden="true"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-ghost bg-void/60 text-primary"
+          >
+            <span className="ml-0.5 h-0 w-0 border-y-[7px] border-l-[11px] border-y-transparent border-l-current" />
+          </span>
+          <span className="sr-only">video preview</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -181,7 +213,7 @@ export function MediaAttachment({
     case "image":
       return <MediaImage item={item} compact={compact} priority={priority} />;
     case "video":
-      return <MediaVideo item={item} />;
+      return <MediaVideo item={item} compact={compact} />;
     case "audio":
       return <MediaAudio item={item} />;
   }

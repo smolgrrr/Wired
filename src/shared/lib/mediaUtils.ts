@@ -10,6 +10,7 @@ export type MediaItem = {
   mime?: string;
   width?: number;
   height?: number;
+  posterUrl?: string;
 };
 
 const MEDIA_URL_PATTERN =
@@ -64,6 +65,7 @@ function parseImetaFields(tag: string[]): {
   mime?: string;
   width?: number;
   height?: number;
+  posterUrl?: string;
 } {
   const fields: Record<string, string> = {};
 
@@ -81,6 +83,7 @@ function parseImetaFields(tag: string[]): {
     mime: fields.m,
     width: dim ? Number(dim[1]) : undefined,
     height: dim ? Number(dim[2]) : undefined,
+    posterUrl: fields.image ?? fields.thumb,
   };
 }
 
@@ -90,7 +93,7 @@ export function parseImetaTags(tags: string[][]): MediaItem[] {
   for (const tag of tags) {
     if (tag[0] !== "imeta") continue;
 
-    const { url, mime, width, height } = parseImetaFields(tag);
+    const { url, mime, width, height, posterUrl } = parseImetaFields(tag);
     if (!url) continue;
 
     const normalized = normalizeUrl(url);
@@ -99,7 +102,15 @@ export function parseImetaTags(tags: string[][]): MediaItem[] {
     const type = resolveMediaType(normalized, mime);
     if (!type) continue;
 
-    items.push({ url: normalized, type, mime, width, height });
+    const normalizedPosterUrl = posterUrl ? normalizeUrl(posterUrl) : "";
+    items.push({
+      url: normalized,
+      type,
+      mime,
+      ...(width ? { width } : {}),
+      ...(height ? { height } : {}),
+      ...(normalizedPosterUrl ? { posterUrl: normalizedPosterUrl } : {}),
+    });
   }
 
   return items;
