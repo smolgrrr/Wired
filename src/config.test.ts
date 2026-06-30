@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { configuredRelays } from "./config";
+import { DEFAULT_RELAYS, configuredRelays } from "./config";
+
+describe("DEFAULT_RELAYS", () => {
+  it("includes the Wired relay in the main feed relay list", () => {
+    expect(DEFAULT_RELAYS).toContain("wss://relay.wiredsignal.online");
+  });
+});
 
 describe("configuredRelays", () => {
   it("uses fallback relays when env is unset", () => {

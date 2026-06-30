@@ -1,8 +1,11 @@
-import type { Event } from "nostr-tools";
+import type { Event, UnsignedEvent } from "nostr-tools";
 import { CONFESS_API_BASE } from "../../config";
+
+export type ConfessAdmissionEvent = UnsignedEvent & Pick<Event, "id">;
 
 export type ConfessStatus = {
   configured: boolean;
+  pubkey: string;
   day: string;
   count: number;
   limit: number;
@@ -43,7 +46,7 @@ export async function fetchConfessStatus(): Promise<ConfessStatus> {
   return readJson<ConfessStatus>(response);
 }
 
-export async function submitConfession(event: Event): Promise<ConfessSubmitResponse> {
+export async function submitConfession(event: ConfessAdmissionEvent): Promise<ConfessSubmitResponse> {
   const response = await fetch(confessUrl("/api/confess"), {
     method: "POST",
     headers: {

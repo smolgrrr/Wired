@@ -2,10 +2,10 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { Event as NostrEvent, UnsignedEvent } from "nostr-tools";
+import type { Event as NostrEvent } from "nostr-tools";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import ConfessPage from "./ConfessPage";
-import type { ConfessStatus, ConfessSubmitResponse } from "./api";
+import type { ConfessAdmissionEvent, ConfessStatus, ConfessSubmitResponse } from "./api";
 
 type ReactActGlobal = typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 
@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   submitConfession: vi.fn(),
   startWork: vi.fn(),
   powState: {
-    messageFromWorker: undefined as UnsignedEvent | undefined,
+    messageFromWorker: undefined as ConfessAdmissionEvent | undefined,
     hashrate: 0,
     bestPow: 0,
   },
@@ -24,14 +24,6 @@ vi.mock("nostr-tools", async (importOriginal) => {
   const actual = await importOriginal<typeof import("nostr-tools")>();
   return {
     ...actual,
-    generateSecretKey: () => new Uint8Array(32).fill(1),
-    getPublicKey: () => "f".repeat(64),
-    finalizeEvent: (event: UnsignedEvent) => ({
-      ...event,
-      id: "1".repeat(64),
-      pubkey: "f".repeat(64),
-      sig: "2".repeat(128),
-    }),
   };
 });
 
@@ -55,6 +47,7 @@ vi.mock("./api", () => ({
 
 const openStatus: ConfessStatus = {
   configured: true,
+  pubkey: "f".repeat(64),
   day: "2026-06-30",
   count: 0,
   limit: 6,
@@ -166,6 +159,7 @@ describe("ConfessPage", () => {
     expect(container.textContent).toContain("computing signal");
 
     mocks.powState.messageFromWorker = {
+      id: postedEvent.id,
       kind: postedEvent.kind,
       pubkey: postedEvent.pubkey,
       created_at: postedEvent.created_at,
@@ -179,6 +173,15 @@ describe("ConfessPage", () => {
     });
 
     expect(mocks.submitConfession).toHaveBeenCalledTimes(1);
+    expect(mocks.submitConfession).toHaveBeenCalledWith({
+      id: postedEvent.id,
+      kind: postedEvent.kind,
+      pubkey: openStatus.pubkey,
+      created_at: postedEvent.created_at,
+      tags: [...postedEvent.tags, ["nonce", "1", "1"]],
+      content: postedEvent.content,
+    });
+    expect(mocks.submitConfession.mock.calls[0][0]).not.toHaveProperty("sig");
     expect(container.textContent).toContain("submitting to wired backend...");
     expect(container.textContent).not.toContain("publishing to relays");
 

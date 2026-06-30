@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  finalizeEvent,
-  generateSecretKey,
-  getPublicKey,
-  type Event,
   type UnsignedEvent,
 } from "nostr-tools";
 import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
@@ -16,12 +12,14 @@ import { encodeThreadRef } from "@lib/threadRefs";
 import {
   fetchConfessStatus,
   submitConfession,
+  type ConfessAdmissionEvent,
   type ConfessStatus,
   type ConfessSubmitResponse,
 } from "./api";
 
 const EMPTY_STATUS: ConfessStatus = {
   configured: false,
+  pubkey: "",
   day: "",
   count: 0,
   limit: 6,
@@ -61,21 +59,19 @@ function buildAdmissionEvent(content: string, pubkey: string): UnsignedEvent {
 
 export default function ConfessPage() {
   const [comment, setComment] = useState("");
-  const [secretKey, setSecretKey] = useState(() => generateSecretKey());
   const [status, setStatus] = useState<ConfessStatus>(EMPTY_STATUS);
   const [submitStatus, setSubmitStatus] = useState<ConfessSubmitStatus>("loading");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [posted, setPosted] = useState<ConfessSubmitResponse | null>(null);
-  const [minedEvent, setMinedEvent] = useState<UnsignedEvent>();
+  const [minedEvent, setMinedEvent] = useState<ConfessAdmissionEvent>();
 
   const difficulty = String(status.minimumPow);
   const contentError = hasDisallowedContent(comment)
     ? "links and media are not allowed"
     : null;
-  const pubkey = useMemo(() => getPublicKey(secretKey), [secretKey]);
   const unsigned = useMemo(
-    () => buildAdmissionEvent(comment.trim(), pubkey),
-    [comment, pubkey],
+    () => buildAdmissionEvent(comment.trim(), status.pubkey),
+    [comment, status.pubkey],
   );
   const {
     startWork,
@@ -115,15 +111,14 @@ export default function ConfessPage() {
       setSubmitError(null);
 
       try {
-        const admissionEvent = finalizeEvent(minedEvent, secretKey) as Event;
-        const result = await submitConfession(admissionEvent);
+        const result = await submitConfession(minedEvent);
         if (cancelled) return;
 
         setPosted(result);
         setComment("");
-        setSecretKey(generateSecretKey());
         setStatus((current) => ({
           ...current,
+          pubkey: result.event.pubkey,
           count: result.count,
           remaining: result.remaining,
           minimumPow: result.minimumPow,
@@ -148,21 +143,21 @@ export default function ConfessPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadStatus, minedEvent, secretKey]);
+  }, [loadStatus, minedEvent]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     setPosted(null);
     setSubmitError(null);
 
-    if (!comment.trim() || contentError || status.closed || !status.configured) return;
+    if (!comment.trim() || contentError || status.closed || !status.configured || !status.pubkey) return;
 
     setSubmitStatus("mining");
     startWork();
   };
 
   const doingWork = submitStatus === "mining" || submitStatus === "submitting";
-  const isUnavailable = !status.configured || status.closed || submitStatus === "loading";
+  const isUnavailable = !status.configured || !status.pubkey || status.closed || submitStatus === "loading";
   const threadRef = posted ? encodeThreadRef(posted.event.id, posted.acceptedRelays) : "";
 
   return (
@@ -207,7 +202,7 @@ export default function ConfessPage() {
             <p className="text-meta text-secondary">
               {status.closed
                 ? "daily cap reached"
-                : status.configured
+                : status.configured && status.pubkey
                   ? `server will accept signal ${status.minimumPow}+`
                   : "confess account is not configured"}
             </p>
