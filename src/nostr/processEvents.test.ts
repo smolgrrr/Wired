@@ -59,6 +59,42 @@ describe("processFeedEvents", () => {
     expect(result[0].threadReplyCount).toBe(1);
   });
 
+  it("uses the same feed root eligibility for articles and root notes", () => {
+    const article = event({
+      id: "1".repeat(64),
+      kind: 1068,
+      pubkey: "a".repeat(64),
+    });
+    const duplicateAuthorRoot = event({
+      id: "2".repeat(64),
+      pubkey: "a".repeat(64),
+    });
+    const acceptedRoot = event({
+      id: "3".repeat(64),
+      pubkey: "b".repeat(64),
+    });
+    const reply = event({
+      id: "4".repeat(64),
+      pubkey: "c".repeat(64),
+      tags: [["e", acceptedRoot.id]],
+    });
+
+    const result = processFeedEvents([
+      article,
+      duplicateAuthorRoot,
+      acceptedRoot,
+      reply,
+    ]);
+
+    expect(result.map((item) => item.postEvent.id)).toEqual([
+      acceptedRoot.id,
+      article.id,
+    ]);
+    expect(result.find((item) => item.postEvent.id === acceptedRoot.id)?.replies).toEqual([
+      reply,
+    ]);
+  });
+
   it("includes nested thread replies in feed reply count and total work", () => {
     const root = event({
       id: "1".repeat(64),

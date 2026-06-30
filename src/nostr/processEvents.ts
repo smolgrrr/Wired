@@ -1,6 +1,5 @@
 import type { Event } from "nostr-tools";
-import { verifyPow } from "../shared/pow/core.js";
-import { isRootNote } from "../shared/lib/noteEvents.js";
+import { createFeedCandidateTracker } from "./feed-candidates.js";
 import { workScoreBreakdown } from "./processing/pow-score.js";
 import type { ProcessedEvent } from "./types.js";
 
@@ -70,16 +69,11 @@ export function toProcessedEvents(
 
 export const processFeedEvents = (events: Event[], filterDifficulty = 0): ProcessedEvent[] => {
   const repliesByParent = buildRepliesByParent(events);
-  const seenPubkeys = new Set<string>();
+  const candidates = createFeedCandidateTracker(filterDifficulty);
   const posts: Event[] = [];
 
   events.forEach((event) => {
-    if (event.kind !== 1 && event.kind !== 1068) return;
-    if (seenPubkeys.has(event.pubkey)) return;
-    if (event.kind === 1 && !isRootNote(event)) return;
-    if (verifyPow(event) < filterDifficulty) return;
-
-    seenPubkeys.add(event.pubkey);
+    if (!candidates.check(event).accepted) return;
     posts.push(event);
   });
 
