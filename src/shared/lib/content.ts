@@ -1,12 +1,11 @@
 import { Event } from "nostr-tools";
 import { normalizeUrl } from "@link/link";
 import {
-  extractMedia,
   parseImetaTags,
-  stripMediaUrls,
   type MediaItem,
+  typeFromMediaExtension,
 } from "@lib/mediaUtils";
-import { extractLinkUrls, stripLinkUrls, type LinkItem } from "@lib/linkUtils";
+import { type LinkItem } from "@lib/linkUtils";
 import { normalizeStrippedContent } from "@lib/textCleanup";
 import { HTTP_URL_PATTERN } from "@lib/url";
 import { NOSTR_REF_PATTERN } from "./quotedEvents";
@@ -27,29 +26,76 @@ export type ParsedContent = {
   attachments: Attachment[];
 };
 
-function buildAttachmentsInOrder(
-  content: string,
-  imetaItems: MediaItem[],
-  mediaByUrl: Map<string, MediaItem>,
-  linkByUrl: Map<string, LinkItem>,
-): Attachment[] {
-  const attachments: Attachment[] = [];
-  const seen = new Set<string>();
+type UrlToken = {
+  raw: string;
+  url: string;
+  start: number;
+  end: number;
+};
+
+function extractUrlTokens(content: string): UrlToken[] {
+  const tokens: UrlToken[] = [];
 
   for (const match of content.matchAll(HTTP_URL_PATTERN)) {
-    const normalized = normalizeUrl(match[0]);
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
+    const raw = match[0];
+    const url = normalizeUrl(raw);
+    if (!url || match.index === undefined) continue;
 
-    const mediaItem = mediaByUrl.get(normalized);
+    tokens.push({
+      raw,
+      url,
+      start: match.index,
+      end: match.index + raw.length,
+    });
+  }
+
+  return tokens;
+}
+
+function stripUrlTokens(content: string, tokens: UrlToken[]): string {
+  if (tokens.length === 0) return content;
+
+  let result = "";
+  let cursor = 0;
+  for (const token of tokens) {
+    result += content.slice(cursor, token.start);
+    cursor = token.end;
+  }
+  result += content.slice(cursor);
+
+  return normalizeStrippedContent(result);
+}
+
+function parseContentUrls(
+  content: string,
+  imetaItems: MediaItem[],
+): { attachments: Attachment[]; strippedContent: string } {
+  const attachments: Attachment[] = [];
+  const seen = new Set<string>();
+  const strippedTokens: UrlToken[] = [];
+  const imetaByUrl = new Map(imetaItems.map((item) => [item.url, item]));
+
+  for (const token of extractUrlTokens(content)) {
+    const imetaItem = imetaByUrl.get(token.url);
+    const mediaType = imetaItem
+      ? imetaItem.type
+      : typeFromMediaExtension(token.url);
+    const mediaItem =
+      imetaItem ?? (mediaType ? { url: token.url, type: mediaType } : null);
+
     if (mediaItem) {
-      attachments.push({ kind: "media", item: mediaItem });
+      strippedTokens.push(token);
+      if (!seen.has(token.url)) {
+        seen.add(token.url);
+        attachments.push({ kind: "media", item: mediaItem });
+      }
       continue;
     }
 
-    const linkItem = linkByUrl.get(normalized);
-    if (linkItem) {
-      attachments.push({ kind: "link", item: linkItem });
+    strippedTokens.push(token);
+    if (!seen.has(token.url)) {
+      seen.add(token.url);
+      attachments.push({ kind: "link", item: { url: token.url } });
     }
   }
 
@@ -59,27 +105,21 @@ function buildAttachmentsInOrder(
     attachments.push({ kind: "media", item });
   }
 
-  return attachments;
+  return {
+    attachments,
+    strippedContent: stripUrlTokens(content, strippedTokens),
+  };
 }
 
 export function parseContent(event: Event): ParsedContent {
   const imetaItems = parseImetaTags(event.tags ?? []);
-  const media = extractMedia(event);
-  const withoutMedia = stripMediaUrls(event.content, media);
-  const knownMediaUrls = new Set(media.map((item) => item.url));
-  const links = extractLinkUrls(withoutMedia, knownMediaUrls);
-  const withoutLinks = stripLinkUrls(withoutMedia, links);
-  const mediaByUrl = new Map(media.map((item) => [item.url, item]));
-  const linkByUrl = new Map(links.map((item) => [item.url, item]));
-  const attachments = buildAttachmentsInOrder(
+  const { attachments, strippedContent } = parseContentUrls(
     event.content,
     imetaItems,
-    mediaByUrl,
-    linkByUrl,
   );
 
   return {
-    comment: stripNostrRefs(withoutLinks),
+    comment: stripNostrRefs(strippedContent),
     attachments,
   };
 }

@@ -45,7 +45,7 @@ const MIME_TYPE: Record<string, MediaType> = {
   "audio/mp4": "audio",
 };
 
-function typeFromExtension(url: string): MediaType | null {
+export function typeFromMediaExtension(url: string): MediaType | null {
   const match = url.match(/\.([a-z0-9]+)(?:\?|$)/i);
   if (!match) return null;
   return EXTENSION_TYPE[match[1].toLowerCase()] ?? null;
@@ -57,7 +57,7 @@ function typeFromMime(mime?: string): MediaType | null {
 }
 
 function resolveMediaType(url: string, mime?: string): MediaType | null {
-  return typeFromMime(mime) ?? typeFromExtension(url);
+  return typeFromMime(mime) ?? typeFromMediaExtension(url);
 }
 
 function parseImetaFields(tag: string[]): {
@@ -125,7 +125,7 @@ export function parseBareMediaUrls(content: string): MediaItem[] {
     const normalized = normalizeUrl(raw);
     if (!normalized || seen.has(normalized)) continue;
 
-    const type = typeFromExtension(normalized);
+    const type = typeFromMediaExtension(normalized);
     if (!type) continue;
 
     seen.add(normalized);

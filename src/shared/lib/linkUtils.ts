@@ -1,14 +1,12 @@
 import { normalizeUrl } from "@link/link";
+import { typeFromMediaExtension } from "@lib/mediaUtils";
 import { normalizeStrippedContent } from "@lib/textCleanup";
 import { HTTP_URL_PATTERN } from "@lib/url";
 
 export type LinkItem = { url: string };
 
-const MEDIA_EXTENSION_PATTERN =
-  /\.(?:jpe?g|png|gif|webp|mp4|webm|mov|mp3|wav|ogg|m4a)(?:\?|$)/i;
-
 function isMediaUrl(url: string): boolean {
-  return MEDIA_EXTENSION_PATTERN.test(url);
+  return typeFromMediaExtension(url) !== null;
 }
 
 export function extractLinkUrls(
