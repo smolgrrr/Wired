@@ -38,4 +38,15 @@ describe("subNote", () => {
     });
     expect(replyRequest.filter.since).toBeUndefined();
   });
+
+  it("adds relay hints to thread subscriptions", () => {
+    subNote("1".repeat(64), vi.fn(), ["wss://relay.example/", THREAD_RELAYS[0]]);
+
+    const opRequest = subscribeMock.mock.calls[0][0][0];
+    const replyRequest = subscribeMock.mock.calls[1][0][0];
+    const relays = [...expectedRelays, "wss://relay.example"];
+
+    expect(opRequest.relayUrls).toEqual(relays);
+    expect(replyRequest.relayUrls).toEqual(relays);
+  });
 });

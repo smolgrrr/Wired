@@ -3,8 +3,10 @@ import type { Event } from "nostr-tools";
 import { initNostr } from "../../nostr/client";
 import type { SubCallback, SubHandle } from "../../nostr/types";
 
+type SubscriptionFactory = (onEvent: SubCallback) => SubHandle | Promise<SubHandle>;
+
 export function useNostrSubscription(
-  createSubscription: (onEvent: SubCallback) => SubHandle,
+  createSubscription: SubscriptionFactory,
   deps: DependencyList,
   enabled = true,
 ): Event[] {
@@ -30,7 +32,14 @@ export function useNostrSubscription(
         );
       };
 
-      subscription = createSubscription(onEvent);
+      void Promise.resolve(createSubscription(onEvent)).then((nextSubscription) => {
+        if (cancelled) {
+          nextSubscription.close();
+          return;
+        }
+
+        subscription = nextSubscription;
+      });
     });
 
     return () => {

@@ -3,7 +3,6 @@ import {
   finalizeEvent,
   generateSecretKey,
   getPublicKey,
-  nip19,
   type Event,
   type UnsignedEvent,
 } from "nostr-tools";
@@ -13,6 +12,7 @@ import { PowTransmitStatus } from "../../shared/ui/PowTransmitStatus";
 import { Textarea } from "../../shared/ui/Textarea";
 import { PostCard } from "../../shared/ui/PostCard";
 import { usePowMining } from "../../shared/hooks/usePowMining";
+import { encodeThreadRef } from "@lib/threadRefs";
 import {
   fetchConfessStatus,
   submitConfession,
@@ -146,7 +146,7 @@ export default function ConfessPage() {
 
   const doingWork = submitStatus === "mining" || submitStatus === "publishing";
   const isUnavailable = !status.configured || status.closed || submitStatus === "loading";
-  const noteLink = posted ? nip19.noteEncode(posted.event.id) : "";
+  const threadRef = posted ? encodeThreadRef(posted.event.id, posted.acceptedRelays) : "";
 
   return (
     <PageShell>
@@ -221,7 +221,7 @@ export default function ConfessPage() {
           {posted && (
             <p className="text-meta text-secondary text-right">
               posted to {posted.acceptedRelays.length} relay
-              {posted.acceptedRelays.length === 1 ? "" : "s"} · {noteLink}
+              {posted.acceptedRelays.length === 1 ? "" : "s"} · {threadRef}
             </p>
           )}
         </form>
