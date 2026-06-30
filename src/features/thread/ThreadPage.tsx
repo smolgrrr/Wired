@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useMemo } from "react";
-import { Event, nip19 } from "nostr-tools";
+import { Event } from "nostr-tools";
 import { getThreadDepth } from "@lib/getThreadDepth";
 import { Placeholder } from "../../shared/ui/Placeholder";
 import { Button } from "../../shared/ui/Button";
@@ -12,18 +12,9 @@ import { useThreadViewModel } from "../../hooks/useThreadViewModel";
 import { eventWork } from "../../nostr/processing/pow-score";
 import { readThreadSeedEvents } from "./threadSeedCache";
 import { useThreadNavigation } from "./useThreadNavigation";
+import { decodeThreadRef } from "@lib/threadRefs";
 
-function decodeNoteId(id: string | undefined): string | null {
-  if (!id) return null;
-  try {
-    const decodeResult = nip19.decode(id);
-    return decodeResult.type === "note" ? (decodeResult.data as string) : null;
-  } catch {
-    return null;
-  }
-}
-
-function ThreadView({ hexID }: { hexID: string }) {
+function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[] }) {
   const visibleReplyEvents = useInfiniteScroll();
   const seedEvents = useMemo(() => readThreadSeedEvents(hexID), [hexID]);
   const openThread = useThreadNavigation();
@@ -35,7 +26,7 @@ function ThreadView({ hexID }: { hexID: string }) {
     showAllReplies,
     setShowAllReplies,
     uniqMentions,
-  } = useThreadViewModel(hexID, seedEvents);
+  } = useThreadViewModel(hexID, seedEvents, relayHints);
   const directReplyEvents = replyEvents.filter((event) =>
     event.postEvent.tags.some((tag) => tag[0] === "e" && tag[1] === hexID),
   );
@@ -114,9 +105,9 @@ function ThreadView({ hexID }: { hexID: string }) {
 export default function ThreadPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const hexID = decodeNoteId(id);
+  const threadRef = decodeThreadRef(id);
 
-  if (!hexID) {
+  if (!threadRef) {
     return (
       <PageShell className="bg-void min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-secondary text-body">invalid signal ref</p>
@@ -127,5 +118,5 @@ export default function ThreadPage() {
     );
   }
 
-  return <ThreadView hexID={hexID} />;
+  return <ThreadView hexID={threadRef.id} relayHints={threadRef.relays} />;
 }

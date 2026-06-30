@@ -10,7 +10,7 @@ export default function SettingsPage() {
   const [filterDifficulty, setFilterDifficulty] = useState(String(settings.filterDifficulty));
   const [difficulty, setDifficulty] = useState(String(settings.difficulty));
   const [age, setAge] = useState(String(settings.ageHours));
-  const [noteLink, setNoteLink] = useState("");
+  const [threadRef, setThreadRef] = useState("");
   const navigate = useNavigate();
   const filterDifficultyValue = Number(filterDifficulty);
   const filterDifficultyError =
@@ -62,20 +62,20 @@ export default function SettingsPage() {
         </Button>
       </form>
       <div className="pt-10">
-        <h2 className="text-body font-medium mb-4">open note</h2>
+        <h2 className="text-body font-medium mb-4">open thread</h2>
         <form
           className="flex flex-col gap-4 max-w-md"
           onSubmit={(e) => {
             e.preventDefault();
-            navigate(`/thread/${noteLink}`);
+            navigate(`/thread/${threadRef}`);
           }}
         >
           <Input
-            id="noteIDinput"
-            label="note ref"
+            id="threadRefInput"
+            label="thread ref"
             type="text"
-            value={noteLink}
-            onChange={(e) => setNoteLink(e.target.value)}
+            value={threadRef}
+            onChange={(e) => setThreadRef(e.target.value)}
           />
           <Button type="submit" variant="primary">
             open

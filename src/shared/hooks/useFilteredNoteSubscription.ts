@@ -5,7 +5,7 @@ import { filterNoteEvents } from "@lib/noteEvents";
 import { useNostrSubscription } from "./useNostrSubscription";
 
 export function useFilteredNoteSubscription(
-  createSubscription: (onEvent: SubCallback) => SubHandle,
+  createSubscription: (onEvent: SubCallback) => SubHandle | Promise<SubHandle>,
   deps: DependencyList,
   enabled = true,
 ): Event[] {

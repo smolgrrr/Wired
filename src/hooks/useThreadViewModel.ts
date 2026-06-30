@@ -8,10 +8,14 @@ import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
 import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { filterModeratedEvents } from "../shared/lib/moderation";
 
-export function useThreadViewModel(hexID: string, seedEvents: Event[] = []) {
+export function useThreadViewModel(
+  hexID: string,
+  seedEvents: Event[] = [],
+  relayHints: readonly string[] = [],
+) {
   const [showAllReplies, setShowAllReplies] = useState(true);
   const moderationManifest = useModerationManifest();
-  const { noteEvents } = useThreadEvents(hexID);
+  const { noteEvents } = useThreadEvents(hexID, relayHints);
 
   const allEvents = useMemo(() => {
     return filterModeratedEvents([...noteEvents, ...seedEvents], moderationManifest);

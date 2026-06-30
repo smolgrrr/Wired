@@ -1,8 +1,9 @@
-import { Event, nip19 } from "nostr-tools";
+import { Event } from "nostr-tools";
 import { timeAgo } from "@lib/timeFormat";
 import { verifyPow } from "../../shared/pow/core";
 import { uniqBy } from "@lib/collections";
 import { getDisplayName } from "@lib/profile";
+import { buildThreadPath } from "@lib/threadRefs";
 import { TextContent } from "./TextContent";
 import { MetadataRow } from "./MetadataRow";
 import { ReplyContext } from "./ReplyContext";
@@ -71,7 +72,7 @@ export function PostCard({
       return;
     }
 
-    navigate(`/thread/${nip19.noteEncode(event.id)}`);
+    navigate(buildThreadPath(event.id));
   }, [event, onOpenThread, relatedEvents, navigate]);
 
   const roleClass = role === "threadContext" ? "opacity-70" : "";
