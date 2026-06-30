@@ -31,6 +31,13 @@ const EMPTY_STATUS: ConfessStatus = {
   nextResetAt: "",
 };
 
+const disallowedContentPattern =
+  /\b(?:(?:https?|wss?|ftp|ipfs):\/\/|(?:magnet|nostr):|www\.)[^\s<>"')\]]+|\b[a-z0-9.-]+\.(?:app|band|biz|blog|cloud|co|com|dev|fm|gg|info|io|is|land|link|lol|me|media|net|news|online|onion|org|site|social|to|tv|wine|xyz)(?:\/[^\s<>"')\]]*)?|\b[^\s<>"')\]]+\.(?:avif|gif|jpe?g|m4a|mov|mp3|mp4|ogg|png|svg|wav|webm|webp)(?:\?[^\s<>"')\]]*)?/i;
+
+function hasDisallowedContent(content: string): boolean {
+  return disallowedContentPattern.test(content);
+}
+
 function buildAdmissionEvent(content: string, pubkey: string): UnsignedEvent {
   return {
     kind: 1,
@@ -55,6 +62,9 @@ export default function ConfessPage() {
   const [posted, setPosted] = useState<ConfessSubmitResponse | null>(null);
 
   const difficulty = String(status.minimumPow);
+  const contentError = hasDisallowedContent(comment)
+    ? "links and media are not allowed"
+    : null;
   const pubkey = useMemo(() => getPublicKey(secretKey), [secretKey]);
   const unsigned = useMemo(
     () => buildAdmissionEvent(comment.trim(), pubkey),
@@ -128,7 +138,7 @@ export default function ConfessPage() {
     setPosted(null);
     setSubmitError(null);
 
-    if (!comment.trim() || status.closed || !status.configured) return;
+    if (!comment.trim() || contentError || status.closed || !status.configured) return;
 
     setSubmitStatus("mining");
     startWork();
@@ -173,6 +183,7 @@ export default function ConfessPage() {
             maxLength={2000}
             required
             disabled={doingWork || isUnavailable}
+            aria-invalid={contentError ? true : undefined}
           />
 
           <div className="flex min-h-14 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -187,7 +198,7 @@ export default function ConfessPage() {
               type="submit"
               variant="primary"
               size="sm"
-              disabled={doingWork || isUnavailable || !comment.trim()}
+              disabled={doingWork || isUnavailable || !comment.trim() || Boolean(contentError)}
               loading={doingWork}
             >
               post
@@ -204,6 +215,9 @@ export default function ConfessPage() {
           />
 
           {submitError && <p className="text-meta text-danger text-right">{submitError}</p>}
+          {contentError && !submitError && (
+            <p className="text-meta text-danger text-right">{contentError}</p>
+          )}
           {posted && (
             <p className="text-meta text-secondary text-right">
               posted to {posted.acceptedRelays.length} relay
