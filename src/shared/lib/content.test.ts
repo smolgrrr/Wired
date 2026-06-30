@@ -27,6 +27,18 @@ describe("parseContent", () => {
     });
   });
 
+  it("strips original URL tokens after normalization changes the URL", () => {
+    const content = "visit https://example.com then stay";
+    const event = { content } as Event;
+
+    expect(parseContent(event)).toEqual({
+      comment: "visit then stay",
+      attachments: [
+        { kind: "link", item: { url: "https://example.com/" } },
+      ],
+    });
+  });
+
   it("strips nostr bech32 identifiers from displayed content", () => {
     const content =
       "Wem nützt diese Näherung mehr?\nnostr:nevent1qqsyfzfk3zkvvmuyqd8hzu9008efyn4n53ucvx2353wknnltte0d33spz4mhxue69uhkummnw3ezuerpw3sju6rpw4esygy86n6j2pxy0rmwdj062z5y7mjngl2pyrz334pptd2jwjkh8slxwu6szplm";
@@ -72,6 +84,43 @@ describe("parseContent", () => {
       attachments: [
         { kind: "link", item: { url: "https://example.com/article" } },
         { kind: "media", item: { url: "https://example.com/shot.jpg", type: "image" } },
+      ],
+    });
+  });
+
+  it("orders mixed links, bare media, and imeta media by source token", () => {
+    const event = {
+      content:
+        "one https://example.com/a two https://example.com/tag.png three https://example.com/b four https://example.com/clip.mp4",
+      tags: [
+        [
+          "imeta",
+          "url https://example.com/tag.png",
+          "m image/png",
+          "dim 640x480",
+        ],
+      ],
+    } as Event;
+
+    expect(parseContent(event)).toEqual({
+      comment: "one two three four",
+      attachments: [
+        { kind: "link", item: { url: "https://example.com/a" } },
+        {
+          kind: "media",
+          item: {
+            url: "https://example.com/tag.png",
+            type: "image",
+            mime: "image/png",
+            width: 640,
+            height: 480,
+          },
+        },
+        { kind: "link", item: { url: "https://example.com/b" } },
+        {
+          kind: "media",
+          item: { url: "https://example.com/clip.mp4", type: "video" },
+        },
       ],
     });
   });
