@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import FeedPage from "../features/feed/FeedPage";
+import ConfessPage from "../features/confess/ConfessPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import ThreadPage from "../features/thread/ThreadPage";
 import NotificationsPage from "../features/notifications/NotificationsPage";
@@ -10,6 +11,7 @@ export function AppRoutes() {
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/" element={<FeedPage />} />
       <Route path="/raw" element={<FeedPage mode="raw" />} />
+      <Route path="/confess" element={<ConfessPage />} />
       <Route path="/thread/:id" element={<ThreadPage />} />
       <Route path="/notifications" element={<NotificationsPage />} />
     </Routes>

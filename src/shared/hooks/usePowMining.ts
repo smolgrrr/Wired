@@ -7,6 +7,10 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
   const [bestPow, setBestPow] = useState(0);
 
   const startWork = () => {
+    setMessageFromWorker(null);
+    setHashrate(0);
+    setBestPow(0);
+
     const startTime = Date.now();
     const workers = Array(numCores)
       .fill(null)
@@ -16,9 +20,7 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
       worker.onmessage = (event) => {
         if (event.data.status === "progress") {
           setHashrate(Math.floor(event.data.currentNonce / ((Date.now() - startTime) / 1000)));
-          if (event.data.bestPoW > bestPow) {
-            setBestPow(event.data.bestPoW);
-          }
+          setBestPow((current) => Math.max(current, event.data.bestPoW));
         } else if (event.data.found) {
           setMessageFromWorker(event.data.event);
           workers.forEach((w) => w.terminate());
