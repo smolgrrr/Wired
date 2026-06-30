@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 import { Event, nip19 } from "nostr-tools";
 import { getThreadDepth } from "@lib/getThreadDepth";
 import { Placeholder } from "../../shared/ui/Placeholder";
@@ -9,6 +10,8 @@ import { ThreadComposer } from "../compose/ThreadComposer";
 import { useInfiniteScroll } from "../../shared/hooks/useInfiniteScroll";
 import { useThreadViewModel } from "../../hooks/useThreadViewModel";
 import { eventWork } from "../../nostr/processing/pow-score";
+import { readThreadSeedEvents } from "./threadSeedCache";
+import { useThreadNavigation } from "./useThreadNavigation";
 
 function decodeNoteId(id: string | undefined): string | null {
   if (!id) return null;
@@ -22,6 +25,8 @@ function decodeNoteId(id: string | undefined): string | null {
 
 function ThreadView({ hexID }: { hexID: string }) {
   const visibleReplyEvents = useInfiniteScroll();
+  const seedEvents = useMemo(() => readThreadSeedEvents(hexID), [hexID]);
+  const openThread = useThreadNavigation();
   const {
     opEvent,
     earlierEvents,
@@ -30,7 +35,7 @@ function ThreadView({ hexID }: { hexID: string }) {
     showAllReplies,
     setShowAllReplies,
     uniqMentions,
-  } = useThreadViewModel(hexID);
+  } = useThreadViewModel(hexID, seedEvents);
   const directReplyEvents = replyEvents.filter((event) =>
     event.postEvent.tags.some((tag) => tag[0] === "e" && tag[1] === hexID),
   );
@@ -51,6 +56,7 @@ function ThreadView({ hexID }: { hexID: string }) {
               replies={uniqMentions.filter((e: Event) =>
                 e.tags.some((tag) => tag[0] === "e" && tag[1] === event.id),
               )}
+              onOpenThread={openThread}
             />
           ))}
           <PostCard
@@ -89,6 +95,7 @@ function ThreadView({ hexID }: { hexID: string }) {
                 totalWork={event.totalWork}
                 replyCount={event.threadReplyCount}
                 depth={getThreadDepth(event.postEvent, opEvent.id, eventsById)}
+                onOpenThread={openThread}
               />
             ))}
         </ContentColumn>

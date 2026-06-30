@@ -10,6 +10,7 @@ import { PowTransmitStatus } from "../../shared/ui/PowTransmitStatus";
 import { Input } from "../../shared/ui/Input";
 import { Textarea } from "../../shared/ui/Textarea";
 import { SignalStepper } from "../../shared/ui/SignalStepper";
+import { useThreadNavigation } from "../thread/useThreadNavigation";
 
 interface PostFormProps {
   refEvent?: NostrEvent;
@@ -18,6 +19,7 @@ interface PostFormProps {
 
 export function PostForm({ refEvent, tagType }: PostFormProps) {
   const { settings } = useSettings();
+  const openThread = useThreadNavigation();
   const [comment, setComment] = useState("");
   const [difficulty, setDifficulty] = useState(String(settings.difficulty));
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -143,7 +145,9 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
             posted to {acceptedRelays.length} relay{acceptedRelays.length === 1 ? "" : "s"}
           </p>
         )}
-        {signedPoWEvent && <PostCard event={signedPoWEvent} replies={[]} />}
+        {signedPoWEvent && (
+          <PostCard event={signedPoWEvent} replies={[]} onOpenThread={openThread} />
+        )}
       </div>
     </form>
   );

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { Event } from "nostr-tools";
 import { subNotesOnce } from "../nostr/subscriptions";
 import { toProcessedEvents } from "../nostr/processEvents";
 import { uniqBy } from "@lib/collections";
@@ -7,15 +8,14 @@ import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
 import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { filterModeratedEvents } from "../shared/lib/moderation";
 
-export function useThreadViewModel(hexID: string) {
+export function useThreadViewModel(hexID: string, seedEvents: Event[] = []) {
   const [showAllReplies, setShowAllReplies] = useState(true);
   const moderationManifest = useModerationManifest();
   const { noteEvents } = useThreadEvents(hexID);
 
   const allEvents = useMemo(() => {
-    const threadCache = JSON.parse(sessionStorage.getItem("cachedThread") || "[]");
-    return filterModeratedEvents([...noteEvents, ...threadCache], moderationManifest);
-  }, [noteEvents, moderationManifest]);
+    return filterModeratedEvents([...noteEvents, ...seedEvents], moderationManifest);
+  }, [noteEvents, seedEvents, moderationManifest]);
 
   const eventsById = useMemo(
     () => new Map(allEvents.map((event) => [event.id, event])),
