@@ -1,4 +1,4 @@
-import { ENRICHMENT_RELAYS, POW_RELAYS } from "../../config";
+import { POW_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
 import {
   ensureRelaysConnected,
   initNostr,
@@ -8,7 +8,7 @@ import {
 } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
-import { emptySubHandle } from "./utils";
+import { createSubHandleOwner, emptySubHandle } from "./utils";
 import { profileQueryLimit } from "./query-limits";
 
 export type { SubCallback, SubHandle };
@@ -78,8 +78,41 @@ export async function subProfilesOnce(
   ]);
 }
 
-function relayUrlsForQuote(ref: QuotedRef): string[] {
-  return [...new Set([...POW_RELAYS, ...ref.relays, ...ENRICHMENT_RELAYS])];
+function uniqueRelayUrls(relays: readonly string[]): string[] {
+  return [...new Set(relays)];
+}
+
+function fallbackRelayUrlsForQuote(ref: QuotedRef): string[] {
+  return uniqueRelayUrls([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS, ...ref.relays]);
+}
+
+function extraRelayHintsForQuote(ref: QuotedRef): string[] {
+  const fallbackRelays = new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS]);
+  return uniqueRelayUrls(ref.relays.filter((relay) => !fallbackRelays.has(relay)));
+}
+
+function hasExtraRelayHints(ref: QuotedRef): boolean {
+  return extraRelayHintsForQuote(ref).length > 0;
+}
+
+function quoteRequests(
+  refs: QuotedRef[],
+  onEvent: SubCallback,
+  onEose: ((refId: string) => void) | undefined,
+  relayUrlsForRef: (ref: QuotedRef) => string[],
+  shouldReportEose: (ref: QuotedRef) => boolean = () => true,
+) {
+  return refs.map((ref) => ({
+    filter: {
+      ids: [ref.id],
+      kinds: [1, 1068],
+      limit: 1,
+    },
+    cb: onEvent,
+    closeOnEose: true,
+    onEose: onEose && shouldReportEose(ref) ? () => onEose(ref.id) : undefined,
+    relayUrls: relayUrlsForRef(ref),
+  }));
 }
 
 export async function subQuotedEventsOnce(
@@ -91,20 +124,37 @@ export async function subQuotedEventsOnce(
     return emptySubHandle("quoted-events-once:empty");
   }
 
-  const relayUrls = [...new Set(refs.flatMap(relayUrlsForQuote))];
-  await ensureRelaysConnected(relayUrls);
+  await initNostr();
 
-  return getRegistry().subscribe(
-    refs.map((ref) => ({
-      filter: {
-        ids: [ref.id],
-        kinds: [1, 1068],
-        limit: 1,
-      },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose: onEose ? () => onEose(ref.id) : undefined,
-      relayUrls: relayUrlsForQuote(ref),
-    })),
+  const owner = createSubHandleOwner("quoted-events-once");
+  const refsWithExtraHints = refs.filter(hasExtraRelayHints);
+
+  owner.add(
+    getRegistry().subscribe(
+      quoteRequests(
+        refs,
+        onEvent,
+        onEose,
+        fallbackRelayUrlsForQuote,
+        (ref) => !hasExtraRelayHints(ref),
+      ),
+    ),
   );
+
+  if (refsWithExtraHints.length > 0) {
+    const extraRelayHints = uniqueRelayUrls(
+      refsWithExtraHints.flatMap(extraRelayHintsForQuote),
+    );
+    void ensureRelaysConnected(extraRelayHints)
+      .then(() => {
+        owner.add(
+          getRegistry().subscribe(
+            quoteRequests(refsWithExtraHints, onEvent, onEose, extraRelayHintsForQuote),
+          ),
+        );
+      })
+      .catch(() => {});
+  }
+
+  return owner.handle();
 }
