@@ -1,7 +1,7 @@
 import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "@lib/content";
-import { getNoteBodyText } from "@lib/pollUtils";
+import { getNoteBodyText, getPollViewModel } from "@lib/pollUtils";
 import { useQuotedEvents } from "../hooks/useQuotedEvents";
 import { AttachmentStack } from "./AttachmentStack";
 import { PollResponder } from "./PollResponder";
@@ -21,6 +21,7 @@ export function TextContent({
 }) {
   const { comment, attachments } = parseContent(eventdata);
   const bodyText = getNoteBodyText(eventdata, comment);
+  const poll = getPollViewModel(eventdata);
   const { quotedEvents, pendingRefs, failedRefs } = useQuotedEvents(eventdata);
   const [isExpanded, setIsExpanded] = useState(false);
   const displayedComment = isExpanded ? bodyText : bodyText.slice(0, COLLAPSED_LENGTH);
@@ -54,7 +55,7 @@ export function TextContent({
       {attachments.length > 0 && (
         <AttachmentStack attachments={attachments} imagePriority={imagePriority} />
       )}
-      {eventdata.kind === 1068 && <PollResponder eventdata={eventdata} />}
+      {poll && <PollResponder poll={poll} />}
     </div>
   );
 }

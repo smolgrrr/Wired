@@ -1,17 +1,14 @@
-import { Event } from "nostr-tools";
-import { getPollOptions } from "@lib/pollUtils";
+import type { PollViewModel } from "@lib/pollUtils";
 
-export function PollSummary({ eventdata }: { eventdata: Event }) {
-  const options = getPollOptions(eventdata);
-
-  if (options.length === 0) return null;
+export function PollSummary({ poll }: { poll: PollViewModel }) {
+  if (poll.options.length === 0) return null;
 
   return (
     <div className="mt-2 flex flex-col gap-1">
       <ul className="flex flex-col gap-1">
-        {options.map(([id, text]) => (
-          <li key={id} className="text-meta text-muted">
-            · {text}
+        {poll.options.map((option) => (
+          <li key={option.id} className="text-meta text-muted">
+            · {option.label}
           </li>
         ))}
       </ul>
