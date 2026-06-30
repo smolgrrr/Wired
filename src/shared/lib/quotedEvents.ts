@@ -8,12 +8,14 @@ export type QuotedRef = {
   relays: string[];
 };
 
+const EVENT_ID_PATTERN = /^[0-9a-f]{64}$/i;
+
 export function normalizeRelayUrl(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
 export function decodeNostrRef(ref: string): QuotedRef | null {
-  const bech32 = ref.startsWith("nostr:") ? ref.slice(6) : ref;
+  const bech32 = ref.replace(/^nostr:/i, "");
   try {
     const decoded = nip19.decode(bech32);
     if (decoded.type === "note") {
@@ -52,10 +54,22 @@ export function extractQuotedRefs(event: Event): QuotedRef[] {
     byId.set(id, { id, relays: [...new Set(relays)] });
   };
 
+  const addTaggedRef = (value: string, relayHints: string[] = []) => {
+    if (EVENT_ID_PATTERN.test(value)) {
+      addRef(value.toLowerCase(), relayHints);
+      return;
+    }
+
+    const decoded = decodeNostrRef(value);
+    if (decoded) {
+      addRef(decoded.id, [...decoded.relays, ...relayHints]);
+    }
+  };
+
   for (const tag of event.tags ?? []) {
     if (tag[0] === "q" && tag[1]) {
       const relayHint = tag[2] ? normalizeRelayUrl(tag[2]) : undefined;
-      addRef(tag[1], relayHint ? [relayHint] : []);
+      addTaggedRef(tag[1], relayHint ? [relayHint] : []);
     }
   }
 
