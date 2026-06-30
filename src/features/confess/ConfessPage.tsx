@@ -31,6 +31,14 @@ const EMPTY_STATUS: ConfessStatus = {
   nextResetAt: "",
 };
 
+type ConfessSubmitStatus =
+  | "idle"
+  | "loading"
+  | "mining"
+  | "submitting"
+  | "published"
+  | "failed";
+
 const disallowedContentPattern =
   /\b(?:(?:https?|wss?|ftp|ipfs):\/\/|(?:magnet|nostr):|www\.)[^\s<>"')\]]+|\b[a-z0-9.-]+\.(?:app|band|biz|blog|cloud|co|com|dev|fm|gg|info|io|is|land|link|lol|me|media|net|news|online|onion|org|site|social|to|tv|wine|xyz)(?:\/[^\s<>"')\]]*)?|\b[^\s<>"')\]]+\.(?:avif|gif|jpe?g|m4a|mov|mp3|mp4|ogg|png|svg|wav|webm|webp)(?:\?[^\s<>"')\]]*)?/i;
 
@@ -55,11 +63,10 @@ export default function ConfessPage() {
   const [comment, setComment] = useState("");
   const [secretKey, setSecretKey] = useState(() => generateSecretKey());
   const [status, setStatus] = useState<ConfessStatus>(EMPTY_STATUS);
-  const [submitStatus, setSubmitStatus] = useState<
-    "idle" | "loading" | "mining" | "publishing" | "published" | "failed"
-  >("loading");
+  const [submitStatus, setSubmitStatus] = useState<ConfessSubmitStatus>("loading");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [posted, setPosted] = useState<ConfessSubmitResponse | null>(null);
+  const [minedEvent, setMinedEvent] = useState<UnsignedEvent>();
 
   const difficulty = String(status.minimumPow);
   const contentError = hasDisallowedContent(comment)
@@ -93,16 +100,22 @@ export default function ConfessPage() {
   }, [loadStatus]);
 
   useEffect(() => {
-    if (!messageFromWorker || submitStatus !== "mining") return;
+    if (messageFromWorker && submitStatus === "mining") {
+      setMinedEvent(messageFromWorker);
+    }
+  }, [messageFromWorker, submitStatus]);
+
+  useEffect(() => {
+    if (!minedEvent) return;
 
     let cancelled = false;
 
     const publishConfession = async () => {
-      setSubmitStatus("publishing");
+      setSubmitStatus("submitting");
       setSubmitError(null);
 
       try {
-        const admissionEvent = finalizeEvent(messageFromWorker, secretKey) as Event;
+        const admissionEvent = finalizeEvent(minedEvent, secretKey) as Event;
         const result = await submitConfession(admissionEvent);
         if (cancelled) return;
 
@@ -123,6 +136,10 @@ export default function ConfessPage() {
         setSubmitError(error instanceof Error ? error.message : "confess failed");
         setSubmitStatus("failed");
         void loadStatus();
+      } finally {
+        if (!cancelled) {
+          setMinedEvent(undefined);
+        }
       }
     };
 
@@ -131,7 +148,7 @@ export default function ConfessPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadStatus, messageFromWorker, secretKey, submitStatus]);
+  }, [loadStatus, minedEvent, secretKey]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -144,7 +161,7 @@ export default function ConfessPage() {
     startWork();
   };
 
-  const doingWork = submitStatus === "mining" || submitStatus === "publishing";
+  const doingWork = submitStatus === "mining" || submitStatus === "submitting";
   const isUnavailable = !status.configured || status.closed || submitStatus === "loading";
   const noteLink = posted ? nip19.noteEncode(posted.event.id) : "";
 
@@ -206,13 +223,18 @@ export default function ConfessPage() {
           </div>
 
           <PowTransmitStatus
-            active={doingWork}
+            active={submitStatus === "mining"}
             difficulty={difficulty}
             hashrate={hashrate}
             bestPow={bestPow}
-            status={submitStatus === "loading" ? "idle" : submitStatus}
+            status="mining"
             className="text-right"
           />
+          {submitStatus === "submitting" && (
+            <p className="text-meta text-secondary text-right" role="status">
+              submitting to wired backend...
+            </p>
+          )}
 
           {submitError && <p className="text-meta text-danger text-right">{submitError}</p>}
           {contentError && !submitError && (
