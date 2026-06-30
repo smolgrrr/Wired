@@ -136,6 +136,43 @@ describe("subGlobalFeed", () => {
     expect(nestedReplyRequest.relayUrls).toEqual(enrichmentRelays);
   });
 
+  it("uses processable feed root eligibility for PoW reply enrichment", () => {
+    const articleId = `${"1".repeat(64)}`;
+    const duplicateAuthorRootId = `${"2".repeat(64)}`;
+    const acceptedRootId = `${"3".repeat(64)}`;
+
+    const article = {
+      ...rootNoteFromPubkey(articleId, "a".repeat(64)),
+      kind: 1068,
+    };
+    const duplicateAuthorRoot = rootNoteFromPubkey(
+      duplicateAuthorRootId,
+      "a".repeat(64),
+    );
+    const acceptedRoot = rootNoteFromPubkey(acceptedRootId, "b".repeat(64));
+
+    subscribeMock.mockImplementation((requests) => {
+      const id = String(subscribeMock.mock.calls.length);
+
+      if (id === "1") {
+        const { cb, onEose } = requests[0];
+        cb(article, "wss://powrelay.xyz");
+        cb(duplicateAuthorRoot, "wss://powrelay.xyz");
+        cb(acceptedRoot, "wss://powrelay.xyz");
+        onEose?.();
+      }
+
+      return { id, close: vi.fn() };
+    });
+
+    subGlobalFeed(vi.fn(), 24, { rootFilterDifficulty: 0 });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+    expect(subscribeMock.mock.calls[1][0][0].filter["#e"]).toEqual([
+      acceptedRootId,
+    ]);
+  });
+
   it("can enrich replies for known root ids", () => {
     const rootId = `${"1".repeat(64)}`;
     const replyId = `${"2".repeat(64)}`;
@@ -203,5 +240,29 @@ describe("subGlobalFeed", () => {
       limit: REPLY_QUERY_LIMIT,
       since: expect.any(Number),
     });
+  });
+
+  it("closes reply traversal children that are added after the parent closes", () => {
+    const rootId = `${"1".repeat(64)}`;
+    const replyId = `${"2".repeat(64)}`;
+    const closeMocks: ReturnType<typeof vi.fn>[] = [];
+
+    subscribeMock.mockImplementation(() => {
+      const id = String(subscribeMock.mock.calls.length);
+      const close = vi.fn();
+      closeMocks.push(close);
+      return { id, close };
+    });
+
+    const handle = subRepliesForRootIds([rootId], vi.fn(), { depth: 2 });
+    const firstRequest = subscribeMock.mock.calls[0][0][0];
+
+    handle.close();
+    firstRequest.cb(rootNote(replyId), "wss://relay.damus.io");
+    firstRequest.onEose?.();
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+    expect(closeMocks[0]).toHaveBeenCalledTimes(1);
+    expect(closeMocks[1]).toHaveBeenCalledTimes(1);
   });
 });
