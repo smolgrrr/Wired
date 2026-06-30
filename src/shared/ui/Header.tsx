@@ -56,6 +56,11 @@ export function Header() {
             isActive={pathname === "/notifications"}
           />
           <NavLink
+            to="/confess"
+            label="confess"
+            isActive={pathname === "/confess"}
+          />
+          <NavLink
             to="/settings"
             label="settings"
             isActive={pathname === "/settings"}
