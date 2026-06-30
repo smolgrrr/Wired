@@ -8,6 +8,7 @@ type StartWorkOptions = {
 };
 
 export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficulty: string) {
+  const [messageFromWorker, setMessageFromWorker] = useState<MinedPowEvent | null>(null);
   const [hashrate, setHashrate] = useState(0);
   const [bestPow, setBestPow] = useState(0);
   const activeJobId = useRef(0);
@@ -21,8 +22,9 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
 
   useEffect(() => cancelWork, [cancelWork]);
 
-  const startWork = useCallback(({ onMined, onError }: StartWorkOptions) => {
+  const startWork = useCallback((options?: StartWorkOptions) => {
     cancelWork();
+    setMessageFromWorker(null);
     setHashrate(0);
     setBestPow(0);
 
@@ -59,13 +61,14 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
         }
 
         if (finishJob()) {
-          onMined(response.event);
+          setMessageFromWorker(response.event);
+          options?.onMined(response.event);
         }
       };
 
       worker.onerror = () => {
         if (finishJob()) {
-          onError?.();
+          options?.onError?.();
         }
       };
 
@@ -81,5 +84,5 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
     });
   }, [cancelWork, difficulty, numCores, unsigned]);
 
-  return { startWork, cancelWork, hashrate, bestPow };
+  return { startWork, cancelWork, messageFromWorker, hashrate, bestPow };
 }

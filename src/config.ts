@@ -44,3 +44,7 @@ export const QUOTE_FALLBACK_RELAYS = ENRICHMENT_RELAYS;
 export const THREAD_RELAYS = [
   ...new Set([...POW_RELAYS, ...ENRICHMENT_RELAYS]),
 ] as const;
+
+export const CONFESS_API_BASE = (import.meta.env.VITE_CONFESS_API_BASE || "")
+  .trim()
+  .replace(/\/+$/, "");

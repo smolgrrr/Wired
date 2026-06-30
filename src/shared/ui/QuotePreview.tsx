@@ -1,7 +1,7 @@
 import { Event } from "nostr-tools";
 import { parseContent } from "@lib/content";
 import { getDisplayName } from "@lib/profile";
-import { getNoteBodyText } from "@lib/pollUtils";
+import { getNoteBodyText, getPollViewModel } from "@lib/pollUtils";
 import { useProfile } from "../hooks/useProfiles";
 import { AttachmentStack } from "./AttachmentStack";
 import { LinkedBodyText } from "./LinkedBodyText";
@@ -15,6 +15,7 @@ export function QuotePreview({ event }: { event: Event }) {
   const authorLabel = getDisplayName(profile, event.pubkey);
   const { comment, attachments } = parseContent(event);
   const bodyText = getNoteBodyText(event, comment);
+  const poll = getPollViewModel(event);
   const preview =
     bodyText.length > PREVIEW_LENGTH
       ? `${bodyText.slice(0, PREVIEW_LENGTH)}…`
@@ -44,7 +45,7 @@ export function QuotePreview({ event }: { event: Event }) {
           <AttachmentStack attachments={attachments} compact />
         </div>
       )}
-      {event.kind === 1068 && <PollSummary eventdata={event} />}
+      {poll && <PollSummary poll={poll} />}
     </div>
   );
 }

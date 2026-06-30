@@ -21,7 +21,7 @@
     "snapshot:serve": "vite-node scripts/feed-snapshot-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src lib/feedBootstrapCache.ts api scripts vite.config.ts eslint.config.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

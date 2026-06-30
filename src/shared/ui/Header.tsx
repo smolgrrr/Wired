@@ -5,10 +5,12 @@ function NavLink({
   to,
   label,
   isActive,
+  signalGlow = false,
 }: {
   to: string;
   label: string;
   isActive: boolean;
+  signalGlow?: boolean;
 }) {
   return (
     <Link
@@ -18,7 +20,9 @@ function NavLink({
         "text-meta transition-colors duration-hover border-b-2 pb-0.5",
         isActive
           ? "text-signal font-medium border-signal"
-          : "text-secondary border-transparent hover:text-primary",
+          : signalGlow
+            ? "text-signal border-transparent drop-shadow-[0_0_6px_var(--signal-dim)] hover:text-primary"
+            : "text-secondary border-transparent hover:text-primary",
       ].join(" ")}
     >
       {label}
@@ -50,6 +54,12 @@ export function Header() {
           </span>
         </Link>
         <nav className="flex shrink-0 gap-4" aria-label="Primary navigation">
+          <NavLink
+            to="/confess"
+            label="confess"
+            isActive={pathname === "/confess"}
+            signalGlow
+          />
           <NavLink
             to="/notifications"
             label="activity"

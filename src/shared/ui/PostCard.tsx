@@ -24,6 +24,7 @@ interface PostCardProps {
   avatarPriority?: boolean;
   totalWork?: number;
   replyCount?: number;
+  onOpenThread?: (event: Event, relatedEvents: Event[]) => void;
 }
 
 const depthClasses: Record<number, string> = {
@@ -51,6 +52,7 @@ export function PostCard({
   avatarPriority = false,
   totalWork,
   replyCount,
+  onOpenThread,
 }: PostCardProps) {
   const navigate = useNavigate();
 
@@ -64,9 +66,13 @@ export function PostCard({
   const isNavigable = role !== "threadOp";
 
   const handleNavigate = useCallback(() => {
-    sessionStorage.setItem("cachedThread", JSON.stringify(relatedEvents));
+    if (onOpenThread) {
+      onOpenThread(event, relatedEvents);
+      return;
+    }
+
     navigate(`/thread/${nip19.noteEncode(event.id)}`);
-  }, [relatedEvents, navigate, event.id]);
+  }, [event, onOpenThread, relatedEvents, navigate]);
 
   const roleClass = role === "threadContext" ? "opacity-70" : "";
 

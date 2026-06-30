@@ -74,4 +74,20 @@ describe("getFeedBootstrapSnapshot", () => {
     await expect(getFeedBootstrapSnapshot()).resolves.toEqual(snapshot);
     expect(mocks.fetchFeedSnapshot).not.toHaveBeenCalled();
   });
+
+  it("de-dupes concurrent refreshes through the cache service", async () => {
+    const { FeedBootstrapCacheService, MemoryFeedBootstrapStore } = await loadCacheModule();
+    const fetchSnapshot = vi.fn().mockResolvedValue(snapshot);
+    const service = new FeedBootstrapCacheService({
+      store: new MemoryFeedBootstrapStore(),
+      fetchSnapshot,
+    });
+
+    await expect(Promise.all([service.refresh(), service.refresh()])).resolves.toEqual([
+      snapshot,
+      snapshot,
+    ]);
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+    await expect(service.read()).resolves.toEqual(snapshot);
+  });
 });

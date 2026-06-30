@@ -4,10 +4,12 @@ import { Event } from "nostr-tools";
 import { useNotificationEvents } from "../../hooks/useNotificationEvents";
 import { SegmentedControl } from "../../shared/ui/SegmentedControl";
 import { PageShell } from "../../shared/ui/PageShell";
+import { useThreadNavigation } from "../thread/useThreadNavigation";
 
 export default function NotificationsPage() {
   const [notifsView, setNotifsView] = useState<"yours" | "mentions">("yours");
   const { noteEvents, pubkeys } = useNotificationEvents();
+  const openThread = useThreadNavigation();
 
   const postEvents = noteEvents.filter(
     (event) => event.kind !== 0 && pubkeys.includes(event.pubkey),
@@ -43,13 +45,23 @@ export default function NotificationsPage() {
         <div className={`grid grid-cols-1 gap-4 flex-grow ${notifsView === "mentions" ? "hidden sm:grid" : ""}`}>
           <span className="text-meta text-muted">your transmissions</span>
           {sortedEvents.map((event) => (
-            <PostCard key={event.id} event={event} replies={countReplies(event)} />
+            <PostCard
+              key={event.id}
+              event={event}
+              replies={countReplies(event)}
+              onOpenThread={openThread}
+            />
           ))}
         </div>
         <div className={`grid grid-cols-1 gap-4 flex-grow ${notifsView === "yours" ? "hidden sm:grid" : ""}`}>
           <span className="text-meta text-muted">mentions</span>
           {sortedMentions.map((event) => (
-            <PostCard key={event.id} event={event} replies={countReplies(event)} />
+            <PostCard
+              key={event.id}
+              event={event}
+              replies={countReplies(event)}
+              onOpenThread={openThread}
+            />
           ))}
         </div>
       </div>
