@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   appendKey: vi.fn(),
   publish: vi.fn(),
 }));
-let workerMessageHandler: ((event: MessageEvent) => void) | null = null;
+let mockWorkers: MockWorker[] = [];
 
 vi.mock("nostr-tools", async (importOriginal) => {
   const actual = await importOriginal<typeof import("nostr-tools")>();
@@ -37,14 +37,21 @@ vi.mock("./useStoredKeys", () => ({
 
 class MockWorker {
   onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  postMessage = vi.fn();
+  terminate = vi.fn();
 
   constructor() {
-    workerMessageHandler = (event: MessageEvent) => this.onmessage?.(event);
+    mockWorkers.push(this);
   }
 
-  postMessage() {}
+  emit(data: unknown) {
+    this.onmessage?.({ data } as MessageEvent);
+  }
 
-  terminate() {}
+  fail() {
+    this.onerror?.({} as ErrorEvent);
+  }
 }
 
 const unsigned: UnsignedEvent = {
@@ -53,6 +60,13 @@ const unsigned: UnsignedEvent = {
   content: "test reply",
   created_at: 1,
   pubkey: "",
+};
+
+const minedEvent = {
+  ...unsigned,
+  id: "1".repeat(64),
+  pubkey: "f".repeat(64),
+  tags: [...unsigned.tags, ["nonce", "1", "1"]],
 };
 
 function Probe({ onState }: { onState: (state: ReturnType<typeof useSubmitForm>) => void }) {
@@ -75,7 +89,7 @@ describe("useSubmitForm", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    workerMessageHandler = null;
+    mockWorkers = [];
     mocks.appendKey.mockReset();
     mocks.publish.mockReset();
     vi.stubGlobal("Worker", MockWorker);
@@ -93,6 +107,12 @@ describe("useSubmitForm", () => {
     vi.unstubAllGlobals();
   });
 
+  async function submitForm() {
+    await act(async () => {
+      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+  }
+
   it("does not expose a posted event when no relay accepts the publish", async () => {
     mocks.publish.mockResolvedValue(new Set<string>());
 
@@ -100,18 +120,10 @@ describe("useSubmitForm", () => {
       root.render(<Probe onState={(nextState) => (state = nextState)} />);
     });
 
-    await act(async () => {
-      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    });
-
-    const minedEvent = {
-      ...unsigned,
-      pubkey: "f".repeat(64),
-      tags: [...unsigned.tags, ["nonce", "1", "1"]],
-    } as UnsignedEvent;
+    await submitForm();
 
     await act(async () => {
-      workerMessageHandler?.({ data: { found: true, event: minedEvent } } as MessageEvent);
+      mockWorkers[0].emit({ type: "found", event: minedEvent });
     });
 
     expect(mocks.publish).toHaveBeenCalledTimes(1);
@@ -129,18 +141,10 @@ describe("useSubmitForm", () => {
       root.render(<Probe onState={(nextState) => (state = nextState)} />);
     });
 
-    await act(async () => {
-      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    });
-
-    const minedEvent = {
-      ...unsigned,
-      pubkey: "f".repeat(64),
-      tags: [...unsigned.tags, ["nonce", "1", "1"]],
-    } as UnsignedEvent;
+    await submitForm();
 
     await act(async () => {
-      workerMessageHandler?.({ data: { found: true, event: minedEvent } } as MessageEvent);
+      mockWorkers[0].emit({ type: "found", event: minedEvent });
     });
 
     expect(mocks.publish).toHaveBeenCalledTimes(1);
@@ -158,18 +162,10 @@ describe("useSubmitForm", () => {
       root.render(<Probe onState={(nextState) => (state = nextState)} />);
     });
 
-    await act(async () => {
-      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    });
-
-    const minedEvent = {
-      ...unsigned,
-      pubkey: "f".repeat(64),
-      tags: [...unsigned.tags, ["nonce", "1", "1"]],
-    } as UnsignedEvent;
+    await submitForm();
 
     await act(async () => {
-      workerMessageHandler?.({ data: { found: true, event: minedEvent } } as MessageEvent);
+      mockWorkers[0].emit({ type: "found", event: minedEvent });
     });
 
     expect(mocks.publish).toHaveBeenCalledTimes(1);
@@ -178,5 +174,69 @@ describe("useSubmitForm", () => {
     expect(state.submitError).toMatch(/Publishing failed/);
     expect(state.acceptedRelays).toEqual([]);
     expect(mocks.appendKey).not.toHaveBeenCalled();
+  });
+
+  it("terminates active mining workers on unmount", async () => {
+    mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
+
+    act(() => {
+      root.render(<Probe onState={(nextState) => (state = nextState)} />);
+    });
+
+    await submitForm();
+
+    const worker = mockWorkers[0];
+
+    act(() => {
+      root.unmount();
+    });
+
+    await act(async () => {
+      worker.emit({ type: "found", event: minedEvent });
+    });
+
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it("ignores superseded mining work", async () => {
+    mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
+
+    act(() => {
+      root.render(<Probe onState={(nextState) => (state = nextState)} />);
+    });
+
+    await submitForm();
+    const firstWorker = mockWorkers[0];
+
+    await submitForm();
+    const secondWorker = mockWorkers[1];
+
+    await act(async () => {
+      firstWorker.emit({ type: "found", event: { ...minedEvent, content: "old" } });
+      secondWorker.emit({ type: "found", event: minedEvent });
+    });
+
+    expect(firstWorker.terminate).toHaveBeenCalledTimes(1);
+    expect(mocks.publish).toHaveBeenCalledTimes(1);
+    expect((state.signedPoWEvent as Event | undefined)?.content).toBe("test reply");
+    expect(state.submitStatus).toBe("published");
+  });
+
+  it("reports mining worker failures", async () => {
+    act(() => {
+      root.render(<Probe onState={(nextState) => (state = nextState)} />);
+    });
+
+    await submitForm();
+
+    act(() => {
+      mockWorkers[0].fail();
+    });
+
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(state.submitStatus).toBe("failed");
+    expect(state.submitError).toMatch(/Mining failed/);
+    expect(state.acceptedRelays).toEqual([]);
   });
 });

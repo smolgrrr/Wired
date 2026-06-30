@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { generateSecretKey, getPublicKey, finalizeEvent, type UnsignedEvent, type Event } from "nostr-tools";
 import { publish } from "../../nostr/client";
 import { bytesToHex } from "@noble/hashes/utils";
@@ -14,74 +14,72 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
   const [acceptedRelays, setAcceptedRelays] = useState<string[]>([]);
   const [sk, setSk] = useState(generateSecretKey());
   const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
-  const [unsignedPoWEvent, setUnsignedPoWEvent] = useState<UnsignedEvent>();
   const [signedPoWEvent, setSignedPoWEvent] = useState<Event>();
+  const activeSubmitId = useRef(0);
 
   const numCores = navigator.hardwareConcurrency || 4;
-  const { startWork, messageFromWorker, hashrate, bestPow } = usePowMining(numCores, unsignedWithPubkey, difficulty);
+  const { startWork, hashrate, bestPow } = usePowMining(numCores, unsignedWithPubkey, difficulty);
   const doingWorkProp = submitStatus === "mining" || submitStatus === "publishing";
 
   useEffect(() => {
-    if (!unsignedPoWEvent) return;
-
-    let cancelled = false;
-
-    const publishMinedEvent = async () => {
-      setSubmitStatus("publishing");
-      setSubmitError(null);
-
-      try {
-        const signedEvent = finalizeEvent(unsignedPoWEvent, sk);
-        const accepted = await publish(signedEvent);
-        if (cancelled) return;
-
-        if (accepted.size === 0) {
-          setSubmitStatus("failed");
-          setSubmitError("No relay accepted the event. Your draft was not posted.");
-          setSignedPoWEvent(undefined);
-          setAcceptedRelays([]);
-          return;
-        }
-
-        setAcceptedRelays([...accepted]);
-        setSignedPoWEvent(signedEvent);
-        appendKey(bytesToHex(sk), getPublicKey(sk));
-        setSk(generateSecretKey());
-        setSubmitStatus("published");
-      } catch {
-        if (cancelled) return;
-        setSubmitStatus("failed");
-        setSubmitError("Publishing failed. Your draft was not posted.");
-        setSignedPoWEvent(undefined);
-        setAcceptedRelays([]);
-      } finally {
-        if (!cancelled) {
-          setUnsignedPoWEvent(undefined);
-        }
-      }
-    };
-
-    void publishMinedEvent();
-
     return () => {
-      cancelled = true;
+      activeSubmitId.current += 1;
     };
-  }, [appendKey, sk, unsignedPoWEvent]);
+  }, []);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    const submitId = activeSubmitId.current + 1;
+    activeSubmitId.current = submitId;
     setSubmitStatus("mining");
     setSubmitError(null);
     setAcceptedRelays([]);
     setSignedPoWEvent(undefined);
-    startWork();
-  };
 
-  useEffect(() => {
-    if (messageFromWorker) {
-      setUnsignedPoWEvent(messageFromWorker);
-    }
-  }, [messageFromWorker]);
+    startWork({
+      onMined: async (minedEvent) => {
+        if (activeSubmitId.current !== submitId) return;
+
+        setSubmitStatus("publishing");
+        setSubmitError(null);
+
+        try {
+          const signedEvent = finalizeEvent(minedEvent, sk);
+          const accepted = await publish(signedEvent);
+          if (activeSubmitId.current !== submitId) return;
+
+          if (accepted.size === 0) {
+            setSubmitStatus("failed");
+            setSubmitError("No relay accepted the event. Your draft was not posted.");
+            setSignedPoWEvent(undefined);
+            setAcceptedRelays([]);
+            return;
+          }
+
+          setAcceptedRelays([...accepted]);
+          setSignedPoWEvent(signedEvent);
+          appendKey(bytesToHex(sk), getPublicKey(sk));
+          setSk(generateSecretKey());
+          setSubmitStatus("published");
+        } catch {
+          if (activeSubmitId.current !== submitId) return;
+
+          setSubmitStatus("failed");
+          setSubmitError("Publishing failed. Your draft was not posted.");
+          setSignedPoWEvent(undefined);
+          setAcceptedRelays([]);
+        }
+      },
+      onError: () => {
+        if (activeSubmitId.current !== submitId) return;
+
+        setSubmitStatus("failed");
+        setSubmitError("Mining failed. Your draft was not posted.");
+        setSignedPoWEvent(undefined);
+        setAcceptedRelays([]);
+      },
+    });
+  };
 
   return {
     handleSubmit,

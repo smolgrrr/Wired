@@ -1,24 +1,42 @@
 import { type UnsignedEvent, type Event, getEventHash } from "nostr-tools";
 import { getPow } from "../shared/pow/core";
 
-const ctx: Worker = self as unknown as Worker;
+export type MinedPowEvent = UnsignedEvent & Pick<Event, "id">;
 
-ctx.addEventListener("message", (event) => {
+export type PowWorkerRequest = {
+  type: "mine";
+  unsigned: UnsignedEvent;
+  difficulty: number;
+  nonceStart: number;
+  nonceStep: number;
+};
+
+export type PowWorkerResponse =
+  | {
+      type: "progress";
+      currentNonce: number;
+      bestPow: number;
+    }
+  | {
+      type: "found";
+      event: MinedPowEvent;
+    };
+
+const ctx = self as DedicatedWorkerGlobalScope;
+
+ctx.addEventListener("message", (event: MessageEvent<PowWorkerRequest>) => {
+  if (event.data.type !== "mine") return;
+
   const { unsigned, difficulty, nonceStart, nonceStep } = event.data;
   const result = minePow(unsigned, difficulty, nonceStart, nonceStep);
   ctx.postMessage(result);
 });
 
-function minePow(
-  unsigned: UnsignedEvent,
-  difficulty: number,
-  nonceStart: number,
-  nonceStep: number,
-): { found: boolean; event?: Omit<Event, "sig">; status?: string; currentNonce?: number; bestPoW?: number } {
+function minePow(unsigned: UnsignedEvent, difficulty: number, nonceStart: number, nonceStep: number): PowWorkerResponse {
   let nonce = nonceStart;
   let bestPoW = 0;
 
-  const event = unsigned as Omit<Event, "sig">;
+  const event: MinedPowEvent = { ...unsigned, tags: [...unsigned.tags], id: "" };
   const tag = ["nonce", nonce.toString(), difficulty.toString()];
   event.tags.push(tag);
 
@@ -32,13 +50,13 @@ function minePow(
     }
 
     if (leadingZeroes >= difficulty) {
-      return { found: true, event };
+      return { type: "found", event };
     }
 
     nonce += nonceStep;
 
     if (nonce % (nonceStep * 10000) === 0) {
-      ctx.postMessage({ status: "progress", currentNonce: nonce, bestPoW });
+      ctx.postMessage({ type: "progress", currentNonce: nonce, bestPow: bestPoW } satisfies PowWorkerResponse);
     }
   }
 }
