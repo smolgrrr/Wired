@@ -12,8 +12,6 @@ export function feedReplyRootId(event: Event): string | null {
 }
 
 export function createFeedCandidateTracker(filterDifficulty = 0) {
-  const seenPubkeys = new Set<string>();
-
   return {
     check(event: Event): FeedCandidateDecision {
       if (event.kind !== 1 && event.kind !== 1068) {
@@ -25,15 +23,10 @@ export function createFeedCandidateTracker(filterDifficulty = 0) {
         return { accepted: false, replyRootId: null };
       }
 
-      if (seenPubkeys.has(event.pubkey)) {
-        return { accepted: false, replyRootId: null };
-      }
-
       if (verifyPow(event) < filterDifficulty) {
         return { accepted: false, replyRootId: null };
       }
 
-      seenPubkeys.add(event.pubkey);
       return { accepted: true, replyRootId };
     },
   };

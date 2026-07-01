@@ -138,15 +138,15 @@ describe("subGlobalFeed", () => {
 
   it("uses processable feed root eligibility for PoW reply enrichment", () => {
     const articleId = `${"1".repeat(64)}`;
-    const duplicateAuthorRootId = `${"2".repeat(64)}`;
+    const sameAuthorRootId = `${"2".repeat(64)}`;
     const acceptedRootId = `${"3".repeat(64)}`;
 
     const article = {
       ...rootNoteFromPubkey(articleId, "a".repeat(64)),
       kind: 1068,
     };
-    const duplicateAuthorRoot = rootNoteFromPubkey(
-      duplicateAuthorRootId,
+    const sameAuthorRoot = rootNoteFromPubkey(
+      sameAuthorRootId,
       "a".repeat(64),
     );
     const acceptedRoot = rootNoteFromPubkey(acceptedRootId, "b".repeat(64));
@@ -157,7 +157,7 @@ describe("subGlobalFeed", () => {
       if (id === "1") {
         const { cb, onEose } = requests[0];
         cb(article, "wss://powrelay.xyz");
-        cb(duplicateAuthorRoot, "wss://powrelay.xyz");
+        cb(sameAuthorRoot, "wss://powrelay.xyz");
         cb(acceptedRoot, "wss://powrelay.xyz");
         onEose?.();
       }
@@ -169,6 +169,7 @@ describe("subGlobalFeed", () => {
 
     expect(subscribeMock).toHaveBeenCalledTimes(2);
     expect(subscribeMock.mock.calls[1][0][0].filter["#e"]).toEqual([
+      sameAuthorRootId,
       acceptedRootId,
     ]);
   });

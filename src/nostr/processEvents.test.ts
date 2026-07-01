@@ -46,17 +46,21 @@ describe("toProcessedEvents", () => {
 });
 
 describe("processFeedEvents", () => {
-  it("keeps one root post per pubkey and groups replies", () => {
+  it("keeps valid same-author root posts and groups replies", () => {
     const root = event({ id: "1".repeat(64) });
-    const duplicateAuthor = event({ id: "2".repeat(64), created_at: 2 });
+    const sameAuthorRoot = event({ id: "2".repeat(64), created_at: 2 });
     const reply = event({ id: "3".repeat(64), pubkey: "c".repeat(64), tags: [["e", root.id]] });
 
-    const result = processFeedEvents([root, duplicateAuthor, reply]);
+    const result = processFeedEvents([root, sameAuthorRoot, reply]);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].postEvent.id).toBe(root.id);
-    expect(result[0].replies).toEqual([reply]);
-    expect(result[0].threadReplyCount).toBe(1);
+    expect(result.map((item) => item.postEvent.id)).toEqual([
+      root.id,
+      sameAuthorRoot.id,
+    ]);
+    expect(result.find((item) => item.postEvent.id === root.id)?.replies).toEqual([
+      reply,
+    ]);
+    expect(result.find((item) => item.postEvent.id === root.id)?.threadReplyCount).toBe(1);
   });
 
   it("uses the same feed root eligibility for articles and root notes", () => {
@@ -65,9 +69,10 @@ describe("processFeedEvents", () => {
       kind: 1068,
       pubkey: "a".repeat(64),
     });
-    const duplicateAuthorRoot = event({
+    const sameAuthorRoot = event({
       id: "2".repeat(64),
       pubkey: "a".repeat(64),
+      created_at: 2,
     });
     const acceptedRoot = event({
       id: "3".repeat(64),
@@ -81,13 +86,14 @@ describe("processFeedEvents", () => {
 
     const result = processFeedEvents([
       article,
-      duplicateAuthorRoot,
+      sameAuthorRoot,
       acceptedRoot,
       reply,
     ]);
 
     expect(result.map((item) => item.postEvent.id)).toEqual([
       acceptedRoot.id,
+      sameAuthorRoot.id,
       article.id,
     ]);
     expect(result.find((item) => item.postEvent.id === acceptedRoot.id)?.replies).toEqual([
