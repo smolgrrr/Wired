@@ -2,10 +2,10 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { Event as NostrEvent } from "nostr-tools";
+import type { Event as NostrEvent, UnsignedEvent } from "nostr-tools";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import ConfessPage from "./ConfessPage";
-import type { ConfessAdmissionEvent, ConfessStatus, ConfessSubmitResponse } from "./api";
+import type { ConfessStatus, ConfessSubmitResponse } from "./api";
 
 type ReactActGlobal = typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 
@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   submitConfession: vi.fn(),
   startWork: vi.fn(),
   powState: {
-    messageFromWorker: undefined as ConfessAdmissionEvent | undefined,
+    messageFromWorker: undefined as (UnsignedEvent & Pick<NostrEvent, "id">) | undefined,
     hashrate: 0,
     bestPow: 0,
   },
@@ -22,8 +22,17 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("nostr-tools", async (importOriginal) => {
   const actual = await importOriginal<typeof import("nostr-tools")>();
+  const proofPubkey = "f".repeat(64);
   return {
     ...actual,
+    generateSecretKey: vi.fn(() => new Uint8Array(32).fill(1)),
+    getPublicKey: vi.fn(() => proofPubkey),
+    finalizeEvent: vi.fn((event: UnsignedEvent & Pick<NostrEvent, "id">) => ({
+      ...event,
+      pubkey: proofPubkey,
+      id: event.id,
+      sig: "2".repeat(128),
+    })),
   };
 });
 
@@ -47,7 +56,6 @@ vi.mock("./api", () => ({
 
 const openStatus: ConfessStatus = {
   configured: true,
-  pubkey: "f".repeat(64),
   day: "2026-06-30",
   count: 0,
   limit: 6,
@@ -176,12 +184,12 @@ describe("ConfessPage", () => {
     expect(mocks.submitConfession).toHaveBeenCalledWith({
       id: postedEvent.id,
       kind: postedEvent.kind,
-      pubkey: openStatus.pubkey,
+      pubkey: postedEvent.pubkey,
       created_at: postedEvent.created_at,
       tags: [...postedEvent.tags, ["nonce", "1", "1"]],
       content: postedEvent.content,
+      sig: postedEvent.sig,
     });
-    expect(mocks.submitConfession.mock.calls[0][0]).not.toHaveProperty("sig");
     expect(container.textContent).toContain("submitting to wired backend...");
     expect(container.textContent).not.toContain("publishing to relays");
 
