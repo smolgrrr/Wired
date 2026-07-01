@@ -11,6 +11,8 @@ const EVENT_ID = "a".repeat(64);
 const RELAYS = ["wss://relay.example/", "wss://relay.example", "wss://backup.example"];
 const ISSUE_64_THREAD_NEVENT =
   "nevent1qqsqqqzhl26q0wdwelm6thc8v02n6crrelwwlgl5mhezdvq7lu32j7spz3mhxue69uhhyetvv9ujuerpd46hxtnfduq3vamnwvaz7tmjv4kxz7fwwpexjmtpdshxuet5qy2hwumn8ghj7ur0wuh8yetvv9uhxtnvv9hxgqg7waehxw309aex2mrp0yh8w6tjv4j8x6t8deskctn0dekxjmn9qgsrla93hqmv0e37ujk08yf8pkrxpcdh4att49r5hy5r3wc8ne6jslgrqsqqqqqpspq99w";
+const ISSUE_68_TRUNCATED_NEVENT =
+  "nevent1qy08wumn8ghj7un9d3shjtnhd9ex2ernd9nkuctv9ehkumrfdejsz9rhwden5te0wfjkccte9ejxzmt4wvhxjmcpzfmhxue69uhk7enxvd5xz6tw9ec82cspp4mhxue69uhkummn9ekx7mqpzemhxue69uhhyetvv9ujuurjd9kkzmpwdejhgqgkwaehxw309aex2mrp0yhxummnw3ezucnpdejqzyrhwden5te0dehhxarj9emkjmn9qyv8wumn8ghj7un9d3shjtnndehhyapwwdhkx6tpdsqzqqqqp0j4rkuydfv66x8vxeq7v3jkvp5vs5437fugu4hupzr0vreu56p";
 
 describe("threadRefs", () => {
   it("does not add relay hints by default", () => {
@@ -75,6 +77,22 @@ describe("threadRefs", () => {
         "wss://relay.primal.net",
         "wss://pow.relays.land",
         "wss://relay.wiredsignal.online",
+      ],
+    });
+  });
+
+  it("recovers the issue 68 truncated nevent route", () => {
+    expect(decodeThreadRef(ISSUE_68_TRUNCATED_NEVENT)).toEqual({
+      id: "00000be551db846a59ad18ec3641e646566068c852b1f2788e56fc0886f60f3c",
+      relays: [
+        "wss://relay.wiredsignal.online",
+        "wss://relay.damus.io",
+        "wss://offchain.pub",
+        "wss://nos.lol",
+        "wss://relay.primal.net",
+        "wss://relay.nostr.band",
+        "wss://nostr.wine",
+        "wss://relay.snort.social",
       ],
     });
   });
