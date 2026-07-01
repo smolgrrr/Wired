@@ -1,6 +1,8 @@
 import { Event, Filter, Relay, Subscription } from "nostr-tools";
 import type { SubCallback } from "./types";
 
+const RELAY_CONNECT_TIMEOUT_MS = 4_000;
+
 export type SubscribeOptions = {
   closeOnEose?: boolean;
   relayUrls?: readonly string[];
@@ -30,11 +32,23 @@ export class RelayPool {
   }
 
   private async connectRelay(url: string): Promise<void> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
     try {
-      const relay = await Relay.connect(url);
+      const relay = await Promise.race([
+        Relay.connect(url),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("Relay connection timed out")),
+            RELAY_CONNECT_TIMEOUT_MS,
+          );
+        }),
+      ]);
       this.relays.set(url, relay);
     } catch {
       // Relay unavailable; other relays may still connect.
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
   }
 

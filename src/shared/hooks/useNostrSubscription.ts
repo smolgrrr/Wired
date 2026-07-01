@@ -5,12 +5,18 @@ import type { SubCallback, SubHandle } from "../../nostr/types";
 
 type SubscriptionFactory = (onEvent: SubCallback) => SubHandle | Promise<SubHandle>;
 
+type NostrSubscriptionOptions = {
+  initialize?: boolean;
+};
+
 export function useNostrSubscription(
   createSubscription: SubscriptionFactory,
   deps: DependencyList,
   enabled = true,
+  options: NostrSubscriptionOptions = {},
 ): Event[] {
   const [events, setEvents] = useState<Event[]>([]);
+  const { initialize = true } = options;
 
   useEffect(() => {
     if (!enabled) {
@@ -21,7 +27,9 @@ export function useNostrSubscription(
     let cancelled = false;
     let subscription: SubHandle | null = null;
 
-    void initNostr().then(() => {
+    const prepareSubscription = initialize ? initNostr() : Promise.resolve();
+
+    void prepareSubscription.then(() => {
       if (cancelled) return;
 
       setEvents([]);
@@ -48,7 +56,7 @@ export function useNostrSubscription(
     };
     // Subscription factory is intentionally excluded; callers pass deps explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, ...deps]);
+  }, [enabled, initialize, ...deps]);
 
   return events;
 }

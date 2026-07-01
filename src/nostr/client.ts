@@ -47,7 +47,7 @@ export function getRegistry(): SubscriptionRegistry {
 }
 
 export async function ensureRelaysConnected(urls: readonly string[]): Promise<void> {
-  await initNostr();
+  ensureNostrClient();
   if (!pool) {
     throw new Error("Nostr client is not initialized.");
   }

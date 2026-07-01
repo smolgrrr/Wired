@@ -8,7 +8,8 @@ export function useFilteredNoteSubscription(
   createSubscription: (onEvent: SubCallback) => SubHandle | Promise<SubHandle>,
   deps: DependencyList,
   enabled = true,
+  options?: Parameters<typeof useNostrSubscription>[3],
 ): Event[] {
-  const rawEvents = useNostrSubscription(createSubscription, deps, enabled);
+  const rawEvents = useNostrSubscription(createSubscription, deps, enabled, options);
   return useMemo(() => filterNoteEvents(rawEvents), [rawEvents]);
 }
