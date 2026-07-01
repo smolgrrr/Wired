@@ -40,7 +40,9 @@ export const ENRICHMENT_RELAYS = configuredRelays(
   DEFAULT_ENRICHMENT_RELAYS,
 );
 
-export const QUOTE_FALLBACK_RELAYS = ENRICHMENT_RELAYS;
+export const QUOTE_FALLBACK_RELAYS = [
+  ...new Set([...DEFAULT_ENRICHMENT_RELAYS, ...ENRICHMENT_RELAYS]),
+] as const;
 
 export const THREAD_RELAYS = [
   ...new Set([...POW_RELAYS, ...ENRICHMENT_RELAYS]),

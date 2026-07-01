@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_RELAYS, configuredRelays } from "./config";
 
 describe("DEFAULT_RELAYS", () => {
@@ -25,6 +25,25 @@ describe("configuredRelays", () => {
   it("uses fallback relays when env contains no wss URLs", () => {
     expect(configuredRelays("https://bad.example", ["wss://fallback.example"])).toEqual([
       "wss://fallback.example",
+    ]);
+  });
+});
+
+describe("QUOTE_FALLBACK_RELAYS", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("keeps default quote fallback relays when enrichment relays are narrowed", async () => {
+    vi.stubEnv("VITE_ENRICHMENT_RELAYS", "wss://configured.example");
+    vi.resetModules();
+
+    const config = await import("./config");
+
+    expect(config.ENRICHMENT_RELAYS).toEqual(["wss://configured.example"]);
+    expect(config.QUOTE_FALLBACK_RELAYS).toEqual([
+      ...config.DEFAULT_ENRICHMENT_RELAYS,
+      "wss://configured.example",
     ]);
   });
 });
