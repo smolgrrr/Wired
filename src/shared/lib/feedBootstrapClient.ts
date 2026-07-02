@@ -1,5 +1,5 @@
 import type { Event } from "nostr-tools";
-import type { ProcessedEvent } from "../../nostr/types";
+import type { ProcessedEvent, RelayHintsByEventId } from "../../nostr/types";
 import type { ProfileMetadata } from "./profile";
 
 export type FeedBootstrapResponse = {
@@ -76,6 +76,19 @@ export function eventsFromProcessed(processedEvents: ProcessedEvent[]): Event[] 
   });
 
   return events;
+}
+
+export function relayHintsFromProcessed(
+  processedEvents: ProcessedEvent[],
+): RelayHintsByEventId {
+  const relayHintsByEventId = new Map<string, string[]>();
+
+  processedEvents.forEach((processed) => {
+    if (!processed.relayHints || processed.relayHints.length === 0) return;
+    relayHintsByEventId.set(processed.postEvent.id, processed.relayHints);
+  });
+
+  return relayHintsByEventId;
 }
 
 export {

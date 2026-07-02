@@ -146,7 +146,12 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           </p>
         )}
         {signedPoWEvent && (
-          <PostCard event={signedPoWEvent} replies={[]} onOpenThread={openThread} />
+          <PostCard
+            event={signedPoWEvent}
+            replies={[]}
+            relayHints={acceptedRelays}
+            onOpenThread={openThread}
+          />
         )}
       </div>
     </form>

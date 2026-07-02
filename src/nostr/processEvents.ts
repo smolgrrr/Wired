@@ -1,7 +1,7 @@
 import type { Event } from "nostr-tools";
 import { createFeedCandidateTracker } from "./feed-candidates.js";
 import { workScoreBreakdown } from "./processing/pow-score.js";
-import type { ProcessedEvent } from "./types.js";
+import type { ProcessedEvent, RelayHintsByEventId } from "./types.js";
 
 export type { ProcessedEvent } from "./types.js";
 
@@ -10,6 +10,24 @@ export function compareProcessedEventsByWork(
   b: ProcessedEvent,
 ): number {
   return b.totalWork - a.totalWork || b.postEvent.created_at - a.postEvent.created_at;
+}
+
+function normalizeRelayUrl(relay: string): string {
+  return relay.replace(/\/+$/, "");
+}
+
+function relayHintsForEvent(
+  eventId: string,
+  relayHintsByEventId?: RelayHintsByEventId,
+): string[] | undefined {
+  const relayHints = relayHintsByEventId?.get(eventId);
+  if (!relayHints) return undefined;
+
+  const normalized = [
+    ...new Set(relayHints.map(normalizeRelayUrl).filter(Boolean)),
+  ];
+
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 export function buildRepliesByParent(events: Event[]): Map<string, Event[]> {
@@ -51,6 +69,7 @@ export function collectThreadReplies(
 export function toProcessedEvents(
   posts: Event[],
   replySource: Event[],
+  relayHintsByEventId?: RelayHintsByEventId,
 ): ProcessedEvent[] {
   const repliesByParent = buildRepliesByParent(replySource);
 
@@ -60,6 +79,7 @@ export function toProcessedEvents(
       return {
         postEvent,
         replies,
+        relayHints: relayHintsForEvent(postEvent.id, relayHintsByEventId),
         threadReplyCount: replies.length,
         ...workScoreBreakdown(postEvent, replies),
       };
@@ -67,7 +87,11 @@ export function toProcessedEvents(
     .sort((a, b) => a.postEvent.created_at - b.postEvent.created_at);
 }
 
-export const processFeedEvents = (events: Event[], filterDifficulty = 0): ProcessedEvent[] => {
+export const processFeedEvents = (
+  events: Event[],
+  filterDifficulty = 0,
+  relayHintsByEventId?: RelayHintsByEventId,
+): ProcessedEvent[] => {
   const repliesByParent = buildRepliesByParent(events);
   const candidates = createFeedCandidateTracker(filterDifficulty);
   const posts: Event[] = [];
@@ -83,6 +107,7 @@ export const processFeedEvents = (events: Event[], filterDifficulty = 0): Proces
       return {
         postEvent,
         replies,
+        relayHints: relayHintsForEvent(postEvent.id, relayHintsByEventId),
         threadReplyCount: replies.length,
         ...workScoreBreakdown(postEvent, replies, {
           minReplyDifficulty: filterDifficulty,

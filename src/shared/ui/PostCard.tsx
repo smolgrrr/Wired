@@ -25,7 +25,12 @@ interface PostCardProps {
   avatarPriority?: boolean;
   totalWork?: number;
   replyCount?: number;
-  onOpenThread?: (event: Event, relatedEvents: Event[]) => void;
+  relayHints?: readonly string[];
+  onOpenThread?: (
+    event: Event,
+    relatedEvents: Event[],
+    relayHints?: readonly string[],
+  ) => void;
 }
 
 const depthClasses: Record<number, string> = {
@@ -34,6 +39,7 @@ const depthClasses: Record<number, string> = {
   2: "pl-8 opacity-[0.84]",
   3: "pl-12 opacity-[0.76]",
 };
+const EMPTY_RELAY_HINTS: readonly string[] = [];
 
 function getDepthClass(depth?: number): string {
   if (depth === undefined) return "";
@@ -53,6 +59,7 @@ export function PostCard({
   avatarPriority = false,
   totalWork,
   replyCount,
+  relayHints = EMPTY_RELAY_HINTS,
   onOpenThread,
 }: PostCardProps) {
   const navigate = useNavigate();
@@ -68,12 +75,12 @@ export function PostCard({
 
   const handleNavigate = useCallback(() => {
     if (onOpenThread) {
-      onOpenThread(event, relatedEvents);
+      onOpenThread(event, relatedEvents, relayHints);
       return;
     }
 
-    navigate(buildThreadPath(event.id));
-  }, [event, onOpenThread, relatedEvents, navigate]);
+    navigate(buildThreadPath(event.id, relayHints));
+  }, [event, onOpenThread, relatedEvents, relayHints, navigate]);
 
   const roleClass = role === "threadContext" ? "opacity-70" : "";
 

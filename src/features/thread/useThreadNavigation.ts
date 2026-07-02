@@ -8,9 +8,13 @@ export function useThreadNavigation() {
   const navigate = useNavigate();
 
   return useCallback(
-    (event: Event, relatedEvents: Event[]) => {
+    (
+      event: Event,
+      relatedEvents: Event[],
+      relayHints: readonly string[] = [],
+    ) => {
       writeThreadSeedEvents(event.id, relatedEvents);
-      navigate(buildThreadPath(event.id));
+      navigate(buildThreadPath(event.id, relayHints));
     },
     [navigate],
   );
