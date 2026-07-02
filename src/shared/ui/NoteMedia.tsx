@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { MediaItem } from "@lib/mediaUtils";
 import {
   optimizedImageSrcSet,
@@ -142,13 +142,35 @@ function MediaVideo({
   item: MediaItem;
   compact?: boolean;
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const [started, setStarted] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
 
   if (failed) return <MediaFallback />;
 
   const hasDimensions = Boolean(item.width && item.height);
   const aspectRatio = hasDimensions ? `${item.width} / ${item.height}` : "16 / 9";
+  const hasPoster = Boolean(item.posterUrl);
+  const requestFirstFrame = () => {
+    if (hasPoster) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      setPreviewReady(true);
+      return;
+    }
+
+    try {
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        video.currentTime = Math.min(0.001, video.duration);
+      }
+    } catch {
+      // Cross-origin or streaming media may reject seeking; native controls remain usable.
+    }
+  };
 
   return (
     <div
@@ -159,17 +181,21 @@ function MediaVideo({
       style={{ aspectRatio }}
     >
       <video
+        ref={videoRef}
         src={item.url}
         poster={item.posterUrl}
         controls
-        preload="metadata"
+        preload={hasPoster ? "metadata" : "auto"}
         playsInline
         onPlay={() => setStarted(true)}
-        onLoadedData={() => setStarted(true)}
+        onLoadedMetadata={requestFirstFrame}
+        onLoadedData={() => setPreviewReady(true)}
+        onCanPlay={() => setPreviewReady(true)}
+        onSeeked={() => setPreviewReady(true)}
         onError={() => setFailed(true)}
         className="h-full w-full object-contain"
       />
-      {!item.posterUrl && !started && (
+      {!hasPoster && !started && !previewReady && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface text-meta text-muted">
           <span
             aria-hidden="true"
