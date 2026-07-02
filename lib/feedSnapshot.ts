@@ -15,7 +15,10 @@ import {
   sinceFromAgeHours,
 } from "../src/nostr/subscriptions/query-limits.js";
 import { processFeedEvents } from "../src/nostr/processEvents.js";
-import type { ProcessedEvent } from "../src/nostr/types.js";
+import type {
+  ProcessedEvent,
+  RelayHintsByEventId,
+} from "../src/nostr/types.js";
 import { isRootNote } from "../src/shared/lib/noteEvents.js";
 import {
   parseProfileEvent,
@@ -43,6 +46,11 @@ export type FeedSnapshotOptions = {
   timeoutMs?: number;
 };
 
+type RelayEventBatch = {
+  events: Event[];
+  relayHintsByEventId: Map<string, string[]>;
+};
+
 const trackRootNote = (notes: Set<string>, evt: Event) => {
   if (isRootNote(evt)) {
     notes.add(evt.id);
@@ -53,7 +61,33 @@ function normalizeRelayUrl(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-async function connectRelays(urls: readonly string[], timeoutMs: number): Promise<Relay[]> {
+function addRelayHint(
+  relayHintsByEventId: Map<string, string[]>,
+  eventId: string,
+  relayUrl: string,
+): void {
+  const normalizedRelay = normalizeRelayUrl(relayUrl);
+  const existing = relayHintsByEventId.get(eventId) ?? [];
+  if (existing.includes(normalizedRelay)) return;
+
+  relayHintsByEventId.set(eventId, [...existing, normalizedRelay]);
+}
+
+function mergeRelayHints(
+  ...hintGroups: RelayHintsByEventId[]
+): Map<string, string[]> {
+  const merged = new Map<string, string[]>();
+
+  hintGroups.forEach((relayHintsByEventId) => {
+    relayHintsByEventId.forEach((relays, eventId) => {
+      relays.forEach((relay) => addRelayHint(merged, eventId, relay));
+    });
+  });
+
+  return merged;
+}
+
+async function connectRelays(urls: readonly string[]): Promise<Relay[]> {
   const relays = await Promise.all(
     urls.map(async (url) => {
       try {
@@ -82,9 +116,9 @@ async function subscribeOnce(
   filter: Filter,
   timeoutMs: number,
   relayUrls?: string[],
-): Promise<Event[]> {
+): Promise<RelayEventBatch> {
   if (relays.length === 0) {
-    return [];
+    return { events: [], relayHintsByEventId: new Map() };
   }
 
   const targetRelays = relayUrls
@@ -96,11 +130,12 @@ async function subscribeOnce(
     : relays;
 
   if (targetRelays.length === 0) {
-    return [];
+    return { events: [], relayHintsByEventId: new Map() };
   }
 
   const events: Event[] = [];
   const seenIds = new Set<string>();
+  const relayHintsByEventId = new Map<string, string[]>();
 
   await new Promise<void>((resolve) => {
     const subscriptions: { close: () => void }[] = [];
@@ -120,9 +155,11 @@ async function subscribeOnce(
     for (const relay of targetRelays) {
       const sub = relay.subscribe([filter], {
         onevent(event) {
-          if (seenIds.has(event.id)) return;
-          seenIds.add(event.id);
-          events.push(event);
+          addRelayHint(relayHintsByEventId, event.id, relay.url);
+          if (!seenIds.has(event.id)) {
+            seenIds.add(event.id);
+            events.push(event);
+          }
         },
         oneose: () => {
           eoseCount += 1;
@@ -135,34 +172,36 @@ async function subscribeOnce(
     }
   });
 
-  return events;
+  return { events, relayHintsByEventId };
 }
 
 async function fetchGlobalFeedEvents(
   ageHours: number,
   timeoutMs: number,
-): Promise<Event[]> {
-  const relays = await connectRelays(FEED_SNAPSHOT_RELAYS, timeoutMs);
+): Promise<RelayEventBatch> {
+  const relays = await connectRelays(FEED_SNAPSHOT_RELAYS);
 
   try {
     const notes = new Set<string>();
     const since = sinceFromAgeHours(ageHours);
 
-    const rootEvents = await subscribeOnce(
+    const rootBatch = await subscribeOnce(
       relays,
       { kinds: [1, 1068], since, limit: 500 },
       timeoutMs,
       [...POW_RELAYS],
     );
+    const rootEvents = rootBatch.events;
 
     rootEvents.forEach((event) => trackRootNote(notes, event));
 
     if (notes.size === 0) {
-      return rootEvents;
+      return rootBatch;
     }
 
     const replyEvents: Event[] = [];
     const seenReplyIds = new Set<string>();
+    const replyRelayHintsByEventId = new Map<string, string[]>();
     let parentIds = [...notes];
 
     const replyDepth = clampReplyDepth(REPLY_FETCH_DEPTH);
@@ -170,12 +209,18 @@ async function fetchGlobalFeedEvents(
       const replyFilter = buildReplyFilter(parentIds, since);
       if (!replyFilter) break;
 
-      const nextReplies = await subscribeOnce(
+      const replyBatch = await subscribeOnce(
         relays,
         replyFilter,
         timeoutMs,
         REPLY_RELAYS,
       );
+      const nextReplies = replyBatch.events;
+      replyBatch.relayHintsByEventId.forEach((relays, eventId) => {
+        relays.forEach((relay) =>
+          addRelayHint(replyRelayHintsByEventId, eventId, relay),
+        );
+      });
       const nextParentIds: string[] = [];
 
       nextReplies.forEach((event) => {
@@ -194,7 +239,13 @@ async function fetchGlobalFeedEvents(
       merged.set(event.id, event);
     });
 
-    return [...merged.values()];
+    return {
+      events: [...merged.values()],
+      relayHintsByEventId: mergeRelayHints(
+        rootBatch.relayHintsByEventId,
+        replyRelayHintsByEventId,
+      ),
+    };
   } finally {
     closeRelays(relays);
   }
@@ -208,10 +259,10 @@ async function fetchProfileMetadata(
     return {};
   }
 
-  const relays = await connectRelays(PROFILE_RELAYS, timeoutMs);
+  const relays = await connectRelays(PROFILE_RELAYS);
 
   try {
-    const events = await subscribeOnce(
+    const { events } = await subscribeOnce(
       relays,
       {
         authors: pubkeys,
@@ -263,8 +314,15 @@ export async function fetchFeedSnapshot(
   const filterDifficulty = options.filterDifficulty ?? BOOTSTRAP_FILTER_DIFFICULTY;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  const events = await fetchGlobalFeedEvents(ageHours, timeoutMs);
-  const processedEvents = processFeedEvents(events, filterDifficulty);
+  const { events, relayHintsByEventId } = await fetchGlobalFeedEvents(
+    ageHours,
+    timeoutMs,
+  );
+  const processedEvents = processFeedEvents(
+    events,
+    filterDifficulty,
+    relayHintsByEventId,
+  );
   const profiles = await fetchProfileMetadata(
     pubkeysFromProcessedEvents(processedEvents),
     timeoutMs,
