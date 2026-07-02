@@ -4,6 +4,7 @@ import {
   eventsFromProcessed,
   feedBootstrapUrls,
   fetchFeedBootstrapSnapshot,
+  relayHintsFromProcessed,
   VERCEL_FEED_BOOTSTRAP_URL,
 } from "./feedBootstrapClient";
 import type { FeedBootstrapResponse } from "./feedBootstrapClient";
@@ -30,6 +31,24 @@ describe("eventsFromProcessed", () => {
 
     expect(events).toHaveLength(2);
     expect(events.map((item) => item.id)).toEqual([root.id, reply.id]);
+  });
+});
+
+describe("relayHintsFromProcessed", () => {
+  it("returns relay hints for processed root events", () => {
+    const root = event({ id: "1".repeat(64) });
+    const reply = event({ id: "2".repeat(64), pubkey: "c".repeat(64) });
+
+    expect(
+      relayHintsFromProcessed([
+        {
+          postEvent: root,
+          replies: [reply],
+          relayHints: ["wss://relay.example"],
+          totalWork: 0,
+        },
+      ]),
+    ).toEqual(new Map([[root.id, ["wss://relay.example"]]]));
   });
 });
 

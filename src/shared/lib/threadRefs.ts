@@ -1,5 +1,4 @@
 import { nip19 } from "nostr-tools";
-import { THREAD_RELAYS } from "../../config";
 
 export type ThreadRef = {
   id: string;
@@ -18,7 +17,7 @@ export function uniqueRelays(relays: readonly string[]): string[] {
 
 export function encodeThreadRef(
   eventId: string,
-  relays: readonly string[] = THREAD_RELAYS,
+  relays: readonly string[] = [],
 ): string {
   return nip19.neventEncode({
     id: eventId,
@@ -28,7 +27,7 @@ export function encodeThreadRef(
 
 export function buildThreadPath(
   eventId: string,
-  relays: readonly string[] = THREAD_RELAYS,
+  relays: readonly string[] = [],
 ): string {
   return `/thread/${encodeThreadRef(eventId, relays)}`;
 }

@@ -13,6 +13,21 @@ const ISSUE_64_THREAD_NEVENT =
   "nevent1qqsqqqzhl26q0wdwelm6thc8v02n6crrelwwlgl5mhezdvq7lu32j7spz3mhxue69uhhyetvv9ujuerpd46hxtnfduq3vamnwvaz7tmjv4kxz7fwwpexjmtpdshxuet5qy2hwumn8ghj7ur0wuh8yetvv9uhxtnvv9hxgqg7waehxw309aex2mrp0yh8w6tjv4j8x6t8deskctn0dekxjmn9qgsrla93hqmv0e37ujk08yf8pkrxpcdh4att49r5hy5r3wc8ne6jslgrqsqqqqqpspq99w";
 
 describe("threadRefs", () => {
+  it("does not add relay hints by default", () => {
+    const ref = encodeThreadRef(EVENT_ID);
+    const decoded = nip19.decode(ref);
+
+    expect(decoded.type).toBe("nevent");
+    if (decoded.type !== "nevent") {
+      throw new Error("expected nevent ref");
+    }
+    expect(decoded.data).toMatchObject({
+      id: EVENT_ID,
+      relays: [],
+    });
+    expect(buildThreadPath(EVENT_ID)).toBe(`/thread/${ref}`);
+  });
+
   it("encodes thread routes as nevent refs with relay hints", () => {
     const ref = encodeThreadRef(EVENT_ID, RELAYS);
     const decoded = nip19.decode(ref);
