@@ -43,6 +43,30 @@ describe("toProcessedEvents", () => {
 
     expect(result.map((item) => item.postEvent.id)).toEqual([olderReply.id, newerReply.id]);
   });
+
+  it("adds relay hints for processed root posts", () => {
+    const op = event({ id: "1".repeat(64), created_at: 100 });
+    const reply = event({
+      id: "2".repeat(64),
+      pubkey: "b".repeat(64),
+      created_at: 101,
+      tags: [["e", op.id]],
+    });
+
+    const result = toProcessedEvents(
+      [op],
+      [reply],
+      new Map([
+        [op.id, ["wss://relay.example/", "wss://relay.example"]],
+        [reply.id, ["wss://reply.example"]],
+      ]),
+    );
+
+    expect(result[0]).toMatchObject({
+      postEvent: op,
+      relayHints: ["wss://relay.example"],
+    });
+  });
 });
 
 describe("processFeedEvents", () => {
@@ -57,6 +81,27 @@ describe("processFeedEvents", () => {
     expect(result[0].postEvent.id).toBe(root.id);
     expect(result[0].replies).toEqual([reply]);
     expect(result[0].threadReplyCount).toBe(1);
+  });
+
+  it("carries observed relay hints for feed roots", () => {
+    const root = event({ id: "1".repeat(64) });
+    const reply = event({
+      id: "2".repeat(64),
+      pubkey: "b".repeat(64),
+      tags: [["e", root.id]],
+    });
+
+    const result = processFeedEvents(
+      [root, reply],
+      0,
+      new Map([
+        [root.id, ["wss://relay.wiredsignal.online"]],
+        [reply.id, ["wss://reply.example"]],
+      ]),
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].relayHints).toEqual(["wss://relay.wiredsignal.online"]);
   });
 
   it("uses the same feed root eligibility for articles and root notes", () => {

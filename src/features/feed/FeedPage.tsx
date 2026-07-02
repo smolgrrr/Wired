@@ -70,6 +70,7 @@ export default function FeedPage({ mode = "default" }: FeedPageProps) {
               replies={event.replies}
               totalWork={event.totalWork}
               replyCount={event.threadReplyCount}
+              relayHints={event.relayHints}
               animate={shouldResolve}
               animationIndex={index - SKIP_RESOLVE_COUNT}
               fadeIn={shouldFadeIn}

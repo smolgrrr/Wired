@@ -11,6 +11,21 @@ const EVENT_ID = "a".repeat(64);
 const RELAYS = ["wss://relay.example/", "wss://relay.example", "wss://backup.example"];
 
 describe("threadRefs", () => {
+  it("does not add relay hints by default", () => {
+    const ref = encodeThreadRef(EVENT_ID);
+    const decoded = nip19.decode(ref);
+
+    expect(decoded.type).toBe("nevent");
+    if (decoded.type !== "nevent") {
+      throw new Error("expected nevent ref");
+    }
+    expect(decoded.data).toMatchObject({
+      id: EVENT_ID,
+      relays: [],
+    });
+    expect(buildThreadPath(EVENT_ID)).toBe(`/thread/${ref}`);
+  });
+
   it("encodes thread routes as nevent refs with relay hints", () => {
     const ref = encodeThreadRef(EVENT_ID, RELAYS);
     const decoded = nip19.decode(ref);
