@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { Event } from "nostr-tools";
-import { decodeNostrRef, extractQuotedRefs } from "./quotedEvents";
+import {
+  decodeNostrRef,
+  extractMentionedEventRefs,
+  extractQuotedRefs,
+} from "./quotedEvents";
 
 const QUOTED_POLL_ID = "48942b7f9e4501af2d9f8e668256c0652dcbe41fa0104acce6aca81ab9ff2de2";
 const QUOTED_POLL_NEVENT =
@@ -108,6 +112,27 @@ describe("extractQuotedRefs", () => {
         id: NOTE_TAG_ID,
         relays: [],
       },
+    ]);
+  });
+});
+
+describe("extractMentionedEventRefs", () => {
+  it("includes q tags, inline references, and e tags", () => {
+    const event = {
+      content: `see nostr:${QUOTED_POLL_NEVENT}`,
+      tags: [
+        ["q", "b".repeat(64), "wss://relay.example/"],
+        ["e", "d".repeat(64), "wss://relay.damus.io/"],
+      ],
+    } as Event;
+
+    expect(extractMentionedEventRefs(event)).toEqual([
+      { id: "b".repeat(64), relays: ["wss://relay.example"] },
+      {
+        id: QUOTED_POLL_ID,
+        relays: ["wss://relay.damus.io", "wss://offchain.pub"],
+      },
+      { id: "d".repeat(64), relays: ["wss://relay.damus.io"] },
     ]);
   });
 });

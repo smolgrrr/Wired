@@ -1,4 +1,10 @@
 import type { Event } from "nostr-tools";
+import { useEffect, useState } from "react";
+import {
+  loadFeedBootstrapSnapshot,
+  threadEventsFromSnapshot,
+} from "../../shared/lib/feedBootstrapClient";
+import { seedProfiles } from "../../shared/hooks/useProfiles";
 
 const THREAD_SEED_PREFIX = "threadSeed:";
 
@@ -63,4 +69,30 @@ export function writeThreadSeedEvents(threadId: string, events: Event[]): void {
   } catch {
     // Seed persistence is an optimization; navigation should still work.
   }
+}
+
+export function useSnapshotThreadSeedEvents(threadId: string): Event[] {
+  const [events, setEvents] = useState<Event[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setEvents([]);
+
+    void loadFeedBootstrapSnapshot()
+      .then((snapshot) => {
+        if (cancelled || !snapshot) return;
+        seedProfiles(snapshot.profiles);
+        setEvents(threadEventsFromSnapshot(snapshot, threadId));
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId]);
+
+  return events;
 }

@@ -10,13 +10,22 @@ import { ThreadComposer } from "../compose/ThreadComposer";
 import { useInfiniteScroll } from "../../shared/hooks/useInfiniteScroll";
 import { useThreadViewModel } from "../../hooks/useThreadViewModel";
 import { eventWork } from "../../nostr/processing/pow-score";
-import { readThreadSeedEvents } from "./threadSeedCache";
+import {
+  readThreadSeedEvents,
+  useSnapshotThreadSeedEvents,
+} from "./threadSeedCache";
 import { useThreadNavigation } from "./useThreadNavigation";
 import { decodeThreadRef } from "@lib/threadRefs";
+import { uniqBy } from "@lib/collections";
 
 function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[] }) {
   const visibleReplyEvents = useInfiniteScroll();
-  const seedEvents = useMemo(() => readThreadSeedEvents(hexID), [hexID]);
+  const sessionSeedEvents = useMemo(() => readThreadSeedEvents(hexID), [hexID]);
+  const snapshotSeedEvents = useSnapshotThreadSeedEvents(hexID);
+  const seedEvents = useMemo(
+    () => uniqBy([...sessionSeedEvents, ...snapshotSeedEvents], "id"),
+    [sessionSeedEvents, snapshotSeedEvents],
+  );
   const openThread = useThreadNavigation();
   const {
     opEvent,

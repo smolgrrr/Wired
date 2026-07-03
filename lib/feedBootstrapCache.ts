@@ -19,6 +19,9 @@ function isFeedBootstrapSnapshot(value: unknown): value is FeedBootstrapSnapshot
     typeof value === "object" &&
     typeof (value as FeedBootstrapSnapshot).fetchedAt === "number" &&
     Array.isArray((value as FeedBootstrapSnapshot).processedEvents) &&
+    Array.isArray((value as FeedBootstrapSnapshot).events) &&
+    !!(value as FeedBootstrapSnapshot).relayHintsByEventId &&
+    typeof (value as FeedBootstrapSnapshot).relayHintsByEventId === "object" &&
     !!(value as FeedBootstrapSnapshot).profiles &&
     typeof (value as FeedBootstrapSnapshot).profiles === "object"
   );

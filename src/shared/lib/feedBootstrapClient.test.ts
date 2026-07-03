@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { Event } from "nostr-tools";
 import {
   eventsFromProcessed,
+  eventsFromSnapshot,
   feedBootstrapUrls,
   fetchFeedBootstrapSnapshot,
-  relayHintsFromProcessed,
+  relayHintsFromSnapshot,
+  resetFeedBootstrapSnapshotCache,
+  threadEventsFromSnapshot,
   VERCEL_FEED_BOOTSTRAP_URL,
 } from "./feedBootstrapClient";
 import type { FeedBootstrapResponse } from "./feedBootstrapClient";
@@ -34,21 +37,80 @@ describe("eventsFromProcessed", () => {
   });
 });
 
-describe("relayHintsFromProcessed", () => {
+describe("eventsFromSnapshot", () => {
+  it("deduplicates raw and processed events", () => {
+    const root = event({ id: "1".repeat(64) });
+    const reply = event({ id: "2".repeat(64), pubkey: "c".repeat(64) });
+
+    expect(
+      eventsFromSnapshot({
+        fetchedAt: 1,
+        events: [root],
+        relayHintsByEventId: {},
+        processedEvents: [{ postEvent: root, replies: [reply], totalWork: 0 }],
+        profiles: {},
+      }).map((item) => item.id),
+    ).toEqual([root.id, reply.id]);
+  });
+});
+
+describe("relayHintsFromSnapshot", () => {
   it("returns relay hints for processed root events", () => {
     const root = event({ id: "1".repeat(64) });
     const reply = event({ id: "2".repeat(64), pubkey: "c".repeat(64) });
 
     expect(
-      relayHintsFromProcessed([
-        {
-          postEvent: root,
-          replies: [reply],
-          relayHints: ["wss://relay.example"],
-          totalWork: 0,
+      relayHintsFromSnapshot({
+        fetchedAt: 1,
+        events: [root, reply],
+        relayHintsByEventId: {
+          [reply.id]: ["wss://reply.example"],
         },
+        processedEvents: [
+          {
+            postEvent: root,
+            replies: [reply],
+            relayHints: ["wss://relay.example"],
+            totalWork: 0,
+          },
+        ],
+        profiles: {},
+      }),
+    ).toEqual(
+      new Map([
+        [reply.id, ["wss://reply.example"]],
+        [root.id, ["wss://relay.example"]],
       ]),
-    ).toEqual(new Map([[root.id, ["wss://relay.example"]]]));
+    );
+  });
+});
+
+describe("threadEventsFromSnapshot", () => {
+  it("returns an op with nested replies from the snapshot", () => {
+    const root = event({ id: "1".repeat(64) });
+    const directReply = event({
+      id: "2".repeat(64),
+      pubkey: "c".repeat(64),
+      tags: [["e", root.id]],
+    });
+    const nestedReply = event({
+      id: "3".repeat(64),
+      pubkey: "d".repeat(64),
+      tags: [["e", directReply.id]],
+    });
+
+    expect(
+      threadEventsFromSnapshot(
+        {
+          fetchedAt: 1,
+          events: [root, directReply, nestedReply],
+          relayHintsByEventId: {},
+          processedEvents: [],
+          profiles: {},
+        },
+        root.id,
+      ).map((item) => item.id),
+    ).toEqual([root.id, directReply.id, nestedReply.id]);
   });
 });
 
@@ -69,6 +131,8 @@ describe("fetchFeedBootstrapSnapshot", () => {
   const snapshot = (): FeedBootstrapResponse => ({
     fetchedAt: 1,
     processedEvents: [],
+    events: [],
+    relayHintsByEventId: {},
     profiles: {},
   });
 
@@ -79,6 +143,7 @@ describe("fetchFeedBootstrapSnapshot", () => {
     });
 
   it("returns the Cloudflare snapshot when it succeeds", async () => {
+    resetFeedBootstrapSnapshotCache();
     const calls: string[] = [];
     const fetcher = async (input: RequestInfo | URL) => {
       calls.push(String(input));
@@ -95,6 +160,7 @@ describe("fetchFeedBootstrapSnapshot", () => {
   });
 
   it("falls back to Vercel bootstrap when the Cloudflare snapshot fails", async () => {
+    resetFeedBootstrapSnapshotCache();
     const calls: string[] = [];
     const fetcher = async (input: RequestInfo | URL) => {
       calls.push(String(input));
@@ -117,6 +183,7 @@ describe("fetchFeedBootstrapSnapshot", () => {
   });
 
   it("falls back to Vercel bootstrap when the Cloudflare payload is invalid", async () => {
+    resetFeedBootstrapSnapshotCache();
     const calls: string[] = [];
     const fetcher = async (input: RequestInfo | URL) => {
       calls.push(String(input));
@@ -139,6 +206,7 @@ describe("fetchFeedBootstrapSnapshot", () => {
   });
 
   it("returns null when all bootstrap sources fail so live relays can take over", async () => {
+    resetFeedBootstrapSnapshotCache();
     const fetcher = async () => new Response("unavailable", { status: 503 });
 
     await expect(

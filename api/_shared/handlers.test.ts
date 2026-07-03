@@ -23,6 +23,8 @@ const postEvent = {
 const snapshot: FeedBootstrapSnapshot = {
   fetchedAt: 123,
   processedEvents: [{ postEvent, replies: [], totalWork: 1 }],
+  events: [postEvent],
+  relayHintsByEventId: {},
   profiles: { pubkey: { name: "Ada" } },
 };
 
