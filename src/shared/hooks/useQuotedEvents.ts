@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { Event } from "nostr-tools";
 import { subQuotedEventsOnce } from "../../nostr/subscriptions";
 import { extractQuotedRefs, type QuotedRef } from "@lib/quotedEvents";
+import {
+  loadFeedBootstrapSnapshot,
+  snapshotEventById,
+} from "../lib/feedBootstrapClient";
+import { seedProfiles } from "./useProfiles";
 
 type QuotedEventsState = {
   quotedEvents: Event[];
@@ -37,7 +42,8 @@ export function useQuotedEvents(event: Event): QuotedEventsState {
       if (cancelled) return;
       setQuotedById((current) => {
         if (current.has(quoted.id)) return current;
-        return new Map(current).set(quoted.id, quoted);
+        const next = new Map(current).set(quoted.id, quoted);
+        return next;
       });
     };
 
@@ -49,12 +55,47 @@ export function useQuotedEvents(event: Event): QuotedEventsState {
       });
     };
 
-    void subQuotedEventsOnce(quotedRefs, onEvent, onEose).then((subscription) => {
-      if (cancelled) {
-        subscription.close();
+    void loadFeedBootstrapSnapshot().then((snapshot) => {
+      if (cancelled) return;
+
+      const snapshotEvents = snapshot ? snapshotEventById(snapshot) : new Map<string, Event>();
+      if (snapshot) seedProfiles(snapshot.profiles);
+      const refsMissingFromSnapshot: QuotedRef[] = [];
+      const nextQuotedById = new Map<string, Event>();
+
+      quotedRefs.forEach((ref) => {
+        const quoted = snapshotEvents.get(ref.id);
+        if (quoted) {
+          nextQuotedById.set(quoted.id, quoted);
+          return;
+        }
+        refsMissingFromSnapshot.push(ref);
+      });
+
+      setQuotedById(nextQuotedById);
+
+      if (refsMissingFromSnapshot.length === 0) {
         return;
       }
-      handle = subscription;
+
+      void subQuotedEventsOnce(refsMissingFromSnapshot, onEvent, onEose).then(
+        (subscription) => {
+          if (cancelled) {
+            subscription.close();
+            return;
+          }
+          handle = subscription;
+        },
+      );
+    }).catch(() => {
+      if (cancelled) return;
+      void subQuotedEventsOnce(quotedRefs, onEvent, onEose).then((subscription) => {
+        if (cancelled) {
+          subscription.close();
+          return;
+        }
+        handle = subscription;
+      });
     });
 
     return () => {

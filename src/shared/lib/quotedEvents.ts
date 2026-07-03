@@ -80,6 +80,30 @@ export function extractQuotedRefs(event: Event): QuotedRef[] {
   return [...byId.values()];
 }
 
+export function extractMentionedEventRefs(event: Event): QuotedRef[] {
+  const byId = new Map<string, QuotedRef>();
+
+  const addRef = (id: string, relays: string[] = []) => {
+    const existing = byId.get(id);
+    if (existing) {
+      existing.relays = [...new Set([...existing.relays, ...relays])];
+      return;
+    }
+    byId.set(id, { id, relays: [...new Set(relays)] });
+  };
+
+  extractQuotedRefs(event).forEach((ref) => addRef(ref.id, ref.relays));
+
+  for (const tag of event.tags ?? []) {
+    if (tag[0] !== "e" || !tag[1] || !EVENT_ID_PATTERN.test(tag[1])) continue;
+
+    const relayHint = tag[2] ? normalizeRelayUrl(tag[2]) : undefined;
+    addRef(tag[1].toLowerCase(), relayHint ? [relayHint] : []);
+  }
+
+  return [...byId.values()];
+}
+
 /** @deprecated Use extractQuotedRefs instead. */
 export function extractQuotedEventIds(event: Event): string[] {
   return extractQuotedRefs(event).map((ref) => ref.id);

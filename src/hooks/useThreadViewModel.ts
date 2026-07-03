@@ -58,9 +58,9 @@ export function useThreadViewModel(
 
     return toProcessedEvents(
       posts,
-      filterModeratedEvents(noteEvents, moderationManifest),
+      allEvents,
     );
-  }, [opEvent, prevMentions, allEvents, noteEvents, moderationManifest]);
+  }, [opEvent, prevMentions, allEvents, moderationManifest]);
 
   const earlierEvents = useMemo(() => {
     if (!opEvent) return [];

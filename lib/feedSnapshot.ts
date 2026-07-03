@@ -15,8 +15,9 @@ import {
   sinceFromAgeHours,
 } from "../src/nostr/subscriptions/query-limits.js";
 import { processFeedEvents } from "../src/nostr/processEvents.js";
-import type { ProcessedEvent } from "../src/nostr/types.js";
+import type { ProcessedEvent, RelayHintsByEventId } from "../src/nostr/types.js";
 import { isRootNote } from "../src/shared/lib/noteEvents.js";
+import { extractMentionedEventRefs } from "../src/shared/lib/quotedEvents.js";
 import {
   parseProfileEvent,
   type ProfileMetadata,
@@ -29,11 +30,18 @@ const FEED_SNAPSHOT_RELAYS = [...THREAD_RELAYS];
 const REPLY_RELAYS = [...THREAD_RELAYS];
 
 const DEFAULT_TIMEOUT_MS = 12_000;
-const REPLY_FETCH_DEPTH = 3;
+const REPLY_FETCH_DEPTH = 2;
+
+type EventBatch = {
+  events: Event[];
+  relayHintsByEventId: Map<string, string[]>;
+};
 
 export type FeedBootstrapSnapshot = {
   fetchedAt: number;
   processedEvents: ProcessedEvent[];
+  events: Event[];
+  relayHintsByEventId: Record<string, string[]>;
   profiles: Record<string, ProfileMetadata>;
 };
 
@@ -51,6 +59,57 @@ const trackRootNote = (notes: Set<string>, evt: Event) => {
 
 function normalizeRelayUrl(url: string): string {
   return url.replace(/\/+$/, "");
+}
+
+function uniqueRelays(relays: readonly string[]): string[] {
+  return [...new Set(relays.map(normalizeRelayUrl).filter(Boolean))];
+}
+
+function addRelayHint(
+  relayHintsByEventId: Map<string, string[]>,
+  eventId: string,
+  relayUrl: string,
+): void {
+  const normalizedRelay = normalizeRelayUrl(relayUrl);
+  if (!normalizedRelay) return;
+
+  const existing = relayHintsByEventId.get(eventId) ?? [];
+  if (existing.includes(normalizedRelay)) return;
+
+  relayHintsByEventId.set(eventId, [...existing, normalizedRelay]);
+}
+
+function mergeRelayHints(
+  ...hintGroups: RelayHintsByEventId[]
+): Map<string, string[]> {
+  const merged = new Map<string, string[]>();
+
+  hintGroups.forEach((relayHintsByEventId) => {
+    relayHintsByEventId.forEach((relays, eventId) => {
+      relays.forEach((relay) => addRelayHint(merged, eventId, relay));
+    });
+  });
+
+  return merged;
+}
+
+function mergeEvents(...eventGroups: Event[][]): Event[] {
+  const merged = new Map<string, Event>();
+  eventGroups.forEach((events) => {
+    events.forEach((event) => merged.set(event.id, event));
+  });
+  return [...merged.values()];
+}
+
+function serializeRelayHints(
+  relayHintsByEventId: RelayHintsByEventId,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    [...relayHintsByEventId.entries()].map(([eventId, relays]) => [
+      eventId,
+      uniqueRelays(relays),
+    ]),
+  );
 }
 
 async function connectRelays(urls: readonly string[], timeoutMs: number): Promise<Relay[]> {
@@ -82,9 +141,9 @@ async function subscribeOnce(
   filter: Filter,
   timeoutMs: number,
   relayUrls?: string[],
-): Promise<Event[]> {
+): Promise<EventBatch> {
   if (relays.length === 0) {
-    return [];
+    return { events: [], relayHintsByEventId: new Map() };
   }
 
   const targetRelays = relayUrls
@@ -96,11 +155,12 @@ async function subscribeOnce(
     : relays;
 
   if (targetRelays.length === 0) {
-    return [];
+    return { events: [], relayHintsByEventId: new Map() };
   }
 
   const events: Event[] = [];
   const seenIds = new Set<string>();
+  const relayHintsByEventId = new Map<string, string[]>();
 
   await new Promise<void>((resolve) => {
     const subscriptions: { close: () => void }[] = [];
@@ -120,6 +180,7 @@ async function subscribeOnce(
     for (const relay of targetRelays) {
       const sub = relay.subscribe([filter], {
         onevent(event) {
+          addRelayHint(relayHintsByEventId, event.id, relay.url);
           if (seenIds.has(event.id)) return;
           seenIds.add(event.id);
           events.push(event);
@@ -135,34 +196,36 @@ async function subscribeOnce(
     }
   });
 
-  return events;
+  return { events, relayHintsByEventId };
 }
 
 async function fetchGlobalFeedEvents(
   ageHours: number,
   timeoutMs: number,
-): Promise<Event[]> {
+): Promise<EventBatch> {
   const relays = await connectRelays(FEED_SNAPSHOT_RELAYS, timeoutMs);
 
   try {
     const notes = new Set<string>();
     const since = sinceFromAgeHours(ageHours);
 
-    const rootEvents = await subscribeOnce(
+    const rootBatch = await subscribeOnce(
       relays,
       { kinds: [1, 1068], since, limit: 500 },
       timeoutMs,
       [...POW_RELAYS],
     );
+    const rootEvents = rootBatch.events;
 
     rootEvents.forEach((event) => trackRootNote(notes, event));
 
     if (notes.size === 0) {
-      return rootEvents;
+      return rootBatch;
     }
 
     const replyEvents: Event[] = [];
     const seenReplyIds = new Set<string>();
+    const replyRelayHintsByEventId = new Map<string, string[]>();
     let parentIds = [...notes];
 
     const replyDepth = clampReplyDepth(REPLY_FETCH_DEPTH);
@@ -170,13 +233,18 @@ async function fetchGlobalFeedEvents(
       const replyFilter = buildReplyFilter(parentIds, since);
       if (!replyFilter) break;
 
-      const nextReplies = await subscribeOnce(
+      const replyBatch = await subscribeOnce(
         relays,
         replyFilter,
         timeoutMs,
         REPLY_RELAYS,
       );
+      const nextReplies = replyBatch.events;
       const nextParentIds: string[] = [];
+
+      replyBatch.relayHintsByEventId.forEach((relays, eventId) => {
+        relays.forEach((relay) => addRelayHint(replyRelayHintsByEventId, eventId, relay));
+      });
 
       nextReplies.forEach((event) => {
         if (seenReplyIds.has(event.id)) return;
@@ -189,12 +257,105 @@ async function fetchGlobalFeedEvents(
       parentIds = nextParentIds;
     }
 
-    const merged = new Map<string, Event>();
-    [...rootEvents, ...replyEvents].forEach((event) => {
-      merged.set(event.id, event);
-    });
+    return {
+      events: mergeEvents(rootEvents, replyEvents),
+      relayHintsByEventId: mergeRelayHints(
+        rootBatch.relayHintsByEventId,
+        replyRelayHintsByEventId,
+      ),
+    };
+  } finally {
+    closeRelays(relays);
+  }
+}
 
-    return [...merged.values()];
+function snapshotReferenceRefs(processedEvents: ProcessedEvent[]) {
+  const byId = new Map<string, { id: string; relays: string[] }>();
+
+  processedEvents.forEach((processed) => {
+    extractMentionedEventRefs(processed.postEvent).forEach((ref) => {
+      const existing = byId.get(ref.id);
+      if (existing) {
+        existing.relays = uniqueRelays([...existing.relays, ...ref.relays]);
+        return;
+      }
+      byId.set(ref.id, { id: ref.id, relays: uniqueRelays(ref.relays) });
+    });
+  });
+
+  return [...byId.values()];
+}
+
+async function fetchReferencedEvents(
+  refs: ReturnType<typeof snapshotReferenceRefs>,
+  knownEventIds: Set<string>,
+  ageHours: number,
+  timeoutMs: number,
+): Promise<EventBatch> {
+  const missingRefs = refs.filter((ref) => !knownEventIds.has(ref.id));
+  if (missingRefs.length === 0) {
+    return { events: [], relayHintsByEventId: new Map() };
+  }
+
+  const relayUrls = uniqueRelays([
+    ...FEED_SNAPSHOT_RELAYS,
+    ...missingRefs.flatMap((ref) => ref.relays),
+  ]);
+  const relays = await connectRelays(relayUrls, timeoutMs);
+
+  try {
+    const referencedBatch = await subscribeOnce(
+      relays,
+      {
+        ids: missingRefs.map((ref) => ref.id),
+        kinds: [1, 1068],
+        limit: missingRefs.length,
+      },
+      timeoutMs,
+      relayUrls,
+    );
+
+    const replyEvents: Event[] = [];
+    const seenReplyIds = new Set<string>();
+    const replyRelayHintsByEventId = new Map<string, string[]>();
+    const since = sinceFromAgeHours(ageHours);
+    let parentIds = referencedBatch.events.map((event) => event.id);
+
+    const replyDepth = clampReplyDepth(REPLY_FETCH_DEPTH);
+    for (let depth = 0; depth < replyDepth && parentIds.length > 0; depth += 1) {
+      const replyFilter = buildReplyFilter(parentIds, since);
+      if (!replyFilter) break;
+
+      const replyBatch = await subscribeOnce(
+        relays,
+        replyFilter,
+        timeoutMs,
+        relayUrls,
+      );
+      const nextParentIds: string[] = [];
+
+      replyBatch.relayHintsByEventId.forEach((relays, eventId) => {
+        relays.forEach((relay) => addRelayHint(replyRelayHintsByEventId, eventId, relay));
+      });
+
+      replyBatch.events.forEach((event) => {
+        if (knownEventIds.has(event.id) || seenReplyIds.has(event.id)) return;
+
+        seenReplyIds.add(event.id);
+        replyEvents.push(event);
+        nextParentIds.push(event.id);
+      });
+
+      parentIds = nextParentIds;
+    }
+
+    return {
+      events: mergeEvents(referencedBatch.events, replyEvents),
+      relayHintsByEventId: mergeRelayHints(
+        referencedBatch.relayHintsByEventId,
+        replyRelayHintsByEventId,
+      ),
+    };
   } finally {
     closeRelays(relays);
   }
@@ -211,7 +372,7 @@ async function fetchProfileMetadata(
   const relays = await connectRelays(PROFILE_RELAYS, timeoutMs);
 
   try {
-    const events = await subscribeOnce(
+    const { events } = await subscribeOnce(
       relays,
       {
         authors: pubkeys,
@@ -251,9 +412,14 @@ function pubkeysFromProcessedEvents(processedEvents: ProcessedEvent[]): string[]
 
   processedEvents.forEach((processed) => {
     pubkeys.add(processed.postEvent.pubkey);
+    processed.replies.forEach((reply) => pubkeys.add(reply.pubkey));
   });
 
   return [...pubkeys];
+}
+
+function pubkeysFromEvents(events: Event[]): string[] {
+  return [...new Set(events.map((event) => event.pubkey))];
 }
 
 export async function fetchFeedSnapshot(
@@ -263,16 +429,37 @@ export async function fetchFeedSnapshot(
   const filterDifficulty = options.filterDifficulty ?? BOOTSTRAP_FILTER_DIFFICULTY;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  const events = await fetchGlobalFeedEvents(ageHours, timeoutMs);
-  const processedEvents = processFeedEvents(events, filterDifficulty);
+  const feedBatch = await fetchGlobalFeedEvents(ageHours, timeoutMs);
+  const processedEvents = processFeedEvents(
+    feedBatch.events,
+    filterDifficulty,
+    feedBatch.relayHintsByEventId,
+  );
+  const knownEventIds = new Set(feedBatch.events.map((event) => event.id));
+  const referencedBatch = await fetchReferencedEvents(
+    snapshotReferenceRefs(processedEvents),
+    knownEventIds,
+    ageHours,
+    timeoutMs,
+  );
+  const events = mergeEvents(feedBatch.events, referencedBatch.events);
+  const relayHintsByEventId = mergeRelayHints(
+    feedBatch.relayHintsByEventId,
+    referencedBatch.relayHintsByEventId,
+  );
   const profiles = await fetchProfileMetadata(
-    pubkeysFromProcessedEvents(processedEvents),
+    [...new Set([
+      ...pubkeysFromProcessedEvents(processedEvents),
+      ...pubkeysFromEvents(referencedBatch.events),
+    ])],
     timeoutMs,
   );
 
   return {
     fetchedAt: Date.now(),
     processedEvents,
+    events,
+    relayHintsByEventId: serializeRelayHints(relayHintsByEventId),
     profiles,
   };
 }

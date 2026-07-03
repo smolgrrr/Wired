@@ -14,8 +14,8 @@ import { filterModeratedEvents } from "../shared/lib/moderation";
 import {
   canUseFeedBootstrap,
   eventsFromProcessed,
-  fetchFeedBootstrapSnapshot,
-  relayHintsFromProcessed,
+  loadFeedBootstrapSnapshot,
+  relayHintsFromSnapshot,
 } from "../shared/lib/feedBootstrapClient";
 
 const FEED_REPLY_DEPTH = 3;
@@ -66,7 +66,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
 
     let cancelled = false;
 
-    void fetchFeedBootstrapSnapshot()
+    void loadFeedBootstrapSnapshot()
       .then((snapshot) => {
         if (cancelled) return;
         if (!snapshot) {
@@ -77,7 +77,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
         }
         setBootstrapEvents(eventsFromProcessed(snapshot.processedEvents));
         setBootstrapRelayHintsByEventId(
-          relayHintsFromProcessed(snapshot.processedEvents),
+          relayHintsFromSnapshot(snapshot),
         );
         setBootstrapRootIds(
           snapshot.processedEvents.map((event) => event.postEvent.id),
