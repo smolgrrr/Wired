@@ -62,4 +62,26 @@ describe("LinkedBodyText", () => {
     expect(container.textContent).toBe("test :missing:");
     expect(container.querySelector("img")).toBeNull();
   });
+
+  it("renders multiple Nostr custom emoji tags in one body", () => {
+    act(() => {
+      root.render(
+        <LinkedBodyText
+          className="body"
+          emojis={[
+            { shortcode: "lain", url: "https://example.com/lain.png" },
+            { shortcode: "lain_happy", url: "https://example.com/lain_happy.png" },
+          ]}
+        >
+          {"test :lain: and :lain_happy:"}
+        </LinkedBodyText>,
+      );
+    });
+
+    const emojis = Array.from(container.querySelectorAll("[data-custom-emoji]"));
+    expect(emojis.map((emoji) => emoji.getAttribute("data-custom-emoji"))).toEqual([
+      "lain",
+      "lain_happy",
+    ]);
+  });
 });

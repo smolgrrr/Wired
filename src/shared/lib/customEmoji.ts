@@ -23,3 +23,15 @@ export function buildEmojiMap(emojis: BodyEmoji[] = []) {
 
   return emojiMap;
 }
+
+export function getProxiedEmojiUrl(url: string) {
+  if (!url.startsWith("https://poa.st/")) return "";
+
+  return `https://external-content.duckduckgo.com/iu/?u=${encodeURIComponent(url)}`;
+}
+
+export function getEmojiDisplayUrls(url: string) {
+  const proxiedUrl = getProxiedEmojiUrl(url);
+
+  return proxiedUrl ? [proxiedUrl, url] : [url];
+}

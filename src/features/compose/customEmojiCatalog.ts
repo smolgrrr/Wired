@@ -1,3 +1,5 @@
+import { getEmojiDisplayUrls } from "@lib/customEmoji";
+
 export type CustomEmoji = {
   shortcode: string;
   previewUrl: string;
@@ -99,12 +101,13 @@ export function prewarmCustomEmojiImages(emojis: CustomEmoji[], limit = 64) {
 
   const warm = () => {
     for (const emoji of emojis.slice(0, limit)) {
-      if (prewarmedUrls.has(emoji.previewUrl)) continue;
+      const [displayUrl] = getEmojiDisplayUrls(emoji.previewUrl);
+      if (!displayUrl || prewarmedUrls.has(displayUrl)) continue;
 
-      prewarmedUrls.add(emoji.previewUrl);
+      prewarmedUrls.add(displayUrl);
       const image = new Image();
       image.decoding = "async";
-      image.src = emoji.previewUrl;
+      image.src = displayUrl;
     }
   };
 

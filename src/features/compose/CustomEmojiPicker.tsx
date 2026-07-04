@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import { SmilePlus } from "lucide-react";
+import { getEmojiDisplayUrls } from "@lib/customEmoji";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
 import {
@@ -18,6 +19,12 @@ const MAX_STORED_FAILED_EMOJIS = 500;
 
 type CustomEmojiPickerProps = {
   onSelect: (emoji: CustomEmoji) => void;
+};
+
+type EmojiButtonProps = {
+  emoji: CustomEmoji;
+  onSelect: () => void;
+  onPreviewFailure: Dispatch<SetStateAction<Set<string>>>;
 };
 
 function loadFailedPreviewUrls() {
@@ -41,6 +48,49 @@ function storeFailedPreviewUrls(urls: Set<string>) {
 
   const compactUrls = Array.from(urls).slice(-MAX_STORED_FAILED_EMOJIS);
   window.localStorage.setItem(FAILED_EMOJI_STORAGE_KEY, JSON.stringify(compactUrls));
+}
+
+function EmojiButton({ emoji, onSelect, onPreviewFailure }: EmojiButtonProps) {
+  const displayUrls = getEmojiDisplayUrls(emoji.previewUrl);
+  const [displayUrlIndex, setDisplayUrlIndex] = useState(0);
+  const displayUrl = displayUrls[displayUrlIndex];
+
+  if (!displayUrl) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      title={`:${emoji.shortcode}:`}
+      aria-label={`insert ${emoji.shortcode}`}
+      className="flex aspect-square items-center justify-center rounded-sm border border-transparent p-1 hover:border-signal/30 hover:bg-signal-ghost focus-visible:border-signal"
+      onClick={onSelect}
+    >
+      <img
+        src={displayUrl}
+        alt=""
+        className="max-h-full max-w-full object-contain"
+        onError={() => {
+          if (displayUrlIndex + 1 < displayUrls.length) {
+            setDisplayUrlIndex((current) => current + 1);
+            return;
+          }
+
+          onPreviewFailure((current) => {
+            if (current.has(displayUrl)) {
+              return current;
+            }
+
+            const next = new Set(current);
+            next.add(displayUrl);
+            storeFailedPreviewUrls(next);
+            return next;
+          });
+        }}
+      />
+    </button>
+  );
 }
 
 export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
@@ -87,9 +137,11 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const filteredEmojis = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return filterCustomEmojis(catalogState.emojis, query, activeGroup).filter(
-      (emoji) => !failedPreviewUrls.has(emoji.previewUrl),
-    );
+    return filterCustomEmojis(catalogState.emojis, query, activeGroup).filter((emoji) => {
+      const [displayUrl] = getEmojiDisplayUrls(emoji.previewUrl);
+
+      return !failedPreviewUrls.has(displayUrl ?? emoji.previewUrl);
+    });
   }, [activeGroup, catalogState.emojis, failedPreviewUrls, search]);
 
   const visibleEmojis = filteredEmojis.slice(0, MAX_VISIBLE_EMOJIS);
@@ -158,36 +210,16 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
             {visibleEmojis.length > 0 && (
               <div className="grid grid-cols-8 gap-1">
                 {visibleEmojis.map((emoji) => (
-                  <button
+                  <EmojiButton
                     key={`${emoji.shortcode}-${emoji.url}`}
-                    type="button"
-                    title={`:${emoji.shortcode}:`}
-                    aria-label={`insert ${emoji.shortcode}`}
-                    className="flex aspect-square items-center justify-center rounded-sm border border-transparent p-1 hover:border-signal/30 hover:bg-signal-ghost focus-visible:border-signal"
-                    onClick={() => {
+                    emoji={emoji}
+                    onSelect={() => {
                       onSelect(emoji);
                       setIsOpen(false);
                       setSearch("");
                     }}
-                  >
-                    <img
-                      src={emoji.previewUrl}
-                      alt=""
-                      className="max-h-full max-w-full object-contain"
-                      onError={() => {
-                        setFailedPreviewUrls((current) => {
-                          if (current.has(emoji.previewUrl)) {
-                            return current;
-                          }
-
-                          const next = new Set(current);
-                          next.add(emoji.previewUrl);
-                          storeFailedPreviewUrls(next);
-                          return next;
-                        });
-                      }}
-                    />
-                  </button>
+                    onPreviewFailure={setFailedPreviewUrls}
+                  />
                 ))}
               </div>
             )}

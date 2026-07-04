@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { normalizeUrl } from "@link/link";
-import { buildEmojiMap, type BodyEmoji } from "@lib/customEmoji";
+import { buildEmojiMap, getEmojiDisplayUrls, type BodyEmoji } from "@lib/customEmoji";
 import { HTTP_URL_PATTERN } from "@lib/url";
 
 type LinkedBodyTextProps = {
@@ -17,6 +18,38 @@ type BodyToken = {
   url?: string;
   shortcode?: string;
 };
+
+function InlineCustomEmoji({
+  shortcode,
+  raw,
+  url,
+}: {
+  shortcode: string;
+  raw: string;
+  url: string;
+}) {
+  const urls = getEmojiDisplayUrls(url);
+  const [urlIndex, setUrlIndex] = useState(0);
+  const src = urls[urlIndex];
+
+  if (!src) {
+    return <>{raw}</>;
+  }
+
+  return (
+    <span className="inline-flex min-w-[1.35em] align-[-0.25em]" data-custom-emoji={shortcode}>
+      <img
+        src={src}
+        alt={raw}
+        title={raw}
+        className="mx-0.5 inline-block h-[1.35em] w-[1.35em] object-contain"
+        onError={() => {
+          setUrlIndex((current) => current + 1);
+        }}
+      />
+    </span>
+  );
+}
 
 function getBodyTokens(content: string, emojiMap: Map<string, string>): BodyToken[] {
   const tokens: BodyToken[] = [];
@@ -80,15 +113,11 @@ export function LinkedBodyText({ children, className, emojis = [] }: LinkedBodyT
       );
     } else if (token.kind === "emoji" && token.url && token.shortcode) {
       parts.push(
-        <img
+        <InlineCustomEmoji
           key={`${token.shortcode}-${token.index}`}
-          src={token.url}
-          alt={`:${token.shortcode}:`}
-          title={`:${token.shortcode}:`}
-          className="mx-0.5 inline-block h-[1.35em] w-[1.35em] align-[-0.25em] object-contain"
-          onError={(event) => {
-            event.currentTarget.replaceWith(document.createTextNode(token.raw));
-          }}
+          shortcode={token.shortcode}
+          raw={token.raw}
+          url={token.url}
         />,
       );
     } else if (token.kind === "url") {
