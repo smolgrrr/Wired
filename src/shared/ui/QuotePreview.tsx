@@ -1,11 +1,10 @@
 import { Event } from "nostr-tools";
 import { parseContent } from "@lib/content";
+import { getBodyEmojis } from "@lib/customEmoji";
 import { getDisplayName } from "@lib/profile";
-import { getNoteBodyText, getPollViewModel } from "@lib/pollUtils";
 import { useProfile } from "../hooks/useProfiles";
 import { AttachmentStack } from "./AttachmentStack";
 import { LinkedBodyText } from "./LinkedBodyText";
-import { PollSummary } from "./PollSummary";
 import { SignalAvatar } from "./SignalAvatar";
 
 const PREVIEW_LENGTH = 280;
@@ -14,12 +13,11 @@ export function QuotePreview({ event }: { event: Event }) {
   const profile = useProfile(event.pubkey);
   const authorLabel = getDisplayName(profile, event.pubkey);
   const { comment, attachments } = parseContent(event);
-  const bodyText = getNoteBodyText(event, comment);
-  const poll = getPollViewModel(event);
+  const emojis = getBodyEmojis(event.tags);
   const preview =
-    bodyText.length > PREVIEW_LENGTH
-      ? `${bodyText.slice(0, PREVIEW_LENGTH)}…`
-      : bodyText;
+    comment.length > PREVIEW_LENGTH
+      ? `${comment.slice(0, PREVIEW_LENGTH)}…`
+      : comment;
 
   return (
     <div
@@ -36,7 +34,7 @@ export function QuotePreview({ event }: { event: Event }) {
         <span>{authorLabel}</span>
       </div>
       {preview.length > 0 && (
-        <LinkedBodyText className="whitespace-pre-wrap text-body text-secondary">
+        <LinkedBodyText className="whitespace-pre-wrap text-body text-secondary" emojis={emojis}>
           {preview}
         </LinkedBodyText>
       )}
@@ -45,7 +43,6 @@ export function QuotePreview({ event }: { event: Event }) {
           <AttachmentStack attachments={attachments} compact />
         </div>
       )}
-      {poll && <PollSummary poll={poll} />}
     </div>
   );
 }

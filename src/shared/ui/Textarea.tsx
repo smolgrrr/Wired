@@ -1,5 +1,5 @@
 import type { TextareaHTMLAttributes } from "react";
-import { useId } from "react";
+import { forwardRef, useId } from "react";
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   variant?: "default" | "compose";
@@ -13,13 +13,16 @@ const variantClasses: Record<NonNullable<TextareaProps["variant"]>, string> = {
     "min-h-[var(--compose-min-height)] resize-none bg-surface border-0 border-b border-ghost rounded-none px-3 py-2",
 };
 
-export function Textarea({
-  variant = "default",
-  label,
-  id: idProp,
-  className = "",
-  ...props
-}: TextareaProps) {
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  {
+    variant = "default",
+    label,
+    id: idProp,
+    className = "",
+    ...props
+  },
+  ref,
+) {
   const generatedId = useId();
   const id = idProp ?? generatedId;
 
@@ -31,6 +34,7 @@ export function Textarea({
         </label>
       )}
       <textarea
+        ref={ref}
         id={id}
         className={[
           "w-full text-body text-primary caret-[var(--signal)]",
@@ -46,4 +50,4 @@ export function Textarea({
       />
     </div>
   );
-}
+});

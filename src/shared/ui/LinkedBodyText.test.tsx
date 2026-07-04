@@ -36,4 +36,52 @@ describe("LinkedBodyText", () => {
     expect(link?.getAttribute("href")).toBe("https://example.com/article");
     expect(container.textContent).toBe("read https://example.com/article now");
   });
+
+  it("renders Nostr custom emoji tags inline", () => {
+    act(() => {
+      root.render(
+        <LinkedBodyText
+          className="body"
+          emojis={[{ shortcode: "lain", url: "https://example.com/lain.png" }]}
+        >
+          {"test :lain:"}
+        </LinkedBodyText>,
+      );
+    });
+
+    const emoji = container.querySelector("img");
+    expect(emoji?.getAttribute("src")).toBe("https://example.com/lain.png");
+    expect(emoji?.getAttribute("alt")).toBe(":lain:");
+  });
+
+  it("keeps unknown custom emoji shortcodes as text", () => {
+    act(() => {
+      root.render(<LinkedBodyText className="body">{"test :missing:"}</LinkedBodyText>);
+    });
+
+    expect(container.textContent).toBe("test :missing:");
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("renders multiple Nostr custom emoji tags in one body", () => {
+    act(() => {
+      root.render(
+        <LinkedBodyText
+          className="body"
+          emojis={[
+            { shortcode: "lain", url: "https://example.com/lain.png" },
+            { shortcode: "lain_happy", url: "https://example.com/lain_happy.png" },
+          ]}
+        >
+          {"test :lain: and :lain_happy:"}
+        </LinkedBodyText>,
+      );
+    });
+
+    const emojis = Array.from(container.querySelectorAll("[data-custom-emoji]"));
+    expect(emojis.map((emoji) => emoji.getAttribute("data-custom-emoji"))).toEqual([
+      "lain",
+      "lain_happy",
+    ]);
+  });
 });

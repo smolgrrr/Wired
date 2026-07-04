@@ -38,7 +38,7 @@ Wired is an anonymous Nostr social feed where proof-of-work filters noise. The i
 
 ## 2. Content Rendering
 
-Post body rendering is a three-pass pipeline. Poll prompts and quote compose text follow the same rules.
+Post body rendering is a three-pass pipeline. Quote compose text follows the same rules.
 
 ```mermaid
 flowchart TD
@@ -144,15 +144,13 @@ Stack: `flex flex-col gap-3` via `AttachmentStack`. Multiple link URLs → multi
 
 ### PostCard interaction
 
-Posts use `role="group"` with a dedicated `open` button in `MetadataRow` — not `role="link"` on the article (nested interactives: expand, poll vote, inline nostr links, preview cards).
+Posts use `role="group"` with a dedicated `open` button in `MetadataRow` — not `role="link"` on the article (nested interactives: expand, inline nostr links, preview cards).
 
 - Inline nostr links and preview `<a>` elements do not trigger thread navigation
 - Preview cards are separate tab-stops from the `open` button
-- Poll option buttons are form controls, not body hyperlinks
-
 ### Compose behavior (unchanged)
 
-Quote compose still appends `nostr:note…` to textarea content. Poll creation (kind 1068) tag structure unchanged.
+Quote compose still appends `nostr:note…` to textarea content.
 
 ---
 
@@ -305,14 +303,6 @@ Resolve window closes ~1360ms after mount (`600ms + 20×40ms`). Appended posts n
 - Settings: vertical stack, `max-w-content`, all primitives
 - Notifications desktop: two columns; mobile: `SegmentedControl` — `yours` | `mentions`
 
-### Polls
-
-- Create: `Button`, `Input` for options and minimum vote signal
-- Responder: option vote `Button variant="ghost"`, signal stepper, `results`, `transmit`
-- Poll prompt in `TextContent` follows content rendering rules; vote controls are siblings in `PollResponder`
-
----
-
 ## 7. Components
 
 Flat directory: [`src/shared/ui/`](../src/shared/ui/).
@@ -334,7 +324,7 @@ Flat directory: [`src/shared/ui/`](../src/shared/ui/).
 | Component | Notes |
 |-----------|-------|
 | `PostCard` | `role="group"`; `open` button for navigation; depth/variant/animate props |
-| `TextContent` | `RichText` + `NoteMedia` + `LinkPreview` + collapse + `PollResponder` |
+| `TextContent` | `RichText` + `NoteMedia` + `LinkPreview` + collapse |
 | `RichText` | **New** — nostr inline links from `linkify.ts` |
 | `NoteMedia` | Media attachments below text |
 | `LinkPreview` | **New** — OG preview cards below text |
@@ -404,7 +394,7 @@ Metadata format: `{pubkey8} · signal {n} · {count} replies · {time}` — omit
 ### Tab order
 
 1. Skip link → header nav → main → compose → feed posts
-2. Per post: content links/previews → expand → poll controls → `open` button
+2. Per post: content links/previews → expand → `open` button
 3. `SegmentedControl`: arrow keys per APG
 
 ---

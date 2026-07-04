@@ -1,10 +1,9 @@
 import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "@lib/content";
-import { getNoteBodyText, getPollViewModel } from "@lib/pollUtils";
+import { getBodyEmojis } from "@lib/customEmoji";
 import { useQuotedEvents } from "../hooks/useQuotedEvents";
 import { AttachmentStack } from "./AttachmentStack";
-import { PollResponder } from "./PollResponder";
 import { QuotePreview } from "./QuotePreview";
 import { QuotePreviewPlaceholder } from "./QuotePreviewPlaceholder";
 import { Button } from "./Button";
@@ -20,20 +19,19 @@ export function TextContent({
   imagePriority?: boolean;
 }) {
   const { comment, attachments } = parseContent(eventdata);
-  const bodyText = getNoteBodyText(eventdata, comment);
-  const poll = getPollViewModel(eventdata);
+  const emojis = getBodyEmojis(eventdata.tags);
   const { quotedEvents, pendingRefs, failedRefs } = useQuotedEvents(eventdata);
   const [isExpanded, setIsExpanded] = useState(false);
-  const displayedComment = isExpanded ? bodyText : bodyText.slice(0, COLLAPSED_LENGTH);
+  const displayedComment = isExpanded ? comment : comment.slice(0, COLLAPSED_LENGTH);
 
   return (
     <div className="gap-2 flex flex-col break-words text-body text-primary">
-      {bodyText.length > 0 && (
-        <LinkedBodyText className="whitespace-pre-wrap">
+      {comment.length > 0 && (
+        <LinkedBodyText className="whitespace-pre-wrap" emojis={emojis}>
           {displayedComment}
         </LinkedBodyText>
       )}
-      {bodyText.length > COLLAPSED_LENGTH && (
+      {comment.length > COLLAPSED_LENGTH && (
         <Button
           type="button"
           variant="ghost"
@@ -55,7 +53,6 @@ export function TextContent({
       {attachments.length > 0 && (
         <AttachmentStack attachments={attachments} imagePriority={imagePriority} />
       )}
-      {poll && <PollResponder poll={poll} />}
     </div>
   );
 }

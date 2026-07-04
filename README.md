@@ -3,7 +3,7 @@
 A browser-first, anonymous Nostr social feed that uses proof-of-work to reduce spam.
 
 ## Overview
-- Nostr relay subscriptions provide feeds, threads, polls, and notifications.
+- Nostr relay subscriptions provide feeds, threads, and notifications.
 - Posts are anonymous and signed with ephemeral browser-generated keys.
 - Proof-of-work is calculated in Web Workers before events are published.
 - Media URLs and `imeta` tags render as inline attachments below text. Other URLs become link preview cards (stripped from body). Nostr identifiers linkify inline (note/nevent open in-app; npub/nprofile/naddr open via `nostr:` href).

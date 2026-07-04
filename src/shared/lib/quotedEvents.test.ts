@@ -6,8 +6,8 @@ import {
   extractQuotedRefs,
 } from "./quotedEvents";
 
-const QUOTED_POLL_ID = "48942b7f9e4501af2d9f8e668256c0652dcbe41fa0104acce6aca81ab9ff2de2";
-const QUOTED_POLL_NEVENT =
+const QUOTED_EVENT_ID = "48942b7f9e4501af2d9f8e668256c0652dcbe41fa0104acce6aca81ab9ff2de2";
+const QUOTED_EVENT_NEVENT =
   "nevent1qvzqqqqy9spzpmnw5yatnljuff5w47d35d87q99xddqpzlzsac4xzn6vm22ekmn5qy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgnwaehxw309ahkvenrdpskjm3wwp6kytcqypyfg2mlnezsrtedn78xdqjkcpjjmjlyr7spqjkvu6k2sx4eluk7yarpf4w";
 const NOTE_TAG_ID = "c".repeat(64);
 const NOTE_TAG_NOTE = "note1enxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxqzqztj2";
@@ -17,8 +17,8 @@ const ISSUE_54_QUOTED_NEVENT =
 
 describe("decodeNostrRef", () => {
   it("decodes nevent references to event ids and relay hints", () => {
-    expect(decodeNostrRef(QUOTED_POLL_NEVENT)).toEqual({
-      id: QUOTED_POLL_ID,
+    expect(decodeNostrRef(QUOTED_EVENT_NEVENT)).toEqual({
+      id: QUOTED_EVENT_ID,
       relays: ["wss://relay.damus.io", "wss://offchain.pub"],
     });
   });
@@ -27,13 +27,13 @@ describe("decodeNostrRef", () => {
 describe("extractQuotedRefs", () => {
   it("extracts refs from inline nostr references", () => {
     const event = {
-      content: `Just a reminder\nnostr:${QUOTED_POLL_NEVENT}`,
+      content: `Just a reminder\nnostr:${QUOTED_EVENT_NEVENT}`,
       tags: [],
     } as unknown as Event;
 
     expect(extractQuotedRefs(event)).toEqual([
       {
-        id: QUOTED_POLL_ID,
+        id: QUOTED_EVENT_ID,
         relays: ["wss://relay.damus.io", "wss://offchain.pub"],
       },
     ]);
@@ -64,13 +64,13 @@ describe("extractQuotedRefs", () => {
 
   it("dedupes q tags and inline references to the same event", () => {
     const event = {
-      content: `see nostr:${QUOTED_POLL_NEVENT}`,
-      tags: [["q", QUOTED_POLL_ID]],
+      content: `see nostr:${QUOTED_EVENT_NEVENT}`,
+      tags: [["q", QUOTED_EVENT_ID]],
     } as Event;
 
     expect(extractQuotedRefs(event)).toEqual([
       {
-        id: QUOTED_POLL_ID,
+        id: QUOTED_EVENT_ID,
         relays: ["wss://relay.damus.io", "wss://offchain.pub"],
       },
     ]);
@@ -94,14 +94,14 @@ describe("extractQuotedRefs", () => {
     const event = {
       content: "",
       tags: [
-        ["q", `nostr:${QUOTED_POLL_NEVENT}`, "wss://relay.example/"],
+        ["q", `nostr:${QUOTED_EVENT_NEVENT}`, "wss://relay.example/"],
         ["q", NOTE_TAG_NOTE],
       ],
     } as Event;
 
     expect(extractQuotedRefs(event)).toEqual([
       {
-        id: QUOTED_POLL_ID,
+        id: QUOTED_EVENT_ID,
         relays: [
           "wss://relay.damus.io",
           "wss://offchain.pub",
@@ -119,7 +119,7 @@ describe("extractQuotedRefs", () => {
 describe("extractMentionedEventRefs", () => {
   it("includes q tags, inline references, and e tags", () => {
     const event = {
-      content: `see nostr:${QUOTED_POLL_NEVENT}`,
+      content: `see nostr:${QUOTED_EVENT_NEVENT}`,
       tags: [
         ["q", "b".repeat(64), "wss://relay.example/"],
         ["e", "d".repeat(64), "wss://relay.damus.io/"],
@@ -129,7 +129,7 @@ describe("extractMentionedEventRefs", () => {
     expect(extractMentionedEventRefs(event)).toEqual([
       { id: "b".repeat(64), relays: ["wss://relay.example"] },
       {
-        id: QUOTED_POLL_ID,
+        id: QUOTED_EVENT_ID,
         relays: ["wss://relay.damus.io", "wss://offchain.pub"],
       },
       { id: "d".repeat(64), relays: ["wss://relay.damus.io"] },

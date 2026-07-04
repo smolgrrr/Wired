@@ -17,18 +17,6 @@ export { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
 export { subNote } from "./thread";
 export { subNotifications } from "./notifications";
 
-export const subPoll = (eventId: string, onEvent: SubCallback): SubHandle =>
-  getRegistry().subscribe([
-    {
-      filter: {
-        "#e": [eventId],
-        kinds: [1018],
-      },
-      cb: onEvent,
-      closeOnEose: true,
-    },
-  ]);
-
 export const subNotesOnce = (
   eventIds: string[],
   onEvent: SubCallback,
