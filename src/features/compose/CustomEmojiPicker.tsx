@@ -8,7 +8,6 @@ import {
   filterCustomEmojis,
   getCustomEmojiCatalogState,
   loadCustomEmojiCatalog,
-  prewarmCustomEmojiImages,
   subscribeCustomEmojiCatalog,
   type CustomEmoji,
 } from "./customEmojiCatalog";
@@ -97,10 +96,14 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
       setCatalogState(getCustomEmojiCatalogState());
     });
 
-    void loadCustomEmojiCatalog().catch(() => undefined);
-
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    void loadCustomEmojiCatalog().catch(() => undefined);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -149,12 +152,6 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   }
 
   const visibleEmojis = filteredEmojis.slice(0, MAX_VISIBLE_EMOJIS);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    prewarmCustomEmojiImages(visibleEmojis, MAX_VISIBLE_EMOJIS);
-  }, [isOpen, visibleEmojis]);
 
   return (
     <div ref={wrapperRef} className="relative">
