@@ -1,16 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Event as NostrEvent } from "nostr-tools";
 import { useSubmitForm } from "../../shared/hooks/useSubmitForm";
-import { buildUnsignedEvent } from "./buildUnsignedEvent";
+import { buildUnsignedEvent, type CustomEmojiTag } from "./buildUnsignedEvent";
 import { PostCard } from "../../shared/ui/PostCard";
 import { QuotePreview } from "../../shared/ui/QuotePreview";
 import { useSettings } from "../../app/settings";
 import { Button } from "../../shared/ui/Button";
 import { PowTransmitStatus } from "../../shared/ui/PowTransmitStatus";
-import { Input } from "../../shared/ui/Input";
 import { Textarea } from "../../shared/ui/Textarea";
 import { SignalStepper } from "../../shared/ui/SignalStepper";
 import { useThreadNavigation } from "../thread/useThreadNavigation";
+import { CustomEmojiPicker, type CustomEmoji } from "./CustomEmojiPicker";
 
 interface PostFormProps {
   refEvent?: NostrEvent;
@@ -22,8 +22,13 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
   const openThread = useThreadNavigation();
   const [comment, setComment] = useState("");
   const [difficulty, setDifficulty] = useState(String(settings.difficulty));
-  const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [pollDifficulty, setPollDifficulty] = useState("15");
+  const [selectedEmojis, setSelectedEmojis] = useState<CustomEmojiTag[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const activeEmojiTags = useMemo(
+    () => selectedEmojis.filter((emoji) => comment.includes(`:${emoji.shortcode}:`)),
+    [comment, selectedEmojis],
+  );
 
   const unsigned = useMemo(
     () =>
@@ -31,10 +36,9 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
         comment,
         refEvent,
         tagType,
-        pollOptions,
-        pollDifficulty,
+        customEmojis: activeEmojiTags,
       }),
-    [comment, refEvent, tagType, pollOptions, pollDifficulty],
+    [activeEmojiTags, comment, refEvent, tagType],
   );
 
   useEffect(() => {
@@ -66,15 +70,39 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
   useEffect(() => {
     if (!signedPoWEvent) return;
 
-    setPollOptions(["", ""]);
     setComment("");
+    setSelectedEmojis([]);
   }, [signedPoWEvent]);
+
+  function handleEmojiSelect(emoji: CustomEmoji) {
+    const token = `:${emoji.shortcode}:`;
+    const textarea = textareaRef.current;
+    const selectionStart = textarea?.selectionStart ?? comment.length;
+    const selectionEnd = textarea?.selectionEnd ?? comment.length;
+    const nextComment = `${comment.slice(0, selectionStart)}${token}${comment.slice(selectionEnd)}`;
+    const nextCursor = selectionStart + token.length;
+
+    setComment(nextComment);
+    setSelectedEmojis((current) => {
+      if (current.some((selectedEmoji) => selectedEmoji.shortcode === emoji.shortcode)) {
+        return current;
+      }
+
+      return [...current, { shortcode: emoji.shortcode, url: emoji.url }];
+    });
+
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(nextCursor, nextCursor);
+    });
+  }
 
   return (
     <form name="post" method="post" encType="multipart/form-data" onSubmit={handleSubmit}>
       <input type="hidden" name="MAX_FILE_SIZE" defaultValue={2.5 * 1024 * 1024} />
       <div className="px-2 flex flex-col">
         <Textarea
+          ref={textareaRef}
           name="com"
           variant="compose"
           value={comment}
@@ -86,46 +114,10 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           rows={comment.split("\n").length || 1}
         />
         {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
-        {pollOptions.some((option) => option !== "") && (
-          <div className="flex flex-col gap-3 mt-3">
-            <p className="text-meta text-secondary">poll options</p>
-            <div className="flex flex-col gap-2 max-w-md">
-              {pollOptions.map((option, index) => (
-                <Input
-                  key={index}
-                  type="text"
-                  value={option}
-                  placeholder={`option ${index + 1}`}
-                  onChange={(event) =>
-                    setPollOptions((current) =>
-                      current.map((value, optionIndex) => (optionIndex === index ? event.target.value : value)),
-                    )
-                  }
-                />
-              ))}
-              <Input
-                id={`poll-signal-${refEvent?.id ?? "feed"}`}
-                label="minimum vote signal"
-                type="number"
-                min={10}
-                value={pollDifficulty}
-                onChange={(event) => setPollDifficulty(event.target.value)}
-                containerClassName="max-w-[12rem]"
-              />
-            </div>
-          </div>
-        )}
         <div className="min-h-14 flex items-center justify-between gap-4 mt-2">
           <SignalStepper value={difficulty} onChange={setDifficulty} min={16} />
           <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setPollOptions(pollOptions.some(Boolean) ? ["", ""] : ["Option 1", "Option 2"])}
-            >
-              {pollOptions.some(Boolean) ? "remove poll" : "add poll"}
-            </Button>
+            <CustomEmojiPicker onSelect={handleEmojiSelect} />
             <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>
               transmit
             </Button>

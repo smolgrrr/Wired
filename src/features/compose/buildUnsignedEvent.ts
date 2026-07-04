@@ -4,11 +4,15 @@ export type ComposeDraft = {
   comment: string;
   refEvent?: Event;
   tagType?: "Reply" | "Quote" | "";
-  pollOptions: string[];
-  pollDifficulty: string;
+  customEmojis?: CustomEmojiTag[];
 };
 
 const CLIENT_TAG: string[] = ["client", "getwired.app"];
+
+export type CustomEmojiTag = {
+  shortcode: string;
+  url: string;
+};
 
 function dedupeTags(tags: string[][]): string[][] {
   return Array.from(
@@ -32,45 +36,22 @@ function buildRefTags(refEvent: Event, tagType: "Reply" | "Quote" | ""): string[
   return dedupeTags(tags);
 }
 
-function buildPollTags(
-  comment: string,
-  pollOptions: string[],
-  pollDifficulty: string,
-): string[][] {
-  const generateOptionId = () => Math.random().toString(36).substring(2, 11);
-
-  return [
-    ["label", comment],
-    ...pollOptions
-      .filter((option) => option !== "")
-      .map((option) => ["option", generateOptionId(), option]),
-    ["relay", "wss://relay.damus.io/"],
-    ["relay", "wss://nos.lol"],
-    ["PoW", pollDifficulty],
-    ["polltype", "singlechoice"],
-  ];
+function buildCustomEmojiTags(comment: string, customEmojis: CustomEmojiTag[] = []): string[][] {
+  return customEmojis
+    .filter((emoji) => comment.includes(`:${emoji.shortcode}:`))
+    .map((emoji) => ["emoji", emoji.shortcode, emoji.url]);
 }
 
 export function buildUnsignedEvent(draft: ComposeDraft): UnsignedEvent {
-  const { comment, refEvent, tagType = "", pollOptions, pollDifficulty } = draft;
+  const { comment, refEvent, tagType = "", customEmojis } = draft;
   const created_at = Math.floor(Date.now() / 1000);
   const refTags =
     refEvent && tagType ? buildRefTags(refEvent, tagType) : [];
-  const isPoll = pollOptions.some((option) => option !== "");
-
-  if (isPoll) {
-    return {
-      kind: 1068,
-      tags: dedupeTags([CLIENT_TAG, ...refTags, ...buildPollTags(comment, pollOptions, pollDifficulty)]),
-      content: comment,
-      created_at,
-      pubkey: "",
-    };
-  }
+  const customEmojiTags = buildCustomEmojiTags(comment, customEmojis);
 
   return {
     kind: 1,
-    tags: dedupeTags([CLIENT_TAG, ...refTags]),
+    tags: dedupeTags([CLIENT_TAG, ...refTags, ...customEmojiTags]),
     content: comment,
     created_at,
     pubkey: "",
