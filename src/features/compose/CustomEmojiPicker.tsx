@@ -13,16 +13,42 @@ import {
 } from "./customEmojiCatalog";
 
 const MAX_VISIBLE_EMOJIS = 120;
+const FAILED_EMOJI_STORAGE_KEY = "wired.failedCustomEmojiPreviewUrls";
+const MAX_STORED_FAILED_EMOJIS = 500;
 
 type CustomEmojiPickerProps = {
   onSelect: (emoji: CustomEmoji) => void;
 };
+
+function loadFailedPreviewUrls() {
+  if (typeof window === "undefined") return new Set<string>();
+
+  try {
+    const storedUrls = JSON.parse(window.localStorage.getItem(FAILED_EMOJI_STORAGE_KEY) ?? "[]") as unknown;
+
+    if (!Array.isArray(storedUrls)) {
+      return new Set<string>();
+    }
+
+    return new Set(storedUrls.filter((url): url is string => typeof url === "string"));
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function storeFailedPreviewUrls(urls: Set<string>) {
+  if (typeof window === "undefined") return;
+
+  const compactUrls = Array.from(urls).slice(-MAX_STORED_FAILED_EMOJIS);
+  window.localStorage.setItem(FAILED_EMOJI_STORAGE_KEY, JSON.stringify(compactUrls));
+}
 
 export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
   const [catalogState, setCatalogState] = useState(getCustomEmojiCatalogState);
+  const [failedPreviewUrls, setFailedPreviewUrls] = useState(loadFailedPreviewUrls);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,8 +87,10 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const filteredEmojis = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return filterCustomEmojis(catalogState.emojis, query, activeGroup);
-  }, [activeGroup, catalogState.emojis, search]);
+    return filterCustomEmojis(catalogState.emojis, query, activeGroup).filter(
+      (emoji) => !failedPreviewUrls.has(emoji.previewUrl),
+    );
+  }, [activeGroup, catalogState.emojis, failedPreviewUrls, search]);
 
   const visibleEmojis = filteredEmojis.slice(0, MAX_VISIBLE_EMOJIS);
 
@@ -146,6 +174,18 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
                       src={emoji.previewUrl}
                       alt=""
                       className="max-h-full max-w-full object-contain"
+                      onError={() => {
+                        setFailedPreviewUrls((current) => {
+                          if (current.has(emoji.previewUrl)) {
+                            return current;
+                          }
+
+                          const next = new Set(current);
+                          next.add(emoji.previewUrl);
+                          storeFailedPreviewUrls(next);
+                          return next;
+                        });
+                      }}
                     />
                   </button>
                 ))}
