@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SmilePlus } from "lucide-react";
 import { getEmojiDisplayUrls } from "@lib/customEmoji";
 import { Button } from "../../shared/ui/Button";
@@ -24,7 +24,7 @@ type CustomEmojiPickerProps = {
 type EmojiButtonProps = {
   emoji: CustomEmoji;
   onSelect: () => void;
-  onPreviewFailure: Dispatch<SetStateAction<Set<string>>>;
+  onPreviewFailure: (urls: string[]) => void;
 };
 
 function loadFailedPreviewUrls() {
@@ -77,16 +77,7 @@ function EmojiButton({ emoji, onSelect, onPreviewFailure }: EmojiButtonProps) {
             return;
           }
 
-          onPreviewFailure((current) => {
-            if (current.has(displayUrl)) {
-              return current;
-            }
-
-            const next = new Set(current);
-            next.add(displayUrl);
-            storeFailedPreviewUrls(next);
-            return next;
-          });
+          onPreviewFailure(displayUrls);
         }}
       />
     </button>
@@ -138,11 +129,24 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
     const query = search.trim().toLowerCase();
 
     return filterCustomEmojis(catalogState.emojis, query, activeGroup).filter((emoji) => {
-      const [displayUrl] = getEmojiDisplayUrls(emoji.previewUrl);
+      const displayUrls = getEmojiDisplayUrls(emoji.previewUrl);
 
-      return !failedPreviewUrls.has(displayUrl ?? emoji.previewUrl);
+      return !displayUrls.some((url) => failedPreviewUrls.has(url));
     });
   }, [activeGroup, catalogState.emojis, failedPreviewUrls, search]);
+
+  function handlePreviewFailure(urls: string[]) {
+    setFailedPreviewUrls((current) => {
+      if (urls.every((url) => current.has(url))) {
+        return current;
+      }
+
+      const next = new Set(current);
+      urls.forEach((url) => next.add(url));
+      storeFailedPreviewUrls(next);
+      return next;
+    });
+  }
 
   const visibleEmojis = filteredEmojis.slice(0, MAX_VISIBLE_EMOJIS);
 
@@ -218,7 +222,7 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
                       setIsOpen(false);
                       setSearch("");
                     }}
-                    onPreviewFailure={setFailedPreviewUrls}
+                    onPreviewFailure={handlePreviewFailure}
                   />
                 ))}
               </div>
