@@ -2,31 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SmilePlus } from "lucide-react";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
-
-export type CustomEmoji = {
-  shortcode: string;
-  static_url: string;
-  tags: string[];
-  url: string;
-  visible_in_picker: boolean;
-};
-
-type LoadState = "idle" | "loading" | "ready" | "error";
-
-type EmojiGroup = {
-  label: string;
-  matches: (shortcode: string) => boolean;
-};
-
-const EMOJI_GROUPS: EmojiGroup[] = [
-  { label: "0-9", matches: (shortcode) => /^[0-9]/.test(shortcode) },
-  { label: "A-E", matches: (shortcode) => /^[a-e]/i.test(shortcode) },
-  { label: "F-J", matches: (shortcode) => /^[f-j]/i.test(shortcode) },
-  { label: "K-N", matches: (shortcode) => /^[k-n]/i.test(shortcode) },
-  { label: "O-R", matches: (shortcode) => /^[o-r]/i.test(shortcode) },
-  { label: "S-V", matches: (shortcode) => /^[s-v]/i.test(shortcode) },
-  { label: "W-Z", matches: (shortcode) => /^[w-z]/i.test(shortcode) },
-];
+import {
+  EMOJI_GROUPS,
+  filterCustomEmojis,
+  getCustomEmojiCatalogState,
+  loadCustomEmojiCatalog,
+  prewarmCustomEmojiImages,
+  subscribeCustomEmojiCatalog,
+  type CustomEmoji,
+} from "./customEmojiCatalog";
 
 const MAX_VISIBLE_EMOJIS = 120;
 
@@ -34,51 +18,22 @@ type CustomEmojiPickerProps = {
   onSelect: (emoji: CustomEmoji) => void;
 };
 
-function sortEmojis(emojis: CustomEmoji[]) {
-  return [...emojis].sort((left, right) => left.shortcode.localeCompare(right.shortcode));
-}
-
 export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [emojis, setEmojis] = useState<CustomEmoji[]>([]);
   const [search, setSearch] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
+  const [catalogState, setCatalogState] = useState(getCustomEmojiCatalogState);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen || loadState !== "idle") return;
+    const unsubscribe = subscribeCustomEmojiCatalog(() => {
+      setCatalogState(getCustomEmojiCatalogState());
+    });
 
-    let cancelled = false;
-    setLoadState("loading");
+    void loadCustomEmojiCatalog().catch(() => undefined);
 
-    void fetch(`${import.meta.env.BASE_URL}custom_emojis.json`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load custom emoji catalog");
-        }
-
-        return response.json() as Promise<CustomEmoji[]>;
-      })
-      .then((catalog) => {
-        if (cancelled) return;
-
-        const visibleEmojis = catalog.filter(
-          (emoji) => emoji.visible_in_picker && emoji.shortcode && emoji.url,
-        );
-        setEmojis(sortEmojis(visibleEmojis));
-        setLoadState("ready");
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoadState("error");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, loadState]);
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,21 +60,17 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
 
   const filteredEmojis = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const group = EMOJI_GROUPS[activeGroup] ?? EMOJI_GROUPS[0];
 
-    return emojis.filter((emoji) => {
-      if (query) {
-        return (
-          emoji.shortcode.toLowerCase().includes(query) ||
-          emoji.tags.some((tag) => tag.toLowerCase().includes(query))
-        );
-      }
-
-      return group.matches(emoji.shortcode);
-    });
-  }, [activeGroup, emojis, search]);
+    return filterCustomEmojis(catalogState.emojis, query, activeGroup);
+  }, [activeGroup, catalogState.emojis, search]);
 
   const visibleEmojis = filteredEmojis.slice(0, MAX_VISIBLE_EMOJIS);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    prewarmCustomEmojiImages(visibleEmojis, MAX_VISIBLE_EMOJIS);
+  }, [isOpen, visibleEmojis]);
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -166,16 +117,14 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
           )}
 
           <div className="h-[min(16rem,calc(100dvh-16rem))] min-h-40 overflow-y-auto p-2 sm:h-64">
-            {loadState === "loading" && (
-              <p className="px-2 py-8 text-center text-meta text-secondary">loading emotes</p>
-            )}
-
-            {loadState === "error" && (
-              <p className="px-2 py-8 text-center text-meta text-danger">emotes failed to load</p>
-            )}
-
-            {loadState === "ready" && visibleEmojis.length === 0 && (
-              <p className="px-2 py-8 text-center text-meta text-secondary">no emotes found</p>
+            {visibleEmojis.length === 0 && (
+              <p className="px-2 py-8 text-center text-meta text-secondary">
+                {catalogState.status === "error"
+                  ? "emotes failed to load"
+                  : catalogState.status === "ready"
+                    ? "no emotes found"
+                    : "loading emotes"}
+              </p>
             )}
 
             {visibleEmojis.length > 0 && (
@@ -194,7 +143,7 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
                     }}
                   >
                     <img
-                      src={emoji.static_url || emoji.url}
+                      src={emoji.previewUrl}
                       alt=""
                       className="max-h-full max-w-full object-contain"
                     />

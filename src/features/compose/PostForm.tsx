@@ -10,7 +10,8 @@ import { PowTransmitStatus } from "../../shared/ui/PowTransmitStatus";
 import { Textarea } from "../../shared/ui/Textarea";
 import { SignalStepper } from "../../shared/ui/SignalStepper";
 import { useThreadNavigation } from "../thread/useThreadNavigation";
-import { CustomEmojiPicker, type CustomEmoji } from "./CustomEmojiPicker";
+import { CustomEmojiPicker } from "./CustomEmojiPicker";
+import type { CustomEmoji } from "./customEmojiCatalog";
 
 interface PostFormProps {
   refEvent?: NostrEvent;
