@@ -43,7 +43,7 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [emojis, setEmojis] = useState<CustomEmoji[]>([]);
   const [search, setSearch] = useState("");
-  const [activeGroup, setActiveGroup] = useState(1);
+  const [activeGroup, setActiveGroup] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -137,15 +137,14 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
       </Button>
 
       {isOpen && (
-        <div className="absolute bottom-full right-0 z-50 mb-2 w-[min(22rem,calc(100vw-2rem))] rounded-sm border border-ghost bg-surface-raised shadow-2xl">
+        <div className="fixed inset-x-3 bottom-20 z-50 max-h-[calc(100dvh-7rem)] rounded-sm border border-ghost bg-surface-raised shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-2 sm:max-h-none sm:w-[min(22rem,calc(100vw-2rem))]">
           <div className="border-b border-ghost p-2">
             <Input
               type="search"
               placeholder="search emotes"
               value={search}
-              autoFocus
               onChange={(event) => setSearch(event.target.value)}
-              className="min-h-[32px]"
+              className="min-h-[36px] text-[16px]"
             />
           </div>
 
@@ -166,7 +165,7 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
             </div>
           )}
 
-          <div className="h-64 overflow-y-auto p-2">
+          <div className="h-[min(16rem,calc(100dvh-16rem))] min-h-40 overflow-y-auto p-2 sm:h-64">
             {loadState === "loading" && (
               <p className="px-2 py-8 text-center text-meta text-secondary">loading emotes</p>
             )}
@@ -197,7 +196,6 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
                     <img
                       src={emoji.static_url || emoji.url}
                       alt=""
-                      loading="lazy"
                       className="max-h-full max-w-full object-contain"
                     />
                   </button>
