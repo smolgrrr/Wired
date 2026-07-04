@@ -36,4 +36,30 @@ describe("LinkedBodyText", () => {
     expect(link?.getAttribute("href")).toBe("https://example.com/article");
     expect(container.textContent).toBe("read https://example.com/article now");
   });
+
+  it("renders Nostr custom emoji tags inline", () => {
+    act(() => {
+      root.render(
+        <LinkedBodyText
+          className="body"
+          emojis={[{ shortcode: "lain", url: "https://example.com/lain.png" }]}
+        >
+          {"test :lain:"}
+        </LinkedBodyText>,
+      );
+    });
+
+    const emoji = container.querySelector("img");
+    expect(emoji?.getAttribute("src")).toBe("https://example.com/lain.png");
+    expect(emoji?.getAttribute("alt")).toBe(":lain:");
+  });
+
+  it("keeps unknown custom emoji shortcodes as text", () => {
+    act(() => {
+      root.render(<LinkedBodyText className="body">{"test :missing:"}</LinkedBodyText>);
+    });
+
+    expect(container.textContent).toBe("test :missing:");
+    expect(container.querySelector("img")).toBeNull();
+  });
 });

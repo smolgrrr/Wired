@@ -1,6 +1,7 @@
 import { Event } from "nostr-tools";
 import { useState } from "react";
 import { parseContent } from "@lib/content";
+import { getBodyEmojis } from "@lib/customEmoji";
 import { useQuotedEvents } from "../hooks/useQuotedEvents";
 import { AttachmentStack } from "./AttachmentStack";
 import { QuotePreview } from "./QuotePreview";
@@ -18,6 +19,7 @@ export function TextContent({
   imagePriority?: boolean;
 }) {
   const { comment, attachments } = parseContent(eventdata);
+  const emojis = getBodyEmojis(eventdata.tags);
   const { quotedEvents, pendingRefs, failedRefs } = useQuotedEvents(eventdata);
   const [isExpanded, setIsExpanded] = useState(false);
   const displayedComment = isExpanded ? comment : comment.slice(0, COLLAPSED_LENGTH);
@@ -25,7 +27,7 @@ export function TextContent({
   return (
     <div className="gap-2 flex flex-col break-words text-body text-primary">
       {comment.length > 0 && (
-        <LinkedBodyText className="whitespace-pre-wrap">
+        <LinkedBodyText className="whitespace-pre-wrap" emojis={emojis}>
           {displayedComment}
         </LinkedBodyText>
       )}

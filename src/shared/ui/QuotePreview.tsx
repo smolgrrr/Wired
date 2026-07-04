@@ -1,5 +1,6 @@
 import { Event } from "nostr-tools";
 import { parseContent } from "@lib/content";
+import { getBodyEmojis } from "@lib/customEmoji";
 import { getDisplayName } from "@lib/profile";
 import { useProfile } from "../hooks/useProfiles";
 import { AttachmentStack } from "./AttachmentStack";
@@ -12,6 +13,7 @@ export function QuotePreview({ event }: { event: Event }) {
   const profile = useProfile(event.pubkey);
   const authorLabel = getDisplayName(profile, event.pubkey);
   const { comment, attachments } = parseContent(event);
+  const emojis = getBodyEmojis(event.tags);
   const preview =
     comment.length > PREVIEW_LENGTH
       ? `${comment.slice(0, PREVIEW_LENGTH)}…`
@@ -32,7 +34,7 @@ export function QuotePreview({ event }: { event: Event }) {
         <span>{authorLabel}</span>
       </div>
       {preview.length > 0 && (
-        <LinkedBodyText className="whitespace-pre-wrap text-body text-secondary">
+        <LinkedBodyText className="whitespace-pre-wrap text-body text-secondary" emojis={emojis}>
           {preview}
         </LinkedBodyText>
       )}
