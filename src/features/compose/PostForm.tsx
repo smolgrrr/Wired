@@ -81,7 +81,6 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     const selectionStart = textarea?.selectionStart ?? comment.length;
     const selectionEnd = textarea?.selectionEnd ?? comment.length;
     const nextComment = `${comment.slice(0, selectionStart)}${token}${comment.slice(selectionEnd)}`;
-    const nextCursor = selectionStart + token.length;
 
     setComment(nextComment);
     setSelectedEmojis((current) => {
@@ -90,11 +89,6 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
       }
 
       return [...current, { shortcode: emoji.shortcode, url: emoji.url }];
-    });
-
-    window.requestAnimationFrame(() => {
-      textarea?.focus();
-      textarea?.setSelectionRange(nextCursor, nextCursor);
     });
   }
 
