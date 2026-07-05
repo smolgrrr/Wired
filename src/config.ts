@@ -30,13 +30,24 @@ export function configuredRelays(
   return relays.length > 0 ? relays : fallback;
 }
 
+function configuredEnv(key: string): string | undefined {
+  const viteEnv = import.meta.env as Record<string, string | undefined> | undefined;
+  if (viteEnv?.[key] !== undefined) return viteEnv[key];
+
+  if (typeof process !== "undefined") {
+    return process.env[key];
+  }
+
+  return undefined;
+}
+
 export const POW_RELAYS = configuredRelays(
-  import.meta.env.VITE_POW_RELAYS,
+  configuredEnv("VITE_POW_RELAYS"),
   DEFAULT_RELAYS,
 );
 
 export const ENRICHMENT_RELAYS = configuredRelays(
-  import.meta.env.VITE_ENRICHMENT_RELAYS,
+  configuredEnv("VITE_ENRICHMENT_RELAYS"),
   DEFAULT_ENRICHMENT_RELAYS,
 );
 
@@ -48,6 +59,6 @@ export const THREAD_RELAYS = [
   ...new Set([...POW_RELAYS, ...ENRICHMENT_RELAYS]),
 ] as const;
 
-export const CONFESS_API_BASE = (import.meta.env.VITE_CONFESS_API_BASE || "")
+export const CONFESS_API_BASE = (configuredEnv("VITE_CONFESS_API_BASE") || "")
   .trim()
   .replace(/\/+$/, "");

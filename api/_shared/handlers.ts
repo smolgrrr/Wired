@@ -25,6 +25,7 @@ export type ApiResult = {
 
 export type FeedApiOptions = {
   service?: FeedBootstrapCacheService;
+  waitUntil?: (promise: Promise<unknown>) => void;
 };
 
 function json(status: number, body: unknown, headers: Record<string, string> = {}): ApiResult {
@@ -56,13 +57,26 @@ function getQueryValue(req: ApiRequest, key: string): string {
   return requestUrl.searchParams.get(key) ?? "";
 }
 
+function getHeaderValue(req: ApiRequest, key: string): string {
+  const headers = req.headers;
+  if (!headers) return "";
+
+  const lowerKey = key.toLowerCase();
+  for (const [headerKey, value] of Object.entries(headers)) {
+    if (headerKey.toLowerCase() !== lowerKey) continue;
+    return firstQueryValue(value);
+  }
+
+  return "";
+}
+
 function isAuthorized(req: ApiRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return process.env.NODE_ENV !== "production";
   }
 
-  const authorization = req.headers?.authorization;
+  const authorization = getHeaderValue(req, "authorization");
   return authorization === `Bearer ${cronSecret}`;
 }
 
@@ -114,7 +128,7 @@ export async function handleFeedBootstrapApi(
 
 export async function handleFeedRefreshApi(
   req: ApiRequest,
-  { service = getDefaultFeedBootstrapService() }: FeedApiOptions = {},
+  { service = getDefaultFeedBootstrapService(), waitUntil }: FeedApiOptions = {},
 ): Promise<ApiResult> {
   if (req.method !== "GET") {
     return methodNotAllowed();
@@ -122,6 +136,15 @@ export async function handleFeedRefreshApi(
 
   if (!isAuthorized(req)) {
     return json(401, { error: "unauthorized" });
+  }
+
+  if (waitUntil) {
+    const wasRefreshing = service.isRefreshing();
+    waitUntil(service.refresh().catch(() => undefined));
+    return json(202, {
+      ok: true,
+      refresh: wasRefreshing ? "already-running" : "started",
+    });
   }
 
   try {
