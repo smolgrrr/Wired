@@ -50,6 +50,12 @@ Optional moderation filtering:
 - The web client only consumes the manifest for client-side filtering. Moderation management and admin actions stay in the local Umbrel relay app and are not part of this Vercel deployment.
 - If the manifest URL is unset or unavailable, moderation filtering fails open and the feed continues to use snapshots/live relays.
 
+Staging previews:
+
+- Use `docs/staging.env.example` to point a local or Vercel preview branch at
+  the Wired Admin staging relay and snapshot origin.
+- See `docs/staging-preview.md` for the staging workflow.
+
 Run a durable local snapshot origin:
 
 ```sh
