@@ -2,10 +2,11 @@ import type { Event } from "nostr-tools";
 import { getRegistry } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import {
-  feedActivityRootRef,
-  feedRootRefsFromActivity,
-  isFeedThreadRootEvent,
+  ROOT_RESOLUTION_DEPTH,
+  feedRootRefsFromQualifyingActivity,
   mergeFeedRootRefs,
+  planFeedRootResolution,
+  resolveFeedRootRef,
   uniqueRelayUrls,
   type FeedRootRef,
 } from "../feed-candidates";
@@ -22,9 +23,6 @@ type GlobalFeedOptions = {
   rootFilterDifficulty?: number;
   replyDepth?: number;
 };
-
-const ROOT_FETCH_DEPTH = 4;
-const ROOT_QUERY_LIMIT = 500;
 
 function uniqueRelays(relays: readonly string[]): string[] {
   return uniqueRelayUrls(relays);
@@ -99,32 +97,14 @@ class FeedRootFetch {
     return this.owner.handle();
   }
 
-  start(rootRefs: FeedRootRef[], depth = ROOT_FETCH_DEPTH) {
+  start(rootRefs: FeedRootRef[], depth = ROOT_RESOLUTION_DEPTH) {
     if (rootRefs.length === 0) return;
 
-    const fetchRefs: FeedRootRef[] = [];
-    const rootEvents: Event[] = [];
-
-    mergeFeedRootRefs(rootRefs).forEach((ref) => {
-      const knownEvent = this.eventsById.get(ref.id);
-      if (!knownEvent) {
-        fetchRefs.push(ref);
-        return;
-      }
-
-      if (isFeedThreadRootEvent(knownEvent)) {
-        rootEvents.push(knownEvent);
-        return;
-      }
-
-      const nextRef = feedActivityRootRef(knownEvent, this.eventsById);
-      if (nextRef && nextRef.id !== ref.id) {
-        fetchRefs.push({
-          id: nextRef.id,
-          relays: uniqueRelays([...ref.relays, ...nextRef.relays]),
-        });
-      }
-    });
+    const { rootEvents, refsToFetch } = planFeedRootResolution(
+      rootRefs,
+      this.eventsById,
+      this.requestedIds,
+    );
 
     if (rootEvents.length > 0) {
       this.onRootEvents(rootEvents);
@@ -132,53 +112,48 @@ class FeedRootFetch {
 
     if (depth <= 0) return;
 
-    const pendingRefs = mergeFeedRootRefs(fetchRefs)
-      .filter((ref) => !this.requestedIds.has(ref.id))
-      .slice(0, ROOT_QUERY_LIMIT);
+    refsToFetch.forEach((ref) => this.requestedIds.add(ref.id));
 
-    pendingRefs.forEach((ref) => this.requestedIds.add(ref.id));
-
-    for (let index = 0; index < pendingRefs.length; index += ROOT_QUERY_LIMIT) {
-      const chunk = pendingRefs.slice(index, index + ROOT_QUERY_LIMIT);
+    {
+      const chunk = mergeFeedRootRefs(refsToFetch);
       const ids = chunk.map((ref) => ref.id);
-      if (ids.length === 0) continue;
-      const nextRefs = new Map<string, FeedRootRef>();
-      const addNextRef = (ref: FeedRootRef) => {
-        const [merged] = mergeFeedRootRefs([
-          ...(nextRefs.get(ref.id) ? [nextRefs.get(ref.id)!] : []),
-          ref,
-        ]);
-        nextRefs.set(ref.id, merged);
-      };
+      if (ids.length > 0) {
+        const nextRefs = new Map<string, FeedRootRef>();
+        const addNextRef = (ref: FeedRootRef) => {
+          const [merged] = mergeFeedRootRefs([
+            ...(nextRefs.get(ref.id) ? [nextRefs.get(ref.id)!] : []),
+            ref,
+          ]);
+          nextRefs.set(ref.id, merged);
+        };
 
-      this.owner.add(getRegistry().subscribe([
-        {
-          filter: {
-            ids,
-            kinds: [1, 1068],
-            limit: ids.length,
-          },
-          relayUrls: rootRelayUrls(chunk, this.fallbackRelayUrls),
-          cb: (evt, relay) => {
-            this.eventsById.set(evt.id.toLowerCase(), evt);
-            this.onEvent(evt, relay);
+        this.owner.add(getRegistry().subscribe([
+          {
+            filter: {
+              ids,
+              kinds: [1],
+              limit: ids.length,
+            },
+            relayUrls: rootRelayUrls(chunk, this.fallbackRelayUrls),
+            cb: (evt, relay) => {
+              this.eventsById.set(evt.id.toLowerCase(), evt);
+              this.onEvent(evt, relay);
 
-            if (isFeedThreadRootEvent(evt)) {
-              this.onRootEvents([evt]);
-              return;
-            }
+              const nextRef = resolveFeedRootRef(evt, this.eventsById);
+              if (nextRef?.id === evt.id.toLowerCase()) {
+                this.onRootEvents([evt]);
+                return;
+              }
 
-            const nextRef = feedActivityRootRef(evt, this.eventsById);
-            if (nextRef && nextRef.id !== evt.id.toLowerCase()) {
-              addNextRef(nextRef);
-            }
+              if (nextRef) addNextRef(nextRef);
+            },
+            closeOnEose: true,
+            onEose: () => {
+              this.start([...nextRefs.values()], depth - 1);
+            },
           },
-          closeOnEose: true,
-          onEose: () => {
-            this.start([...nextRefs.values()], depth - 1);
-          },
-        },
-      ]));
+        ]));
+      }
     }
   }
 }
@@ -247,7 +222,7 @@ export const subGlobalFeed = (
     registry.subscribe([
       {
         filter: {
-          kinds: [1, 1068],
+          kinds: [1],
           since,
           limit: 500,
         },
@@ -261,7 +236,7 @@ export const subGlobalFeed = (
         },
         closeOnEose: true,
         onEose: () => {
-          const rootRefs = feedRootRefsFromActivity(
+          const rootRefs = feedRootRefsFromQualifyingActivity(
             activityEvents,
             options.rootFilterDifficulty ?? 0,
             eventsById,

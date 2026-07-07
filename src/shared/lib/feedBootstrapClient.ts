@@ -1,32 +1,11 @@
 import type { Event } from "nostr-tools";
 import type { ProcessedEvent, RelayHintsByEventId } from "../../nostr/types";
-import type { ProfileMetadata } from "./profile";
+import {
+  isFeedBootstrapSnapshot,
+  type FeedBootstrapSnapshot,
+} from "./feedBootstrapTypes";
 
-export type FeedBootstrapResponse = {
-  version: 2;
-  fetchedAt: number;
-  processedEvents: FeedBootstrapProcessedEvent[];
-  eventsById: Record<string, Event>;
-  relayHintsByEventId: Record<string, string[]>;
-  profiles: Record<string, ProfileMetadata>;
-  scoring: {
-    ageHours: number;
-    minPow: number;
-    replyDepth: number;
-    sort: "totalWork";
-  };
-};
-
-export type FeedBootstrapProcessedEvent = {
-  postEventId: string;
-  replyIds: string[];
-  relayHints?: string[];
-  threadReplyCount: number;
-  rootWork: number;
-  replyWork: number;
-  totalWork: number;
-  rankingReplyCount: number;
-};
+export type FeedBootstrapResponse = FeedBootstrapSnapshot;
 
 export const VERCEL_FEED_BOOTSTRAP_URL = "/api/feed/bootstrap";
 export const FEED_SNAPSHOT_URL_ENV = "VITE_FEED_SNAPSHOT_URL";
@@ -52,42 +31,6 @@ export function feedBootstrapUrls(
     : [VERCEL_FEED_BOOTSTRAP_URL];
 }
 
-function isEvent(value: unknown): value is Event {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as Partial<Event>;
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.pubkey === "string" &&
-    typeof candidate.created_at === "number" &&
-    typeof candidate.kind === "number" &&
-    Array.isArray(candidate.tags) &&
-    typeof candidate.content === "string" &&
-    typeof candidate.sig === "string"
-  );
-}
-
-function isFeedBootstrapResponse(value: unknown): value is FeedBootstrapResponse {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as Partial<FeedBootstrapResponse>;
-
-  return (
-    candidate.version === 2 &&
-    typeof candidate.fetchedAt === "number" &&
-    Array.isArray(candidate.processedEvents) &&
-    !!candidate.eventsById &&
-    typeof candidate.eventsById === "object" &&
-    Object.values(candidate.eventsById).every(isEvent) &&
-    !!candidate.relayHintsByEventId &&
-    typeof candidate.relayHintsByEventId === "object" &&
-    !!candidate.profiles &&
-    typeof candidate.profiles === "object" &&
-    !!candidate.scoring &&
-    typeof candidate.scoring === "object"
-  );
-}
-
 export async function fetchFeedBootstrapSnapshot(
   fetcher: FetchLike = fetch,
   externalSnapshotUrl: string | null = configuredFeedSnapshotUrl(),
@@ -98,7 +41,7 @@ export async function fetchFeedBootstrapSnapshot(
       if (!response.ok) continue;
 
       const snapshot = (await response.json()) as unknown;
-      if (isFeedBootstrapResponse(snapshot)) {
+      if (isFeedBootstrapSnapshot(snapshot)) {
         return snapshot;
       }
     } catch {

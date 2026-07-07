@@ -175,7 +175,7 @@ describe("subGlobalFeed", () => {
     const rootFetchRequest = subscribeMock.mock.calls[1][0][0];
     expect(rootFetchRequest.filter).toEqual({
       ids: [rootId],
-      kinds: [1, 1068],
+      kinds: [1],
       limit: 1,
     });
     expect(rootFetchRequest.filter).not.toHaveProperty("since");
@@ -238,7 +238,7 @@ describe("subGlobalFeed", () => {
     expect(subscribeMock).toHaveBeenCalledTimes(4);
     expect(subscribeMock.mock.calls[1][0][0].filter).toEqual({
       ids: [parentId],
-      kinds: [1, 1068],
+      kinds: [1],
       limit: 1,
     });
     expect(subscribeMock.mock.calls[1][0][0].relayUrls).toEqual([
@@ -247,7 +247,7 @@ describe("subGlobalFeed", () => {
     ]);
     expect(subscribeMock.mock.calls[2][0][0].filter).toEqual({
       ids: [rootId],
-      kinds: [1, 1068],
+      kinds: [1],
       limit: 1,
     });
     expect(subscribeMock.mock.calls[2][0][0].relayUrls).toEqual([
@@ -260,7 +260,7 @@ describe("subGlobalFeed", () => {
     });
   });
 
-  it("uses processable feed root eligibility for PoW reply enrichment", () => {
+  it("does not treat articles as main-feed roots", () => {
     const articleId = `${"1".repeat(64)}`;
     const sameAuthorRootId = `${"2".repeat(64)}`;
     const acceptedRootId = `${"3".repeat(64)}`;
@@ -329,7 +329,7 @@ describe("subGlobalFeed", () => {
     expect(subscribeMock).toHaveBeenCalledTimes(3);
     expect(subscribeMock.mock.calls[1][0][0].filter).toMatchObject({
       ids: [rootId],
-      kinds: [1, 1068],
+      kinds: [1],
       limit: 1,
     });
     expect(subscribeMock.mock.calls[2][0][0].filter).toMatchObject({

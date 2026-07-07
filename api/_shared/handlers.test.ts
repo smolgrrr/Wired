@@ -21,9 +21,16 @@ const postEvent = {
 };
 
 const snapshot: FeedBootstrapSnapshot = {
-  version: 2,
   fetchedAt: 123,
-  processedEvents: [{ postEventId: postEvent.id, replyIds: [], totalWork: 1 }],
+  processedEvents: [{
+    postEventId: postEvent.id,
+    replyIds: [],
+    threadReplyCount: 0,
+    rootWork: 1,
+    replyWork: 0,
+    totalWork: 1,
+    rankingReplyCount: 0,
+  }],
   eventsById: { [postEvent.id]: postEvent },
   relayHintsByEventId: {},
   profiles: { pubkey: { name: "Ada" } },

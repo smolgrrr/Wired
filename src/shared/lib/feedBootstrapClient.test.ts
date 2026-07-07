@@ -26,7 +26,6 @@ const event = (overrides: Partial<Event> = {}): Event => ({
 const snapshot = (
   overrides: Partial<FeedBootstrapResponse> = {},
 ): FeedBootstrapResponse => ({
-  version: 2,
   fetchedAt: 1,
   processedEvents: [],
   eventsById: {},

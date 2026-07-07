@@ -53,6 +53,21 @@ function mergeRelayHints(
   return merged;
 }
 
+function eventsFromProcessedFeedEvents(processedEvents: ProcessedEvent[]): Event[] {
+  const events: Event[] = [];
+  const seen = new Set<string>();
+
+  processedEvents.forEach((processed) => {
+    [processed.postEvent, ...processed.replies].forEach((event) => {
+      if (seen.has(event.id)) return;
+      seen.add(event.id);
+      events.push(event);
+    });
+  });
+
+  return events;
+}
+
 function isProcessedEventModerated(
   event: ProcessedEvent,
   moderationManifest: ModerationManifest,
@@ -221,13 +236,30 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     [bootstrapProcessedEvents, moderationManifest],
   );
   const liveProcessedEvents = useMemo(
-    () =>
-      processFeedEvents(
-        visibleNoteEvents,
+    () => {
+      const bootstrapFeedEvents = bootstrapEligible
+        ? eventsFromProcessedFeedEvents(visibleBootstrapProcessedEvents)
+        : [];
+      const visibleLiveEvents = filterModeratedEvents(
+        mergeNoteEvents(liveEvents, bootstrapReplyEvents),
+        moderationManifest,
+      );
+
+      return processFeedEvents(
+        mergeNoteEvents(bootstrapFeedEvents, visibleLiveEvents),
         settings.filterDifficulty,
         relayHintsByEventId,
-      ),
-    [visibleNoteEvents, settings.filterDifficulty, relayHintsByEventId],
+      );
+    },
+    [
+      bootstrapEligible,
+      visibleBootstrapProcessedEvents,
+      liveEvents,
+      bootstrapReplyEvents,
+      moderationManifest,
+      settings.filterDifficulty,
+      relayHintsByEventId,
+    ],
   );
   const processedEvents = useMemo(
     () =>

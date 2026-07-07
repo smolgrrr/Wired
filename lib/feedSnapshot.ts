@@ -18,10 +18,12 @@ import { processFeedEvents } from "../src/nostr/processEvents.js";
 import type { ProcessedEvent, RelayHintsByEventId } from "../src/nostr/types.js";
 import {
   buildFeedEventMap,
-  feedActivityRootRef,
-  feedRootRefsFromActivity,
+  ROOT_RESOLUTION_DEPTH,
+  feedRootRefsFromQualifyingActivity,
   isFeedThreadRootEvent,
   mergeFeedRootRefs,
+  planFeedRootResolution,
+  resolveFeedRootRef,
   type FeedRootRef,
 } from "../src/nostr/feed-candidates.js";
 import { extractMentionedEventRefs } from "../src/shared/lib/quotedEvents.js";
@@ -29,6 +31,10 @@ import {
   parseProfileEvent,
   type ProfileMetadata,
 } from "../src/shared/lib/profile.js";
+import type {
+  FeedBootstrapProcessedEvent,
+  FeedBootstrapSnapshot,
+} from "../src/shared/lib/feedBootstrapTypes.js";
 
 useWebSocketImplementation(WebSocket);
 
@@ -48,40 +54,13 @@ type FeedEventBatch = EventBatch & {
   activityRootIds: string[];
 };
 
-export type FeedBootstrapSnapshot = {
-  version: 2;
-  fetchedAt: number;
-  processedEvents: FeedBootstrapProcessedEvent[];
-  eventsById: Record<string, Event>;
-  relayHintsByEventId: Record<string, string[]>;
-  profiles: Record<string, ProfileMetadata>;
-  scoring: {
-    ageHours: number;
-    minPow: number;
-    replyDepth: number;
-    sort: "totalWork";
-  };
-};
-
-export type FeedBootstrapProcessedEvent = {
-  postEventId: string;
-  replyIds: string[];
-  relayHints?: string[];
-  threadReplyCount?: number;
-  rootWork?: number;
-  replyWork?: number;
-  totalWork: number;
-  rankingReplyCount?: number;
-};
+export type { FeedBootstrapSnapshot };
 
 export type FeedSnapshotOptions = {
   ageHours?: number;
   filterDifficulty?: number;
   timeoutMs?: number;
 };
-
-const ROOT_FETCH_DEPTH = 4;
-const ROOT_QUERY_LIMIT = 500;
 
 function normalizeRelayUrl(url: string): string {
   return url.replace(/\/+$/, "");
@@ -242,30 +221,14 @@ async function fetchRootEvents(
 
   for (
     let depth = 0;
-    depth < ROOT_FETCH_DEPTH && refsToResolve.length > 0;
+    depth < ROOT_RESOLUTION_DEPTH && refsToResolve.length > 0;
     depth += 1
   ) {
-    const fetchRefs: FeedRootRef[] = [];
-
-    refsToResolve.forEach((ref) => {
-      const knownEvent = eventsById.get(ref.id);
-      if (!knownEvent) {
-        fetchRefs.push(ref);
-        return;
-      }
-
-      const nextRef = feedActivityRootRef(knownEvent, eventsById);
-      if (nextRef && nextRef.id !== ref.id) {
-        fetchRefs.push({
-          id: nextRef.id,
-          relays: uniqueRelays([...ref.relays, ...nextRef.relays]),
-        });
-      }
-    });
-
-    const pendingRefs = mergeFeedRootRefs(fetchRefs)
-      .filter((ref) => !requestedIds.has(ref.id) && !eventsById.has(ref.id))
-      .slice(0, ROOT_QUERY_LIMIT);
+    const { refsToFetch: pendingRefs } = planFeedRootResolution(
+      refsToResolve,
+      eventsById,
+      requestedIds,
+    );
     if (pendingRefs.length === 0) break;
 
     pendingRefs.forEach((ref) => requestedIds.add(ref.id));
@@ -278,38 +241,31 @@ async function fetchRootEvents(
 
     try {
       const nextRefs: FeedRootRef[] = [];
+      const ids = pendingRefs.map((ref) => ref.id);
+      const batch = await subscribeOnce(
+        relays,
+        {
+          ids,
+          kinds: [1],
+          limit: ids.length,
+        },
+        timeoutMs,
+        relayUrls,
+      );
 
-      for (let index = 0; index < pendingRefs.length; index += ROOT_QUERY_LIMIT) {
-        const ids = pendingRefs
-          .slice(index, index + ROOT_QUERY_LIMIT)
-          .map((ref) => ref.id);
-        if (ids.length === 0) continue;
-
-        const batch = await subscribeOnce(
-          relays,
-          {
-            ids,
-            kinds: [1, 1068],
-            limit: ids.length,
-          },
-          timeoutMs,
-          relayUrls,
+      events.push(...batch.events);
+      batch.events.forEach((event) => {
+        eventsById.set(event.id.toLowerCase(), event);
+        const nextRef = resolveFeedRootRef(event, eventsById);
+        if (nextRef && nextRef.id !== event.id.toLowerCase()) {
+          nextRefs.push(nextRef);
+        }
+      });
+      batch.relayHintsByEventId.forEach((relaysForEvent, eventId) => {
+        relaysForEvent.forEach((relay) =>
+          addRelayHint(relayHintsByEventId, eventId, relay),
         );
-
-        events.push(...batch.events);
-        batch.events.forEach((event) => {
-          eventsById.set(event.id.toLowerCase(), event);
-          const nextRef = feedActivityRootRef(event, eventsById);
-          if (nextRef && nextRef.id !== event.id.toLowerCase()) {
-            nextRefs.push(nextRef);
-          }
-        });
-        batch.relayHintsByEventId.forEach((relaysForEvent, eventId) => {
-          relaysForEvent.forEach((relay) =>
-            addRelayHint(relayHintsByEventId, eventId, relay),
-          );
-        });
-      }
+      });
 
       refsToResolve = mergeFeedRootRefs(nextRefs);
     } finally {
@@ -332,12 +288,12 @@ async function fetchGlobalFeedEvents(
 
     const activityBatch = await subscribeOnce(
       relays,
-      { kinds: [1, 1068], since, limit: 500 },
+      { kinds: [1], since, limit: 500 },
       timeoutMs,
       [...POW_RELAYS],
     );
     const activityEvents = activityBatch.events;
-    const activityRootRefs = feedRootRefsFromActivity(
+    const activityRootRefs = feedRootRefsFromQualifyingActivity(
       activityEvents,
       filterDifficulty,
     );
@@ -353,7 +309,7 @@ async function fetchGlobalFeedEvents(
     );
     const seedEvents = mergeEvents(activityEvents, resolvedRootBatch.events);
     const seedEventsById = buildFeedEventMap(seedEvents);
-    const rootRefs = feedRootRefsFromActivity(
+    const rootRefs = feedRootRefsFromQualifyingActivity(
       activityEvents,
       filterDifficulty,
       seedEventsById,
@@ -576,18 +532,14 @@ function serializeProcessedEvents(
     const serialized: FeedBootstrapProcessedEvent = {
       postEventId: processed.postEvent.id.toLowerCase(),
       replyIds: processed.replies.map((reply) => reply.id.toLowerCase()),
+      threadReplyCount: processed.threadReplyCount ?? processed.replies.length,
+      rootWork: processed.rootWork ?? 0,
+      replyWork: processed.replyWork ?? 0,
       totalWork: processed.totalWork,
+      rankingReplyCount: processed.rankingReplyCount ?? 0,
     };
     if (processed.relayHints && processed.relayHints.length > 0) {
       serialized.relayHints = processed.relayHints;
-    }
-    if (processed.threadReplyCount !== undefined) {
-      serialized.threadReplyCount = processed.threadReplyCount;
-    }
-    if (processed.rootWork !== undefined) serialized.rootWork = processed.rootWork;
-    if (processed.replyWork !== undefined) serialized.replyWork = processed.replyWork;
-    if (processed.rankingReplyCount !== undefined) {
-      serialized.rankingReplyCount = processed.rankingReplyCount;
     }
     return serialized;
   });
@@ -632,7 +584,6 @@ export async function fetchFeedSnapshot(
   );
 
   return {
-    version: 2,
     fetchedAt: Date.now(),
     processedEvents: serializeProcessedEvents(processedEvents),
     eventsById: eventsById(events),

@@ -108,7 +108,7 @@ describe("processFeedEvents", () => {
     expect(result[0].relayHints).toEqual(["wss://relay.wiredsignal.online"]);
   });
 
-  it("uses the same feed root eligibility for articles and root notes", () => {
+  it("does not include articles as main feed posts", () => {
     const article = event({
       id: "1".repeat(64),
       kind: 1068,
@@ -139,7 +139,6 @@ describe("processFeedEvents", () => {
     expect(result.map((item) => item.postEvent.id)).toEqual([
       acceptedRoot.id,
       sameAuthorRoot.id,
-      article.id,
     ]);
     expect(result.find((item) => item.postEvent.id === acceptedRoot.id)?.replies).toEqual([
       reply,

@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { Event } from "nostr-tools";
 import {
   buildFeedEventMap,
-  createFeedCandidateTracker,
-  feedActivityRootRef,
+  feedRootRefsFromQualifyingActivity,
+  isFeedPostEvent,
+  resolveFeedRootRef,
 } from "./feed-candidates";
 
 vi.mock("../shared/pow/core", () => ({
@@ -22,7 +23,7 @@ const event = (overrides: Partial<Event> = {}): Event => ({
   ...overrides,
 });
 
-describe("feedActivityRootRef", () => {
+describe("resolveFeedRootRef", () => {
   it("uses the NIP-10 root marker before fallback e tags", () => {
     const rootId = "1".repeat(64);
     const parentId = "2".repeat(64);
@@ -34,7 +35,7 @@ describe("feedActivityRootRef", () => {
       ],
     });
 
-    expect(feedActivityRootRef(reply)).toEqual({
+    expect(resolveFeedRootRef(reply)).toEqual({
       id: rootId,
       relays: ["wss://root.example"],
     });
@@ -50,7 +51,7 @@ describe("feedActivityRootRef", () => {
       ],
     });
 
-    expect(feedActivityRootRef(reply)).toEqual({
+    expect(resolveFeedRootRef(reply)).toEqual({
       id: rootId,
       relays: ["wss://root.example"],
     });
@@ -67,14 +68,14 @@ describe("feedActivityRootRef", () => {
       tags: [["e", parent.id, "wss://parent.example"]],
     });
 
-    expect(feedActivityRootRef(nested, buildFeedEventMap([root, parent, nested]))).toEqual({
+    expect(resolveFeedRootRef(nested, buildFeedEventMap([root, parent, nested]))).toEqual({
       id: root.id,
       relays: ["wss://parent.example", "wss://root.example"],
     });
   });
 });
 
-describe("createFeedCandidateTracker", () => {
+describe("feedRootRefsFromQualifyingActivity", () => {
   it("accepts a reply activity only when its work qualifies", () => {
     const rootId = "1".repeat(64);
     const lowerWorkReply = event({
@@ -85,12 +86,16 @@ describe("createFeedCandidateTracker", () => {
       id: "3".repeat(64),
       tags: [["e", rootId, "", "root"], ["nonce", "higher", "16"]],
     });
-    const tracker = createFeedCandidateTracker(16);
+    expect(feedRootRefsFromQualifyingActivity([lowerWorkReply], 16)).toEqual([]);
+    expect(feedRootRefsFromQualifyingActivity([qualifyingReply], 16)).toEqual([
+      { id: rootId, relays: [] },
+    ]);
+  });
 
-    expect(tracker.check(lowerWorkReply).accepted).toBe(false);
-    expect(tracker.check(qualifyingReply)).toMatchObject({
-      accepted: true,
-      rootId,
-    });
+  it("does not treat kind-1068 articles as main-feed posts", () => {
+    expect(isFeedPostEvent(event({ kind: 1068 }))).toBe(false);
+    expect(feedRootRefsFromQualifyingActivity([
+      event({ kind: 1068, tags: [["nonce", "article", "24"]] }),
+    ], 16)).toEqual([]);
   });
 });

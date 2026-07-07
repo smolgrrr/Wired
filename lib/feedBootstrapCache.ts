@@ -7,29 +7,12 @@ import {
   BOOTSTRAP_CACHE_TTL_SECONDS,
 } from "./feedBootstrap.js";
 import { fetchFeedSnapshot, type FeedBootstrapSnapshot } from "./feedSnapshot.js";
+import { isFeedBootstrapSnapshot } from "../src/shared/lib/feedBootstrapTypes.js";
 
 export type FeedBootstrapStore = {
   read(): Promise<FeedBootstrapSnapshot | null>;
   write(snapshot: FeedBootstrapSnapshot): Promise<void>;
 };
-
-function isFeedBootstrapSnapshot(value: unknown): value is FeedBootstrapSnapshot {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as FeedBootstrapSnapshot).version === 2 &&
-    typeof (value as FeedBootstrapSnapshot).fetchedAt === "number" &&
-    Array.isArray((value as FeedBootstrapSnapshot).processedEvents) &&
-    !!(value as FeedBootstrapSnapshot).eventsById &&
-    typeof (value as FeedBootstrapSnapshot).eventsById === "object" &&
-    !!(value as FeedBootstrapSnapshot).relayHintsByEventId &&
-    typeof (value as FeedBootstrapSnapshot).relayHintsByEventId === "object" &&
-    !!(value as FeedBootstrapSnapshot).profiles &&
-    typeof (value as FeedBootstrapSnapshot).profiles === "object" &&
-    !!(value as FeedBootstrapSnapshot).scoring &&
-    typeof (value as FeedBootstrapSnapshot).scoring === "object"
-  );
-}
 
 export class MemoryFeedBootstrapStore implements FeedBootstrapStore {
   private snapshot: FeedBootstrapSnapshot | null;

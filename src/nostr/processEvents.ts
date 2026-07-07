@@ -1,7 +1,7 @@
 import type { Event } from "nostr-tools";
 import {
   buildFeedEventMap,
-  feedRootRefsFromActivity,
+  feedRootRefsFromQualifyingActivity,
   isFeedPostEvent,
 } from "./feed-candidates.js";
 import { workScoreBreakdown } from "./processing/pow-score.js";
@@ -107,7 +107,11 @@ export const processFeedEvents = (
     [...(options.activityRootIds ?? [])].map((id) => id.toLowerCase()),
   );
 
-  feedRootRefsFromActivity(events, filterDifficulty, eventsById).forEach((ref) => {
+  feedRootRefsFromQualifyingActivity(
+    events,
+    filterDifficulty,
+    eventsById,
+  ).forEach((ref) => {
     activityRootIds.add(ref.id);
   });
 

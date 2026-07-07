@@ -18,7 +18,6 @@ vi.mock("./feedSnapshot.js", () => ({
 }));
 
 const snapshot = {
-  version: 2,
   fetchedAt: 123,
   processedEvents: [],
   eventsById: {},

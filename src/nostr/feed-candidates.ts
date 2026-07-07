@@ -3,22 +3,26 @@ import { isRootNote } from "../shared/lib/noteEvents.js";
 import { verifyPow } from "../shared/pow/core.js";
 
 const EVENT_ID_PATTERN = /^[0-9a-f]{64}$/i;
-const ROOT_RESOLUTION_DEPTH = 4;
+
+export const ROOT_RESOLUTION_DEPTH = 4;
+export const ROOT_QUERY_LIMIT = 500;
 
 export type FeedRootRef = {
   id: string;
   relays: string[];
 };
 
-export type FeedCandidateDecision = {
-  accepted: boolean;
-  rootId: string | null;
-  rootRef: FeedRootRef | null;
-  replyRootId: string | null;
+export type FeedRootResolutionPlan = {
+  rootEvents: Event[];
+  refsToFetch: FeedRootRef[];
 };
 
 export function isEventId(value: string | undefined): value is string {
   return Boolean(value && EVENT_ID_PATTERN.test(value));
+}
+
+function eventId(id: string): string {
+  return id.toLowerCase();
 }
 
 function normalizeRelayUrl(relay: string): string {
@@ -35,24 +39,14 @@ export function uniqueRelayUrls(relays: readonly string[]): string[] {
   ];
 }
 
-function eventId(id: string): string {
-  return id.toLowerCase();
-}
-
-function rootRefFromTag(tag: string[]): FeedRootRef | null {
-  if (tag[0] !== "e" || !isEventId(tag[1])) return null;
-
-  return {
-    id: eventId(tag[1]),
-    relays: tag[2] ? uniqueRelayUrls([tag[2]]) : [],
-  };
-}
-
 export function mergeFeedRootRefs(refs: readonly FeedRootRef[]): FeedRootRef[] {
   const byId = new Map<string, string[]>();
 
   refs.forEach((ref) => {
-    byId.set(ref.id, uniqueRelayUrls([...(byId.get(ref.id) ?? []), ...ref.relays]));
+    byId.set(eventId(ref.id), uniqueRelayUrls([
+      ...(byId.get(eventId(ref.id)) ?? []),
+      ...ref.relays,
+    ]));
   });
 
   return [...byId.entries()].map(([id, relays]) => ({ id, relays }));
@@ -68,12 +62,13 @@ export function buildFeedEventMap(events: readonly Event[]): Map<string, Event> 
   return eventsById;
 }
 
-export function isFeedThreadRootEvent(event: Event): boolean {
-  return event.kind === 1 && isRootNote(event);
-}
+function rootRefFromTag(tag: string[]): FeedRootRef | null {
+  if (tag[0] !== "e" || !isEventId(tag[1])) return null;
 
-export function isFeedPostEvent(event: Event): boolean {
-  return isFeedThreadRootEvent(event) || event.kind === 1068;
+  return {
+    id: eventId(tag[1]),
+    relays: tag[2] ? uniqueRelayUrls([tag[2]]) : [],
+  };
 }
 
 function taggedRootRef(event: Event): FeedRootRef | null {
@@ -89,18 +84,22 @@ function taggedRootRef(event: Event): FeedRootRef | null {
     .find((ref): ref is FeedRootRef => ref !== null) ?? null;
 }
 
-export function feedActivityRootRef(
+export function isFeedThreadRootEvent(event: Event): boolean {
+  return event.kind === 1 && isRootNote(event);
+}
+
+export function isFeedPostEvent(event: Event): boolean {
+  return isFeedThreadRootEvent(event);
+}
+
+export function resolveFeedRootRef(
   event: Event,
   eventsById?: ReadonlyMap<string, Event>,
   maxDepth = ROOT_RESOLUTION_DEPTH,
 ): FeedRootRef | null {
-  if (event.kind === 1068) {
-    return { id: eventId(event.id), relays: [] };
-  }
-
   if (event.kind !== 1) return null;
 
-  if (isRootNote(event)) {
+  if (isFeedThreadRootEvent(event)) {
     return { id: eventId(event.id), relays: [] };
   }
 
@@ -117,7 +116,7 @@ export function feedActivityRootRef(
       return currentRef;
     }
 
-    if (isFeedPostEvent(linkedEvent)) {
+    if (isFeedThreadRootEvent(linkedEvent)) {
       return {
         id: eventId(linkedEvent.id),
         relays: uniqueRelayUrls(currentRef.relays),
@@ -137,76 +136,57 @@ export function feedActivityRootRef(
   return currentRef;
 }
 
-export function feedRootEventId(
-  event: Event,
-  eventsById?: ReadonlyMap<string, Event>,
-): string | null {
-  return feedActivityRootRef(event, eventsById)?.id ?? null;
-}
-
-export function feedReplyRootId(
-  event: Event,
-  eventsById?: ReadonlyMap<string, Event>,
-): string | null {
-  return feedRootEventId(event, eventsById);
-}
-
-export function feedActivityRootRefs(
-  event: Event,
-  eventsById?: ReadonlyMap<string, Event>,
-): FeedRootRef[] {
-  const ref = feedActivityRootRef(event, eventsById);
-  return ref ? [ref] : [];
-}
-
-export function feedRootRefsFromActivity(
+export function feedRootRefsFromQualifyingActivity(
   events: readonly Event[],
   filterDifficulty = 0,
   eventsById: ReadonlyMap<string, Event> = buildFeedEventMap(events),
 ): FeedRootRef[] {
-  const candidates = createFeedCandidateTracker(filterDifficulty);
   const refs: FeedRootRef[] = [];
 
   events.forEach((event) => {
-    const decision = candidates.check(event, eventsById);
-    if (decision.rootRef) refs.push(decision.rootRef);
+    if (event.kind !== 1 || verifyPow(event) < filterDifficulty) return;
+
+    const ref = resolveFeedRootRef(event, eventsById);
+    if (ref) refs.push(ref);
   });
 
   return mergeFeedRootRefs(refs);
 }
 
-export function isQualifyingFeedActivity(
-  event: Event,
-  filterDifficulty = 0,
-): boolean {
-  return event.kind === 1 && verifyPow(event) >= filterDifficulty;
-}
+export function planFeedRootResolution(
+  rootRefs: readonly FeedRootRef[],
+  eventsById: ReadonlyMap<string, Event>,
+  requestedIds: ReadonlySet<string>,
+  limit = ROOT_QUERY_LIMIT,
+): FeedRootResolutionPlan {
+  const rootEvents: Event[] = [];
+  const refsToFetch: FeedRootRef[] = [];
 
-export function createFeedCandidateTracker(filterDifficulty = 0) {
+  mergeFeedRootRefs(rootRefs).forEach((ref) => {
+    const knownEvent = eventsById.get(ref.id);
+    if (!knownEvent) {
+      refsToFetch.push(ref);
+      return;
+    }
+
+    if (isFeedThreadRootEvent(knownEvent)) {
+      rootEvents.push(knownEvent);
+      return;
+    }
+
+    const nextRef = resolveFeedRootRef(knownEvent, eventsById);
+    if (nextRef && nextRef.id !== ref.id) {
+      refsToFetch.push({
+        id: nextRef.id,
+        relays: uniqueRelayUrls([...ref.relays, ...nextRef.relays]),
+      });
+    }
+  });
+
   return {
-    check(
-      event: Event,
-      eventsById?: ReadonlyMap<string, Event>,
-    ): FeedCandidateDecision {
-      if (event.kind !== 1 && event.kind !== 1068) {
-        return { accepted: false, rootId: null, rootRef: null, replyRootId: null };
-      }
-
-      const rootRef = feedActivityRootRef(event, eventsById);
-      if (!rootRef) {
-        return { accepted: false, rootId: null, rootRef: null, replyRootId: null };
-      }
-
-      if (verifyPow(event) < filterDifficulty) {
-        return { accepted: false, rootId: null, rootRef: null, replyRootId: null };
-      }
-
-      return {
-        accepted: true,
-        rootId: rootRef.id,
-        rootRef,
-        replyRootId: rootRef.id,
-      };
-    },
+    rootEvents,
+    refsToFetch: mergeFeedRootRefs(refsToFetch)
+      .filter((ref) => !requestedIds.has(ref.id))
+      .slice(0, limit),
   };
 }
