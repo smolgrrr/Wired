@@ -21,11 +21,18 @@ const postEvent = {
 };
 
 const snapshot: FeedBootstrapSnapshot = {
+  version: 2,
   fetchedAt: 123,
-  processedEvents: [{ postEvent, replies: [], totalWork: 1 }],
-  events: [postEvent],
+  processedEvents: [{ postEventId: postEvent.id, replyIds: [], totalWork: 1 }],
+  eventsById: { [postEvent.id]: postEvent },
   relayHintsByEventId: {},
   profiles: { pubkey: { name: "Ada" } },
+  scoring: {
+    ageHours: 24,
+    minPow: 16,
+    replyDepth: 2,
+    sort: "totalWork",
+  },
 };
 
 describe("shared API handlers", () => {

@@ -3,11 +3,29 @@ import type { ProcessedEvent, RelayHintsByEventId } from "../../nostr/types";
 import type { ProfileMetadata } from "./profile";
 
 export type FeedBootstrapResponse = {
+  version: 2;
   fetchedAt: number;
-  processedEvents: ProcessedEvent[];
-  events: Event[];
+  processedEvents: FeedBootstrapProcessedEvent[];
+  eventsById: Record<string, Event>;
   relayHintsByEventId: Record<string, string[]>;
   profiles: Record<string, ProfileMetadata>;
+  scoring: {
+    ageHours: number;
+    minPow: number;
+    replyDepth: number;
+    sort: "totalWork";
+  };
+};
+
+export type FeedBootstrapProcessedEvent = {
+  postEventId: string;
+  replyIds: string[];
+  relayHints?: string[];
+  threadReplyCount: number;
+  rootWork: number;
+  replyWork: number;
+  totalWork: number;
+  rankingReplyCount: number;
 };
 
 export const VERCEL_FEED_BOOTSTRAP_URL = "/api/feed/bootstrap";
@@ -34,19 +52,39 @@ export function feedBootstrapUrls(
     : [VERCEL_FEED_BOOTSTRAP_URL];
 }
 
+function isEvent(value: unknown): value is Event {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as Partial<Event>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.pubkey === "string" &&
+    typeof candidate.created_at === "number" &&
+    typeof candidate.kind === "number" &&
+    Array.isArray(candidate.tags) &&
+    typeof candidate.content === "string" &&
+    typeof candidate.sig === "string"
+  );
+}
+
 function isFeedBootstrapResponse(value: unknown): value is FeedBootstrapResponse {
   if (!value || typeof value !== "object") return false;
 
   const candidate = value as Partial<FeedBootstrapResponse>;
 
   return (
+    candidate.version === 2 &&
     typeof candidate.fetchedAt === "number" &&
     Array.isArray(candidate.processedEvents) &&
-    Array.isArray(candidate.events) &&
+    !!candidate.eventsById &&
+    typeof candidate.eventsById === "object" &&
+    Object.values(candidate.eventsById).every(isEvent) &&
     !!candidate.relayHintsByEventId &&
     typeof candidate.relayHintsByEventId === "object" &&
     !!candidate.profiles &&
-    typeof candidate.profiles === "object"
+    typeof candidate.profiles === "object" &&
+    !!candidate.scoring &&
+    typeof candidate.scoring === "object"
   );
 }
 
@@ -99,32 +137,32 @@ export function resetFeedBootstrapSnapshotCache(): void {
   snapshotPromise = null;
 }
 
-export function eventsFromProcessed(processedEvents: ProcessedEvent[]): Event[] {
-  const events: Event[] = [];
-  const seen = new Set<string>();
+export function processedEventsFromSnapshot(
+  snapshot: FeedBootstrapResponse,
+): ProcessedEvent[] {
+  return snapshot.processedEvents.flatMap((processed) => {
+    const postEvent = snapshot.eventsById[processed.postEventId];
+    if (!postEvent) return [];
 
-  processedEvents.forEach((processed) => {
-    [processed.postEvent, ...processed.replies].forEach((event) => {
-      if (seen.has(event.id)) return;
-      seen.add(event.id);
-      events.push(event);
-    });
+    const replies = processed.replyIds
+      .map((id) => snapshot.eventsById[id])
+      .filter((event): event is Event => Boolean(event));
+
+    return [{
+      postEvent,
+      replies,
+      relayHints: processed.relayHints,
+      threadReplyCount: processed.threadReplyCount,
+      rootWork: processed.rootWork,
+      replyWork: processed.replyWork,
+      totalWork: processed.totalWork,
+      rankingReplyCount: processed.rankingReplyCount,
+    }];
   });
-
-  return events;
 }
 
 export function eventsFromSnapshot(snapshot: FeedBootstrapResponse): Event[] {
-  const events: Event[] = [];
-  const seen = new Set<string>();
-
-  [...snapshot.events, ...eventsFromProcessed(snapshot.processedEvents)].forEach((event) => {
-    if (seen.has(event.id)) return;
-    seen.add(event.id);
-    events.push(event);
-  });
-
-  return events;
+  return Object.values(snapshot.eventsById);
 }
 
 export function relayHintsFromSnapshot(
@@ -136,7 +174,7 @@ export function relayHintsFromSnapshot(
     relayHintsByEventId.set(eventId, [...new Set(relays)]);
   });
 
-  snapshot.processedEvents.forEach((processed) => {
+  processedEventsFromSnapshot(snapshot).forEach((processed) => {
     if (!processed.relayHints || processed.relayHints.length === 0) return;
     const existing = relayHintsByEventId.get(processed.postEvent.id) ?? [];
     relayHintsByEventId.set(

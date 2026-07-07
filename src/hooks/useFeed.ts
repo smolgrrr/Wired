@@ -20,8 +20,9 @@ import {
 } from "../shared/lib/moderation";
 import {
   canUseFeedBootstrap,
-  eventsFromProcessed,
+  eventsFromSnapshot,
   loadFeedBootstrapSnapshot,
+  processedEventsFromSnapshot,
   relayHintsFromSnapshot,
 } from "../shared/lib/feedBootstrapClient";
 
@@ -121,13 +122,14 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
           setBootstrapRelayHintsByEventId(new Map());
           return;
         }
-        setBootstrapProcessedEvents(snapshot.processedEvents);
-        setBootstrapEvents(eventsFromProcessed(snapshot.processedEvents));
+        const processedEvents = processedEventsFromSnapshot(snapshot);
+        setBootstrapProcessedEvents(processedEvents);
+        setBootstrapEvents(eventsFromSnapshot(snapshot));
         setBootstrapRelayHintsByEventId(
           relayHintsFromSnapshot(snapshot),
         );
         setBootstrapRootIds(
-          snapshot.processedEvents.map((event) => event.postEvent.id),
+          processedEvents.map((event) => event.postEvent.id),
         );
         seedProfiles(snapshot.profiles);
       })

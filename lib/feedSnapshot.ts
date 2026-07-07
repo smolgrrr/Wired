@@ -49,11 +49,29 @@ type FeedEventBatch = EventBatch & {
 };
 
 export type FeedBootstrapSnapshot = {
+  version: 2;
   fetchedAt: number;
-  processedEvents: ProcessedEvent[];
-  events: Event[];
+  processedEvents: FeedBootstrapProcessedEvent[];
+  eventsById: Record<string, Event>;
   relayHintsByEventId: Record<string, string[]>;
   profiles: Record<string, ProfileMetadata>;
+  scoring: {
+    ageHours: number;
+    minPow: number;
+    replyDepth: number;
+    sort: "totalWork";
+  };
+};
+
+export type FeedBootstrapProcessedEvent = {
+  postEventId: string;
+  replyIds: string[];
+  relayHints?: string[];
+  threadReplyCount?: number;
+  rootWork?: number;
+  replyWork?: number;
+  totalWork: number;
+  rankingReplyCount?: number;
 };
 
 export type FeedSnapshotOptions = {
@@ -545,6 +563,36 @@ function pubkeysFromEvents(events: Event[]): string[] {
   return [...new Set(events.map((event) => event.pubkey))];
 }
 
+function eventsById(events: Event[]): Record<string, Event> {
+  return Object.fromEntries(
+    mergeEvents(events).map((event) => [event.id.toLowerCase(), event]),
+  );
+}
+
+function serializeProcessedEvents(
+  processedEvents: ProcessedEvent[],
+): FeedBootstrapProcessedEvent[] {
+  return processedEvents.map((processed) => {
+    const serialized: FeedBootstrapProcessedEvent = {
+      postEventId: processed.postEvent.id.toLowerCase(),
+      replyIds: processed.replies.map((reply) => reply.id.toLowerCase()),
+      totalWork: processed.totalWork,
+    };
+    if (processed.relayHints && processed.relayHints.length > 0) {
+      serialized.relayHints = processed.relayHints;
+    }
+    if (processed.threadReplyCount !== undefined) {
+      serialized.threadReplyCount = processed.threadReplyCount;
+    }
+    if (processed.rootWork !== undefined) serialized.rootWork = processed.rootWork;
+    if (processed.replyWork !== undefined) serialized.replyWork = processed.replyWork;
+    if (processed.rankingReplyCount !== undefined) {
+      serialized.rankingReplyCount = processed.rankingReplyCount;
+    }
+    return serialized;
+  });
+}
+
 export async function fetchFeedSnapshot(
   options: FeedSnapshotOptions = {},
 ): Promise<FeedBootstrapSnapshot> {
@@ -584,10 +632,17 @@ export async function fetchFeedSnapshot(
   );
 
   return {
+    version: 2,
     fetchedAt: Date.now(),
-    processedEvents,
-    events,
+    processedEvents: serializeProcessedEvents(processedEvents),
+    eventsById: eventsById(events),
     relayHintsByEventId: serializeRelayHints(relayHintsByEventId),
     profiles,
+    scoring: {
+      ageHours,
+      minPow: filterDifficulty,
+      replyDepth: REPLY_FETCH_DEPTH,
+      sort: "totalWork",
+    },
   };
 }

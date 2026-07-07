@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { Event } from "nostr-tools";
 import {
-  eventsFromProcessed,
   eventsFromSnapshot,
   feedBootstrapUrls,
   fetchFeedBootstrapSnapshot,
+  processedEventsFromSnapshot,
   relayHintsFromSnapshot,
   resetFeedBootstrapSnapshotCache,
   threadEventsFromSnapshot,
@@ -23,34 +23,80 @@ const event = (overrides: Partial<Event> = {}): Event => ({
   ...overrides,
 });
 
-describe("eventsFromProcessed", () => {
-  it("deduplicates post and reply events", () => {
-    const root = event({ id: "1".repeat(64) });
-    const reply = event({ id: "2".repeat(64), pubkey: "c".repeat(64) });
-
-    const events = eventsFromProcessed([
-      { postEvent: root, replies: [reply, reply], totalWork: 0 },
-    ]);
-
-    expect(events).toHaveLength(2);
-    expect(events.map((item) => item.id)).toEqual([root.id, reply.id]);
-  });
+const snapshot = (
+  overrides: Partial<FeedBootstrapResponse> = {},
+): FeedBootstrapResponse => ({
+  version: 2,
+  fetchedAt: 1,
+  processedEvents: [],
+  eventsById: {},
+  relayHintsByEventId: {},
+  profiles: {},
+  scoring: {
+    ageHours: 24,
+    minPow: 16,
+    replyDepth: 2,
+    sort: "totalWork",
+  },
+  ...overrides,
 });
 
 describe("eventsFromSnapshot", () => {
-  it("deduplicates raw and processed events", () => {
+  it("returns normalized events", () => {
     const root = event({ id: "1".repeat(64) });
     const reply = event({ id: "2".repeat(64), pubkey: "c".repeat(64) });
 
     expect(
-      eventsFromSnapshot({
-        fetchedAt: 1,
-        events: [root],
-        relayHintsByEventId: {},
-        processedEvents: [{ postEvent: root, replies: [reply], totalWork: 0 }],
-        profiles: {},
-      }).map((item) => item.id),
+      eventsFromSnapshot(snapshot({
+        eventsById: {
+          [root.id]: root,
+          [reply.id]: reply,
+        },
+      })).map((item) => item.id),
     ).toEqual([root.id, reply.id]);
+  });
+});
+
+describe("processedEventsFromSnapshot", () => {
+  it("hydrates processed rows from event ids", () => {
+    const root = event({ id: "1".repeat(64) });
+    const reply = event({
+      id: "2".repeat(64),
+      pubkey: "c".repeat(64),
+      tags: [["e", root.id]],
+    });
+
+    expect(
+      processedEventsFromSnapshot(snapshot({
+        eventsById: {
+          [root.id]: root,
+          [reply.id]: reply,
+        },
+        processedEvents: [
+          {
+            postEventId: root.id,
+            replyIds: [reply.id],
+            relayHints: ["wss://relay.example"],
+            threadReplyCount: 1,
+            rootWork: 1,
+            replyWork: 2,
+            totalWork: 3,
+            rankingReplyCount: 1,
+          },
+        ],
+      })),
+    ).toEqual([
+      {
+        postEvent: root,
+        replies: [reply],
+        relayHints: ["wss://relay.example"],
+        threadReplyCount: 1,
+        rootWork: 1,
+        replyWork: 2,
+        totalWork: 3,
+        rankingReplyCount: 1,
+      },
+    ]);
   });
 });
 
@@ -60,22 +106,27 @@ describe("relayHintsFromSnapshot", () => {
     const reply = event({ id: "2".repeat(64), pubkey: "c".repeat(64) });
 
     expect(
-      relayHintsFromSnapshot({
-        fetchedAt: 1,
-        events: [root, reply],
+      relayHintsFromSnapshot(snapshot({
+        eventsById: {
+          [root.id]: root,
+          [reply.id]: reply,
+        },
         relayHintsByEventId: {
           [reply.id]: ["wss://reply.example"],
         },
         processedEvents: [
           {
-            postEvent: root,
-            replies: [reply],
+            postEventId: root.id,
+            replyIds: [reply.id],
             relayHints: ["wss://relay.example"],
+            threadReplyCount: 1,
+            rootWork: 1,
+            replyWork: 0,
             totalWork: 0,
+            rankingReplyCount: 0,
           },
         ],
-        profiles: {},
-      }),
+      })),
     ).toEqual(
       new Map([
         [reply.id, ["wss://reply.example"]],
@@ -101,13 +152,13 @@ describe("threadEventsFromSnapshot", () => {
 
     expect(
       threadEventsFromSnapshot(
-        {
-          fetchedAt: 1,
-          events: [root, directReply, nestedReply],
-          relayHintsByEventId: {},
-          processedEvents: [],
-          profiles: {},
-        },
+        snapshot({
+          eventsById: {
+            [root.id]: root,
+            [directReply.id]: directReply,
+            [nestedReply.id]: nestedReply,
+          },
+        }),
         root.id,
       ).map((item) => item.id),
     ).toEqual([root.id, directReply.id, nestedReply.id]);
@@ -128,14 +179,6 @@ describe("feedBootstrapUrls", () => {
 });
 
 describe("fetchFeedBootstrapSnapshot", () => {
-  const snapshot = (): FeedBootstrapResponse => ({
-    fetchedAt: 1,
-    processedEvents: [],
-    events: [],
-    relayHintsByEventId: {},
-    profiles: {},
-  });
-
   const jsonResponse = (body: unknown, init?: ResponseInit) =>
     new Response(JSON.stringify(body), {
       headers: { "content-type": "application/json" },

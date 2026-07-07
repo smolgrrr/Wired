@@ -17,13 +17,17 @@ function isFeedBootstrapSnapshot(value: unknown): value is FeedBootstrapSnapshot
   return (
     !!value &&
     typeof value === "object" &&
+    (value as FeedBootstrapSnapshot).version === 2 &&
     typeof (value as FeedBootstrapSnapshot).fetchedAt === "number" &&
     Array.isArray((value as FeedBootstrapSnapshot).processedEvents) &&
-    Array.isArray((value as FeedBootstrapSnapshot).events) &&
+    !!(value as FeedBootstrapSnapshot).eventsById &&
+    typeof (value as FeedBootstrapSnapshot).eventsById === "object" &&
     !!(value as FeedBootstrapSnapshot).relayHintsByEventId &&
     typeof (value as FeedBootstrapSnapshot).relayHintsByEventId === "object" &&
     !!(value as FeedBootstrapSnapshot).profiles &&
-    typeof (value as FeedBootstrapSnapshot).profiles === "object"
+    typeof (value as FeedBootstrapSnapshot).profiles === "object" &&
+    !!(value as FeedBootstrapSnapshot).scoring &&
+    typeof (value as FeedBootstrapSnapshot).scoring === "object"
   );
 }
 
