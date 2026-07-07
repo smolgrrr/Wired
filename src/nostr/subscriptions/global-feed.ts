@@ -92,7 +92,7 @@ class FeedRootFetch {
     private readonly onEvent: SubCallback,
     private readonly fallbackRelayUrls: readonly string[] | undefined,
     private readonly eventsById: Map<string, Event>,
-    private readonly onRootEvent: (event: Event) => void,
+    private readonly onRootEvents: (events: Event[]) => void,
   ) {}
 
   get handle(): SubHandle {
@@ -103,6 +103,7 @@ class FeedRootFetch {
     if (rootRefs.length === 0) return;
 
     const fetchRefs: FeedRootRef[] = [];
+    const rootEvents: Event[] = [];
 
     mergeFeedRootRefs(rootRefs).forEach((ref) => {
       const knownEvent = this.eventsById.get(ref.id);
@@ -112,7 +113,7 @@ class FeedRootFetch {
       }
 
       if (isFeedThreadRootEvent(knownEvent)) {
-        this.onRootEvent(knownEvent);
+        rootEvents.push(knownEvent);
         return;
       }
 
@@ -124,6 +125,10 @@ class FeedRootFetch {
         });
       }
     });
+
+    if (rootEvents.length > 0) {
+      this.onRootEvents(rootEvents);
+    }
 
     if (depth <= 0) return;
 
@@ -159,7 +164,7 @@ class FeedRootFetch {
             this.onEvent(evt, relay);
 
             if (isFeedThreadRootEvent(evt)) {
-              this.onRootEvent(evt);
+              this.onRootEvents([evt]);
               return;
             }
 
@@ -217,18 +222,22 @@ export const subGlobalFeed = (
     replyDepth,
     since,
   );
-  const startRepliesForRoot = (event: Event) => {
-    const rootId = event.id.toLowerCase();
-    if (replyRootIds.has(rootId)) return;
+  const startRepliesForRoots = (events: Event[]) => {
+    const rootIds = events
+      .map((event) => event.id.toLowerCase())
+      .filter((rootId) => {
+        if (replyRootIds.has(rootId)) return false;
+        replyRootIds.add(rootId);
+        return true;
+      });
 
-    replyRootIds.add(rootId);
-    replies.start([rootId]);
+    replies.start(rootIds);
   };
   const rootFetch = new FeedRootFetch(
     onEvent,
     options.replyRelayUrls ?? options.rootRelayUrls,
     eventsById,
-    startRepliesForRoot,
+    startRepliesForRoots,
   );
 
   owner.add(replies.handle);

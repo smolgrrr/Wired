@@ -17,8 +17,11 @@ import {
 import { processFeedEvents } from "../src/nostr/processEvents.js";
 import type { ProcessedEvent, RelayHintsByEventId } from "../src/nostr/types.js";
 import {
-  feedActivityRootRefs,
-  isQualifyingFeedActivity,
+  buildFeedEventMap,
+  feedActivityRootRef,
+  feedRootRefsFromActivity,
+  isFeedThreadRootEvent,
+  mergeFeedRootRefs,
   type FeedRootRef,
 } from "../src/nostr/feed-candidates.js";
 import { extractMentionedEventRefs } from "../src/shared/lib/quotedEvents.js";
@@ -59,7 +62,8 @@ export type FeedSnapshotOptions = {
   timeoutMs?: number;
 };
 
-const ROOT_QUERY_LIMIT = 50;
+const ROOT_FETCH_DEPTH = 4;
+const ROOT_QUERY_LIMIT = 500;
 
 function normalizeRelayUrl(url: string): string {
   return url.replace(/\/+$/, "");
@@ -114,16 +118,6 @@ function serializeRelayHints(
       uniqueRelays(relays),
     ]),
   );
-}
-
-function mergeRootRef(roots: Map<string, FeedRootRef>, ref: FeedRootRef): void {
-  const existing = roots.get(ref.id);
-  if (!existing) {
-    roots.set(ref.id, { id: ref.id, relays: uniqueRelays(ref.relays) });
-    return;
-  }
-
-  existing.relays = uniqueRelays([...existing.relays, ...ref.relays]);
 }
 
 async function connectRelays(urls: readonly string[], timeoutMs: number): Promise<Relay[]> {
@@ -215,45 +209,97 @@ async function subscribeOnce(
 
 async function fetchRootEvents(
   rootRefs: FeedRootRef[],
+  knownEvents: Event[],
   timeoutMs: number,
 ): Promise<EventBatch> {
   if (rootRefs.length === 0) {
     return { events: [], relayHintsByEventId: new Map() };
   }
 
-  const relayUrls = uniqueRelays([
-    ...FEED_SNAPSHOT_RELAYS,
-    ...rootRefs.flatMap((ref) => ref.relays),
-  ]);
-  const relays = await connectRelays(relayUrls, timeoutMs);
+  const events: Event[] = [];
+  const eventsById = buildFeedEventMap(knownEvents);
+  const relayHintsByEventId = new Map<string, string[]>();
+  const requestedIds = new Set<string>();
+  let refsToResolve = mergeFeedRootRefs(rootRefs);
 
-  try {
-    const events: Event[] = [];
-    const relayHintsByEventId = new Map<string, string[]>();
+  for (
+    let depth = 0;
+    depth < ROOT_FETCH_DEPTH && refsToResolve.length > 0;
+    depth += 1
+  ) {
+    const fetchRefs: FeedRootRef[] = [];
 
-    for (let index = 0; index < rootRefs.length; index += ROOT_QUERY_LIMIT) {
-      const ids = rootRefs.slice(index, index + ROOT_QUERY_LIMIT).map((ref) => ref.id);
-      const batch = await subscribeOnce(
-        relays,
-        {
-          ids,
-          kinds: [1, 1068],
-          limit: ids.length,
-        },
-        timeoutMs,
-        relayUrls,
-      );
+    refsToResolve.forEach((ref) => {
+      const knownEvent = eventsById.get(ref.id);
+      if (!knownEvent) {
+        fetchRefs.push(ref);
+        return;
+      }
 
-      events.push(...batch.events);
-      batch.relayHintsByEventId.forEach((relaysForEvent, eventId) => {
-        relaysForEvent.forEach((relay) => addRelayHint(relayHintsByEventId, eventId, relay));
-      });
+      const nextRef = feedActivityRootRef(knownEvent, eventsById);
+      if (nextRef && nextRef.id !== ref.id) {
+        fetchRefs.push({
+          id: nextRef.id,
+          relays: uniqueRelays([...ref.relays, ...nextRef.relays]),
+        });
+      }
+    });
+
+    const pendingRefs = mergeFeedRootRefs(fetchRefs)
+      .filter((ref) => !requestedIds.has(ref.id) && !eventsById.has(ref.id))
+      .slice(0, ROOT_QUERY_LIMIT);
+    if (pendingRefs.length === 0) break;
+
+    pendingRefs.forEach((ref) => requestedIds.add(ref.id));
+
+    const relayUrls = uniqueRelays([
+      ...FEED_SNAPSHOT_RELAYS,
+      ...pendingRefs.flatMap((ref) => ref.relays),
+    ]);
+    const relays = await connectRelays(relayUrls, timeoutMs);
+
+    try {
+      const nextRefs: FeedRootRef[] = [];
+
+      for (let index = 0; index < pendingRefs.length; index += ROOT_QUERY_LIMIT) {
+        const ids = pendingRefs
+          .slice(index, index + ROOT_QUERY_LIMIT)
+          .map((ref) => ref.id);
+        if (ids.length === 0) continue;
+
+        const batch = await subscribeOnce(
+          relays,
+          {
+            ids,
+            kinds: [1, 1068],
+            limit: ids.length,
+          },
+          timeoutMs,
+          relayUrls,
+        );
+
+        events.push(...batch.events);
+        batch.events.forEach((event) => {
+          eventsById.set(event.id.toLowerCase(), event);
+          const nextRef = feedActivityRootRef(event, eventsById);
+          if (nextRef && nextRef.id !== event.id.toLowerCase()) {
+            nextRefs.push(nextRef);
+          }
+        });
+        batch.relayHintsByEventId.forEach((relaysForEvent, eventId) => {
+          relaysForEvent.forEach((relay) =>
+            addRelayHint(relayHintsByEventId, eventId, relay),
+          );
+        });
+      }
+
+      refsToResolve = mergeFeedRootRefs(nextRefs);
+    } finally {
+      closeRelays(relays);
     }
-
-    return { events, relayHintsByEventId };
-  } finally {
-    closeRelays(relays);
   }
+
+  return { events, relayHintsByEventId };
 }
 
 async function fetchGlobalFeedEvents(
@@ -264,32 +310,44 @@ async function fetchGlobalFeedEvents(
   const relays = await connectRelays(FEED_SNAPSHOT_RELAYS, timeoutMs);
 
   try {
-    const roots = new Map<string, FeedRootRef>();
     const since = sinceFromAgeHours(ageHours);
 
-    const rootBatch = await subscribeOnce(
+    const activityBatch = await subscribeOnce(
       relays,
       { kinds: [1, 1068], since, limit: 500 },
       timeoutMs,
       [...POW_RELAYS],
     );
-    const rootEvents = rootBatch.events;
+    const activityEvents = activityBatch.events;
+    const activityRootRefs = feedRootRefsFromActivity(
+      activityEvents,
+      filterDifficulty,
+    );
 
-    rootEvents.forEach((event) => {
-      if (!isQualifyingFeedActivity(event, filterDifficulty)) return;
-      feedActivityRootRefs(event).forEach((ref) => mergeRootRef(roots, ref));
-    });
-
-    if (roots.size === 0) {
-      return { ...rootBatch, activityRootIds: [] };
+    if (activityRootRefs.length === 0) {
+      return { ...activityBatch, activityRootIds: [] };
     }
 
-    const rootRefs = Array.from(roots.values());
-    const resolvedRootBatch = await fetchRootEvents(rootRefs, timeoutMs);
+    const resolvedRootBatch = await fetchRootEvents(
+      activityRootRefs,
+      activityEvents,
+      timeoutMs,
+    );
+    const seedEvents = mergeEvents(activityEvents, resolvedRootBatch.events);
+    const seedEventsById = buildFeedEventMap(seedEvents);
+    const rootRefs = feedRootRefsFromActivity(
+      activityEvents,
+      filterDifficulty,
+      seedEventsById,
+    );
+    const rootIds = rootRefs
+      .map((ref) => seedEventsById.get(ref.id))
+      .filter((event): event is Event => !!event && isFeedThreadRootEvent(event))
+      .map((event) => event.id.toLowerCase());
     const replyEvents: Event[] = [];
     const seenReplyIds = new Set<string>();
     const replyRelayHintsByEventId = new Map<string, string[]>();
-    let parentIds = rootRefs.map((ref) => ref.id);
+    let parentIds = [...new Set(rootIds)];
 
     const replyDepth = clampReplyDepth(REPLY_FETCH_DEPTH);
     for (let depth = 0; depth < replyDepth && parentIds.length > 0; depth += 1) {
@@ -321,9 +379,9 @@ async function fetchGlobalFeedEvents(
     }
 
     return {
-      events: mergeEvents(rootEvents, resolvedRootBatch.events, replyEvents),
+      events: mergeEvents(activityEvents, resolvedRootBatch.events, replyEvents),
       relayHintsByEventId: mergeRelayHints(
-        rootBatch.relayHintsByEventId,
+        activityBatch.relayHintsByEventId,
         resolvedRootBatch.relayHintsByEventId,
         replyRelayHintsByEventId,
       ),
