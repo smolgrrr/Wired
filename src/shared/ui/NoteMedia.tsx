@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MediaItem } from "@lib/mediaUtils";
 import {
   optimizedImageSrcSet,
   optimizedImageUrl,
   pickOptimizedWidth,
 } from "@lib/optimizedImageUrl";
+import { useInView } from "../hooks/useInView";
 
 function MediaFallback() {
   return (
@@ -138,21 +139,24 @@ function GridImage({
 function MediaVideo({
   item,
   compact,
+  priority = false,
 }: {
   item: MediaItem;
   compact?: boolean;
+  priority?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const primedRef = useRef(false);
+  const { ref: inViewRef, inView } = useInView({ rootMargin: "600px" });
   const [failed, setFailed] = useState(false);
   const [started, setStarted] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
 
-  if (failed) return <MediaFallback />;
-
   const hasDimensions = Boolean(item.width && item.height);
   const aspectRatio = hasDimensions ? `${item.width} / ${item.height}` : "16 / 9";
   const hasPoster = Boolean(item.posterUrl);
-  const requestFirstFrame = () => {
+  const shouldPrimePreview = priority || inView;
+  const requestFirstFrame = useCallback(() => {
     if (hasPoster) return;
 
     const video = videoRef.current;
@@ -170,10 +174,24 @@ function MediaVideo({
     } catch {
       // Cross-origin or streaming media may reject seeking; native controls remain usable.
     }
-  };
+  }, [hasPoster]);
+
+  useEffect(() => {
+    if (hasPoster || !shouldPrimePreview || primedRef.current) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    primedRef.current = true;
+    video.load();
+    requestFirstFrame();
+  }, [hasPoster, requestFirstFrame, shouldPrimePreview]);
+
+  if (failed) return <MediaFallback />;
 
   return (
     <div
+      ref={inViewRef}
       className={[
         "relative overflow-hidden rounded border border-ghost bg-surface",
         compact ? "max-h-[120px]" : "max-h-[min(60vh,24rem)]",
@@ -185,10 +203,12 @@ function MediaVideo({
         src={item.url}
         poster={item.posterUrl}
         controls
-        preload={hasPoster ? "metadata" : "auto"}
+        preload={hasPoster || !shouldPrimePreview ? "metadata" : "auto"}
         playsInline
         onPlay={() => setStarted(true)}
-        onLoadedMetadata={requestFirstFrame}
+        onLoadedMetadata={() => {
+          if (shouldPrimePreview) requestFirstFrame();
+        }}
         onLoadedData={() => setPreviewReady(true)}
         onCanPlay={() => setPreviewReady(true)}
         onSeeked={() => setPreviewReady(true)}
@@ -239,7 +259,7 @@ export function MediaAttachment({
     case "image":
       return <MediaImage item={item} compact={compact} priority={priority} />;
     case "video":
-      return <MediaVideo item={item} compact={compact} />;
+      return <MediaVideo item={item} compact={compact} priority={priority} />;
     case "audio":
       return <MediaAudio item={item} />;
   }
