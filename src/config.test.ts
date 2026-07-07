@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_RELAYS, configuredRelays } from "./config";
+import { DEFAULT_DIFFICULTY, DEFAULT_RELAYS, configuredRelays } from "./config";
+
+describe("DEFAULT_DIFFICULTY", () => {
+  it("defaults new posts to signal 21", () => {
+    expect(DEFAULT_DIFFICULTY).toBe(21);
+  });
+});
 
 describe("DEFAULT_RELAYS", () => {
   it("includes the Wired relay in the main feed relay list", () => {

@@ -1,4 +1,4 @@
-export const DEFAULT_DIFFICULTY = 16;
+export const DEFAULT_DIFFICULTY = 21;
 
 export const DEFAULT_RELAYS = [
   "wss://relay.wiredsignal.online",
