@@ -1,14 +1,11 @@
 import type { Event } from "nostr-tools";
 import type { ProcessedEvent, RelayHintsByEventId } from "../../nostr/types";
-import type { ProfileMetadata } from "./profile";
+import {
+  isFeedBootstrapSnapshot,
+  type FeedBootstrapSnapshot,
+} from "./feedBootstrapTypes";
 
-export type FeedBootstrapResponse = {
-  fetchedAt: number;
-  processedEvents: ProcessedEvent[];
-  events: Event[];
-  relayHintsByEventId: Record<string, string[]>;
-  profiles: Record<string, ProfileMetadata>;
-};
+export type FeedBootstrapResponse = FeedBootstrapSnapshot;
 
 export const VERCEL_FEED_BOOTSTRAP_URL = "/api/feed/bootstrap";
 export const FEED_SNAPSHOT_URL_ENV = "VITE_FEED_SNAPSHOT_URL";
@@ -34,22 +31,6 @@ export function feedBootstrapUrls(
     : [VERCEL_FEED_BOOTSTRAP_URL];
 }
 
-function isFeedBootstrapResponse(value: unknown): value is FeedBootstrapResponse {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as Partial<FeedBootstrapResponse>;
-
-  return (
-    typeof candidate.fetchedAt === "number" &&
-    Array.isArray(candidate.processedEvents) &&
-    Array.isArray(candidate.events) &&
-    !!candidate.relayHintsByEventId &&
-    typeof candidate.relayHintsByEventId === "object" &&
-    !!candidate.profiles &&
-    typeof candidate.profiles === "object"
-  );
-}
-
 export async function fetchFeedBootstrapSnapshot(
   fetcher: FetchLike = fetch,
   externalSnapshotUrl: string | null = configuredFeedSnapshotUrl(),
@@ -60,7 +41,7 @@ export async function fetchFeedBootstrapSnapshot(
       if (!response.ok) continue;
 
       const snapshot = (await response.json()) as unknown;
-      if (isFeedBootstrapResponse(snapshot)) {
+      if (isFeedBootstrapSnapshot(snapshot)) {
         return snapshot;
       }
     } catch {
@@ -99,32 +80,32 @@ export function resetFeedBootstrapSnapshotCache(): void {
   snapshotPromise = null;
 }
 
-export function eventsFromProcessed(processedEvents: ProcessedEvent[]): Event[] {
-  const events: Event[] = [];
-  const seen = new Set<string>();
+export function processedEventsFromSnapshot(
+  snapshot: FeedBootstrapResponse,
+): ProcessedEvent[] {
+  return snapshot.processedEvents.flatMap((processed) => {
+    const postEvent = snapshot.eventsById[processed.postEventId];
+    if (!postEvent) return [];
 
-  processedEvents.forEach((processed) => {
-    [processed.postEvent, ...processed.replies].forEach((event) => {
-      if (seen.has(event.id)) return;
-      seen.add(event.id);
-      events.push(event);
-    });
+    const replies = processed.replyIds
+      .map((id) => snapshot.eventsById[id])
+      .filter((event): event is Event => Boolean(event));
+
+    return [{
+      postEvent,
+      replies,
+      relayHints: processed.relayHints,
+      threadReplyCount: processed.threadReplyCount,
+      rootWork: processed.rootWork,
+      replyWork: processed.replyWork,
+      totalWork: processed.totalWork,
+      rankingReplyCount: processed.rankingReplyCount,
+    }];
   });
-
-  return events;
 }
 
 export function eventsFromSnapshot(snapshot: FeedBootstrapResponse): Event[] {
-  const events: Event[] = [];
-  const seen = new Set<string>();
-
-  [...snapshot.events, ...eventsFromProcessed(snapshot.processedEvents)].forEach((event) => {
-    if (seen.has(event.id)) return;
-    seen.add(event.id);
-    events.push(event);
-  });
-
-  return events;
+  return Object.values(snapshot.eventsById);
 }
 
 export function relayHintsFromSnapshot(
@@ -136,7 +117,7 @@ export function relayHintsFromSnapshot(
     relayHintsByEventId.set(eventId, [...new Set(relays)]);
   });
 
-  snapshot.processedEvents.forEach((processed) => {
+  processedEventsFromSnapshot(snapshot).forEach((processed) => {
     if (!processed.relayHints || processed.relayHints.length === 0) return;
     const existing = relayHintsByEventId.get(processed.postEvent.id) ?? [];
     relayHintsByEventId.set(

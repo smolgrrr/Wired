@@ -20,9 +20,15 @@ vi.mock("./feedSnapshot.js", () => ({
 const snapshot = {
   fetchedAt: 123,
   processedEvents: [],
-  events: [],
+  eventsById: {},
   relayHintsByEventId: {},
   profiles: {},
+  scoring: {
+    ageHours: 24,
+    minPow: 16,
+    replyDepth: 2,
+    sort: "totalWork",
+  },
 };
 
 async function loadCacheModule() {

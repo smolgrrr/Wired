@@ -1,5 +1,9 @@
 import type { Event } from "nostr-tools";
-import { createFeedCandidateTracker } from "./feed-candidates.js";
+import {
+  buildFeedEventMap,
+  feedRootRefsFromQualifyingActivity,
+  isFeedPostEvent,
+} from "./feed-candidates.js";
 import { workScoreBreakdown } from "./processing/pow-score.js";
 import type { ProcessedEvent, RelayHintsByEventId } from "./types.js";
 
@@ -66,6 +70,10 @@ export function collectThreadReplies(
   return replies;
 }
 
+export type ProcessFeedEventsOptions = {
+  activityRootIds?: Iterable<string>;
+};
+
 export function toProcessedEvents(
   posts: Event[],
   replySource: Event[],
@@ -91,15 +99,25 @@ export const processFeedEvents = (
   events: Event[],
   filterDifficulty = 0,
   relayHintsByEventId?: RelayHintsByEventId,
+  options: ProcessFeedEventsOptions = {},
 ): ProcessedEvent[] => {
+  const eventsById = buildFeedEventMap(events);
   const repliesByParent = buildRepliesByParent(events);
-  const candidates = createFeedCandidateTracker(filterDifficulty);
-  const posts: Event[] = [];
+  const activityRootIds = new Set(
+    [...(options.activityRootIds ?? [])].map((id) => id.toLowerCase()),
+  );
 
-  events.forEach((event) => {
-    if (!candidates.check(event).accepted) return;
-    posts.push(event);
+  feedRootRefsFromQualifyingActivity(
+    events,
+    filterDifficulty,
+    eventsById,
+  ).forEach((ref) => {
+    activityRootIds.add(ref.id);
   });
+
+  const posts = [...activityRootIds]
+    .map((id) => eventsById.get(id))
+    .filter((event): event is Event => !!event && isFeedPostEvent(event));
 
   return posts
     .map((postEvent) => {

@@ -36,7 +36,7 @@ Optional feed snapshot bootstrap:
 
 - Set `VITE_FEED_SNAPSHOT_URL` to a public JSON snapshot URL, such as an Umbrel service exposed through Cloudflare Tunnel.
 - The client tries that snapshot first, falls back to `/api/feed/bootstrap`, then falls back to live Nostr relay subscriptions if both bootstrap sources fail.
-- The snapshot response should match `/api/feed/bootstrap`: `{ "fetchedAt": number, "processedEvents": [], "profiles": {} }`.
+- The snapshot response should match `/api/feed/bootstrap`: `fetchedAt`, `processedEvents`, `eventsById`, `relayHintsByEventId`, `profiles`, and `scoring`. `processedEvents` is the authoritative main-feed list; `eventsById` may include extra hydration events for quoted notes and threads.
 
 Optional relay configuration:
 

@@ -108,7 +108,7 @@ describe("processFeedEvents", () => {
     expect(result[0].relayHints).toEqual(["wss://relay.wiredsignal.online"]);
   });
 
-  it("uses the same feed root eligibility for articles and root notes", () => {
+  it("does not include articles as main feed posts", () => {
     const article = event({
       id: "1".repeat(64),
       kind: 1068,
@@ -139,7 +139,6 @@ describe("processFeedEvents", () => {
     expect(result.map((item) => item.postEvent.id)).toEqual([
       acceptedRoot.id,
       sameAuthorRoot.id,
-      article.id,
     ]);
     expect(result.find((item) => item.postEvent.id === acceptedRoot.id)?.replies).toEqual([
       reply,
@@ -175,6 +174,74 @@ describe("processFeedEvents", () => {
       replyWork: Math.pow(2, 17),
       rankingReplyCount: 2,
     });
+  });
+
+  it("promotes an older root when a fresh reply qualifies", () => {
+    const oldRoot = event({
+      id: "1".repeat(64),
+      created_at: 1,
+    });
+    const qualifyingReply = event({
+      id: "2".repeat(64),
+      created_at: 100,
+      tags: [["e", oldRoot.id, "", "root"], ["nonce", "reply", "16"]],
+    });
+
+    const result = processFeedEvents([oldRoot, qualifyingReply], 16);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      postEvent: oldRoot,
+      replies: [qualifyingReply],
+      rootWork: 1,
+      replyWork: Math.pow(2, 16),
+      rankingReplyCount: 1,
+    });
+  });
+
+  it("resolves parent-only reply activity when the parent event is available", () => {
+    const oldRoot = event({
+      id: "1".repeat(64),
+      created_at: 1,
+    });
+    const parentReply = event({
+      id: "2".repeat(64),
+      created_at: 50,
+      tags: [["e", oldRoot.id]],
+    });
+    const qualifyingNestedReply = event({
+      id: "3".repeat(64),
+      created_at: 100,
+      tags: [["e", parentReply.id], ["nonce", "nested", "16"]],
+    });
+
+    const result = processFeedEvents(
+      [oldRoot, parentReply, qualifyingNestedReply],
+      16,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      postEvent: oldRoot,
+      replies: [parentReply, qualifyingNestedReply],
+      replyWork: Math.pow(2, 16),
+      rankingReplyCount: 1,
+      threadReplyCount: 2,
+    });
+  });
+
+  it("does not render an unresolved reply parent as a feed post", () => {
+    const missingRootId = "1".repeat(64);
+    const parentReply = event({
+      id: "2".repeat(64),
+      tags: [["e", missingRootId]],
+    });
+    const qualifyingNestedReply = event({
+      id: "3".repeat(64),
+      tags: [["e", parentReply.id], ["nonce", "nested", "16"]],
+    });
+
+    expect(processFeedEvents([parentReply, qualifyingNestedReply], 16)).toEqual([]);
   });
 
   it("ignores plain repost events", () => {
@@ -256,6 +323,54 @@ describe("processFeedEvents", () => {
       replyWork: Math.pow(2, 20),
       rankingReplyCount: 16,
     });
+  });
+
+  it("includes an old low-work root when fresh qualifying activity points at it", () => {
+    const oldRoot = event({
+      id: "1".repeat(64),
+      pubkey: "1".repeat(64),
+      created_at: 1,
+      tags: [["nonce", "root", "0"]],
+    });
+    const freshPowReply = event({
+      id: "2".repeat(64),
+      pubkey: "2".repeat(64),
+      created_at: 100,
+      tags: [
+        ["e", oldRoot.id, "wss://relay.example", "root"],
+        ["nonce", "reply", "24"],
+      ],
+    });
+
+    const result = processFeedEvents([oldRoot, freshPowReply], 16);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      postEvent: oldRoot,
+      replies: [freshPowReply],
+      replyWork: Math.pow(2, 24),
+      rankingReplyCount: 1,
+    });
+  });
+
+  it("does not include an old low-work root for below-threshold activity", () => {
+    const oldRoot = event({
+      id: "1".repeat(64),
+      pubkey: "1".repeat(64),
+      created_at: 1,
+      tags: [["nonce", "root", "0"]],
+    });
+    const weakReply = event({
+      id: "2".repeat(64),
+      pubkey: "2".repeat(64),
+      created_at: 100,
+      tags: [
+        ["e", oldRoot.id, "wss://relay.example", "root"],
+        ["nonce", "reply", "15"],
+      ],
+    });
+
+    expect(processFeedEvents([oldRoot, weakReply], 16)).toEqual([]);
   });
 });
 
