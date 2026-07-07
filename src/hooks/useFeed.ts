@@ -49,7 +49,6 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   const { settings } = useSettings();
   const moderationManifest = useModerationManifest();
   const isRawMode = mode === "raw";
-  const rawFilterDifficulty = isRawMode ? settings.filterDifficulty : undefined;
   const bootstrapEligible = !isRawMode && canUseFeedBootstrap(settings);
   const [bootstrapEvents, setBootstrapEvents] = useState<Event[]>([]);
   const [bootstrapRootIds, setBootstrapRootIds] = useState<string[]>([]);
@@ -104,11 +103,11 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
         {
           rootRelayUrls: POW_RELAYS,
           replyRelayUrls: THREAD_RELAYS,
-          rootFilterDifficulty: rawFilterDifficulty,
+          rootFilterDifficulty: settings.filterDifficulty,
           replyDepth: FEED_REPLY_DEPTH,
         },
       ),
-    [rawFilterDifficulty, settings.ageHours],
+    [settings.ageHours, settings.filterDifficulty],
   );
 
   const {
@@ -117,7 +116,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   } = useFilteredNoteSubscriptionWithRelays(subscribe, [
     mode,
     settings.ageHours,
-    rawFilterDifficulty,
+    settings.filterDifficulty,
   ]);
 
   const bootstrapRootKey = bootstrapRootIds.join(",");

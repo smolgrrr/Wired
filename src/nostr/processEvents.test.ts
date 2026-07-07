@@ -257,6 +257,54 @@ describe("processFeedEvents", () => {
       rankingReplyCount: 16,
     });
   });
+
+  it("includes an old low-work root when fresh qualifying activity points at it", () => {
+    const oldRoot = event({
+      id: "1".repeat(64),
+      pubkey: "1".repeat(64),
+      created_at: 1,
+      tags: [["nonce", "root", "0"]],
+    });
+    const freshPowReply = event({
+      id: "2".repeat(64),
+      pubkey: "2".repeat(64),
+      created_at: 100,
+      tags: [
+        ["e", oldRoot.id, "wss://relay.example", "root"],
+        ["nonce", "reply", "24"],
+      ],
+    });
+
+    const result = processFeedEvents([oldRoot, freshPowReply], 16);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      postEvent: oldRoot,
+      replies: [freshPowReply],
+      replyWork: Math.pow(2, 24),
+      rankingReplyCount: 1,
+    });
+  });
+
+  it("does not include an old low-work root for below-threshold activity", () => {
+    const oldRoot = event({
+      id: "1".repeat(64),
+      pubkey: "1".repeat(64),
+      created_at: 1,
+      tags: [["nonce", "root", "0"]],
+    });
+    const weakReply = event({
+      id: "2".repeat(64),
+      pubkey: "2".repeat(64),
+      created_at: 100,
+      tags: [
+        ["e", oldRoot.id, "wss://relay.example", "root"],
+        ["nonce", "reply", "15"],
+      ],
+    });
+
+    expect(processFeedEvents([oldRoot, weakReply], 16)).toEqual([]);
+  });
 });
 
 describe("collectThreadReplies", () => {
