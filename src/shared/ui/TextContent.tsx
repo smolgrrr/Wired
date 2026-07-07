@@ -41,6 +41,9 @@ export function TextContent({
           {isExpanded ? "collapse" : "continue"}
         </Button>
       )}
+      {attachments.length > 0 && (
+        <AttachmentStack attachments={attachments} imagePriority={imagePriority} />
+      )}
       {quotedEvents.map((quoted) => (
         <QuotePreview key={quoted.id} event={quoted} />
       ))}
@@ -50,9 +53,6 @@ export function TextContent({
       {failedRefs.map((ref) => (
         <QuotePreviewPlaceholder key={ref.id} message="quoted post unavailable" />
       ))}
-      {attachments.length > 0 && (
-        <AttachmentStack attachments={attachments} imagePriority={imagePriority} />
-      )}
     </div>
   );
 }
