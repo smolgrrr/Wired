@@ -2,8 +2,8 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { NoteMedia } from "./NoteMedia";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MediaAttachment, NoteMedia } from "./NoteMedia";
 
 (
   globalThis as typeof globalThis & {
@@ -14,11 +14,31 @@ import { NoteMedia } from "./NoteMedia";
 describe("NoteMedia video previews", () => {
   let container: HTMLDivElement;
   let root: Root;
+  let intersectionCallback: IntersectionObserverCallback = () => undefined;
+  let loadMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
+    loadMock = vi.fn();
+    Object.defineProperty(HTMLMediaElement.prototype, "load", {
+      configurable: true,
+      value: loadMock,
+    });
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          intersectionCallback = callback;
+        }
+
+        observe = vi.fn();
+        disconnect = vi.fn();
+        unobserve = vi.fn();
+        takeRecords = vi.fn(() => []);
+      },
+    );
   });
 
   afterEach(() => {
@@ -26,9 +46,10 @@ describe("NoteMedia video previews", () => {
       root.unmount();
     });
     container.remove();
+    vi.unstubAllGlobals();
   });
 
-  it("requests a first frame for bare video URLs", () => {
+  it("primes a first frame for bare video URLs when they approach the viewport", () => {
     act(() => {
       root.render(
         <NoteMedia
@@ -47,11 +68,12 @@ describe("NoteMedia video previews", () => {
     const video = container.querySelector("video");
     expect(video).not.toBeNull();
     expect(video?.getAttribute("src")).toBe("https://example.com/bare.mp4");
-    expect(video?.getAttribute("preload")).toBe("auto");
+    expect(video?.getAttribute("preload")).toBe("metadata");
     expect(video?.hasAttribute("controls")).toBe(true);
     expect(video?.getAttribute("poster")).toBeNull();
     expect(video?.parentElement?.style.aspectRatio).toBe("640 / 360");
     expect(container.textContent).toContain("video preview");
+    expect(loadMock).not.toHaveBeenCalled();
 
     Object.defineProperty(video, "duration", {
       configurable: true,
@@ -59,9 +81,14 @@ describe("NoteMedia video previews", () => {
     });
 
     act(() => {
-      video?.dispatchEvent(new Event("loadedmetadata", { bubbles: true }));
+      intersectionCallback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
     });
 
+    expect(video?.getAttribute("preload")).toBe("auto");
+    expect(loadMock).toHaveBeenCalledTimes(1);
     expect(video?.currentTime).toBe(0.001);
 
     act(() => {
@@ -69,6 +96,25 @@ describe("NoteMedia video previews", () => {
     });
 
     expect(container.textContent).not.toContain("video preview");
+  });
+
+  it("primes priority video previews immediately", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          priority
+          item={{
+            url: "https://example.com/top-feed.mp4",
+            type: "video",
+          }}
+        />,
+      );
+    });
+
+    const video = container.querySelector("video");
+    expect(video).not.toBeNull();
+    expect(video?.getAttribute("preload")).toBe("auto");
+    expect(loadMock).toHaveBeenCalledTimes(1);
   });
 
   it("preserves imeta posters without seeking for a preview frame", () => {
@@ -91,6 +137,7 @@ describe("NoteMedia video previews", () => {
     expect(video?.getAttribute("poster")).toBe("https://example.com/poster.jpg");
     expect(video?.getAttribute("preload")).toBe("metadata");
     expect(container.textContent).not.toContain("video preview");
+    expect(loadMock).not.toHaveBeenCalled();
 
     Object.defineProperty(video, "duration", {
       configurable: true,
