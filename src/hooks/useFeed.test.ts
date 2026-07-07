@@ -74,6 +74,48 @@ describe("mergeProcessedFeedEvents", () => {
     ]);
   });
 
+  it("does not treat more low-work live replies as a feed-score upgrade", () => {
+    const root = event({ id: "1".repeat(64) });
+    const bootstrapRow = processed(root, {
+      replies: [event({ id: "2".repeat(64), tags: [["e", root.id]] })],
+      totalWork: Math.pow(2, 24),
+      threadReplyCount: 1,
+    });
+    const lowerWorkLiveRow = processed(root, {
+      replies: [
+        event({ id: "3".repeat(64), tags: [["e", root.id]] }),
+        event({ id: "4".repeat(64), tags: [["e", root.id]] }),
+      ],
+      totalWork: Math.pow(2, 16),
+      threadReplyCount: 2,
+    });
+
+    expect(mergeProcessedFeedEvents([bootstrapRow], [lowerWorkLiveRow])).toEqual([
+      bootstrapRow,
+    ]);
+  });
+
+  it("uses reply count as a tie-breaker when live work matches the snapshot", () => {
+    const root = event({ id: "1".repeat(64) });
+    const bootstrapRow = processed(root, {
+      replies: [event({ id: "2".repeat(64), tags: [["e", root.id]] })],
+      totalWork: Math.pow(2, 20),
+      threadReplyCount: 1,
+    });
+    const fullerLiveRow = processed(root, {
+      replies: [
+        event({ id: "3".repeat(64), tags: [["e", root.id]] }),
+        event({ id: "4".repeat(64), tags: [["e", root.id]] }),
+      ],
+      totalWork: Math.pow(2, 20),
+      threadReplyCount: 2,
+    });
+
+    expect(mergeProcessedFeedEvents([bootstrapRow], [fullerLiveRow])).toEqual([
+      fullerLiveRow,
+    ]);
+  });
+
   it("lets live rows upgrade or add feed items", () => {
     const existingRoot = event({ id: "1".repeat(64), created_at: 1 });
     const newRoot = event({ id: "2".repeat(64), created_at: 2 });

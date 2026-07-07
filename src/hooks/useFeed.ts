@@ -79,7 +79,8 @@ export function mergeProcessedFeedEvents(
     if (
       !existing ||
       event.totalWork > existing.totalWork ||
-      event.replies.length > existing.replies.length
+      (event.totalWork === existing.totalWork &&
+        event.replies.length > existing.replies.length)
     ) {
       mergedByRootId.set(event.postEvent.id, event);
     }
