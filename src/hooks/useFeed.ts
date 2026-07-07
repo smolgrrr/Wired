@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Event } from "nostr-tools";
 import { subGlobalFeed, subRepliesForRootIds } from "../nostr/subscriptions";
-import { processFeedEvents } from "../nostr/processEvents";
-import type { RelayHintsByEventId } from "../nostr/types";
+import {
+  compareProcessedEventsByWork,
+  processFeedEvents,
+} from "../nostr/processEvents";
+import type { ProcessedEvent, RelayHintsByEventId } from "../nostr/types";
 import { useSettings } from "../app/settings";
 import { POW_RELAYS, THREAD_RELAYS } from "../config";
 import {
@@ -10,7 +13,11 @@ import {
 } from "../shared/hooks/useFilteredNoteSubscription";
 import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { seedProfiles } from "../shared/hooks/useProfiles";
-import { filterModeratedEvents } from "../shared/lib/moderation";
+import {
+  filterModeratedEvents,
+  isEventModerated,
+  type ModerationManifest,
+} from "../shared/lib/moderation";
 import {
   canUseFeedBootstrap,
   eventsFromProcessed,
@@ -45,11 +52,48 @@ function mergeRelayHints(
   return merged;
 }
 
+function isProcessedEventModerated(
+  event: ProcessedEvent,
+  moderationManifest: ModerationManifest,
+): boolean {
+  return (
+    isEventModerated(event.postEvent, moderationManifest) ||
+    event.replies.some((reply) => isEventModerated(reply, moderationManifest))
+  );
+}
+
+export function mergeProcessedFeedEvents(
+  bootstrapEvents: ProcessedEvent[],
+  liveEvents: ProcessedEvent[],
+): ProcessedEvent[] {
+  if (liveEvents.length === 0) return bootstrapEvents;
+
+  const mergedByRootId = new Map<string, ProcessedEvent>();
+
+  bootstrapEvents.forEach((event) => {
+    mergedByRootId.set(event.postEvent.id, event);
+  });
+
+  liveEvents.forEach((event) => {
+    const existing = mergedByRootId.get(event.postEvent.id);
+    if (
+      !existing ||
+      event.totalWork > existing.totalWork ||
+      event.replies.length > existing.replies.length
+    ) {
+      mergedByRootId.set(event.postEvent.id, event);
+    }
+  });
+
+  return [...mergedByRootId.values()].sort(compareProcessedEventsByWork);
+}
+
 export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   const { settings } = useSettings();
   const moderationManifest = useModerationManifest();
   const isRawMode = mode === "raw";
   const bootstrapEligible = !isRawMode && canUseFeedBootstrap(settings);
+  const [bootstrapProcessedEvents, setBootstrapProcessedEvents] = useState<ProcessedEvent[]>([]);
   const [bootstrapEvents, setBootstrapEvents] = useState<Event[]>([]);
   const [bootstrapRootIds, setBootstrapRootIds] = useState<string[]>([]);
   const [bootstrapRelayHintsByEventId, setBootstrapRelayHintsByEventId] =
@@ -57,6 +101,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
 
   useEffect(() => {
     if (!bootstrapEligible) {
+      setBootstrapProcessedEvents([]);
       setBootstrapEvents([]);
       setBootstrapRootIds([]);
       setBootstrapRelayHintsByEventId(new Map());
@@ -69,11 +114,13 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
       .then((snapshot) => {
         if (cancelled) return;
         if (!snapshot) {
+          setBootstrapProcessedEvents([]);
           setBootstrapEvents([]);
           setBootstrapRootIds([]);
           setBootstrapRelayHintsByEventId(new Map());
           return;
         }
+        setBootstrapProcessedEvents(snapshot.processedEvents);
         setBootstrapEvents(eventsFromProcessed(snapshot.processedEvents));
         setBootstrapRelayHintsByEventId(
           relayHintsFromSnapshot(snapshot),
@@ -85,6 +132,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
       })
       .catch(() => {
         // Fall back to live relay subscription only.
+        setBootstrapProcessedEvents([]);
         setBootstrapEvents([]);
         setBootstrapRootIds([]);
         setBootstrapRelayHintsByEventId(new Map());
@@ -160,7 +208,16 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     () => filterModeratedEvents(noteEvents, moderationManifest),
     [noteEvents, moderationManifest],
   );
-  const processedEvents = useMemo(
+  const visibleBootstrapProcessedEvents = useMemo(
+    () =>
+      moderationManifest.updatedAt === 0
+        ? bootstrapProcessedEvents
+        : bootstrapProcessedEvents.filter(
+            (event) => !isProcessedEventModerated(event, moderationManifest),
+          ),
+    [bootstrapProcessedEvents, moderationManifest],
+  );
+  const liveProcessedEvents = useMemo(
     () =>
       processFeedEvents(
         visibleNoteEvents,
@@ -168,6 +225,14 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
         relayHintsByEventId,
       ),
     [visibleNoteEvents, settings.filterDifficulty, relayHintsByEventId],
+  );
+  const processedEvents = useMemo(
+    () =>
+      mergeProcessedFeedEvents(
+        bootstrapEligible ? visibleBootstrapProcessedEvents : [],
+        liveProcessedEvents,
+      ),
+    [bootstrapEligible, visibleBootstrapProcessedEvents, liveProcessedEvents],
   );
 
   return { processedEvents, noteEvents: visibleNoteEvents };
