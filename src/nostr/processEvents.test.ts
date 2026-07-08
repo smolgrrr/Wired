@@ -4,6 +4,7 @@ import {
   collectThreadReplies,
   compareProcessedEventsByWork,
   processFeedEvents,
+  scoreThreadPost,
   toProcessedEvents,
 } from "./processEvents";
 
@@ -371,6 +372,40 @@ describe("processFeedEvents", () => {
     });
 
     expect(processFeedEvents([oldRoot, weakReply], 16)).toEqual([]);
+  });
+});
+
+describe("scoreThreadPost", () => {
+  it("matches processFeedEvents scoring for nested high-PoW replies", () => {
+    const root = event({
+      id: "1".repeat(64),
+      tags: [["nonce", "root", "18"]],
+    });
+    const directReply = event({
+      id: "2".repeat(64),
+      tags: [["e", root.id], ["nonce", "direct", "16"]],
+    });
+    const nestedReply = event({
+      id: "3".repeat(64),
+      tags: [["e", directReply.id], ["nonce", "nested", "16"]],
+    });
+    const highPowReply = event({
+      id: "4".repeat(64),
+      tags: [["e", nestedReply.id], ["nonce", "high", "25"]],
+    });
+    const allEvents = [root, directReply, nestedReply, highPowReply];
+
+    const feedScore = processFeedEvents(allEvents, 16)[0];
+    const threadScore = scoreThreadPost(root, allEvents, {
+      minReplyDifficulty: 16,
+    });
+
+    expect(threadScore).toMatchObject({
+      totalWork: feedScore.totalWork,
+      replyWork: feedScore.replyWork,
+      threadReplyCount: feedScore.threadReplyCount,
+      replies: feedScore.replies,
+    });
   });
 });
 

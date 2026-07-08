@@ -4,6 +4,7 @@ import { subGlobalFeed, subRepliesForRootIds } from "../nostr/subscriptions";
 import {
   compareProcessedEventsByWork,
   processFeedEvents,
+  scoreThreadPost,
 } from "../nostr/processEvents";
 import type { ProcessedEvent, RelayHintsByEventId } from "../nostr/types";
 import { useSettings } from "../app/settings";
@@ -78,9 +79,38 @@ function isProcessedEventModerated(
   );
 }
 
+function unionEvents(...eventGroups: Event[][]): Event[] {
+  const merged = new Map<string, Event>();
+  eventGroups.forEach((events) => {
+    events.forEach((event) => merged.set(event.id, event));
+  });
+  return [...merged.values()];
+}
+
+function rescoreMergedProcessedEvent(
+  existing: ProcessedEvent,
+  incoming: ProcessedEvent,
+  filterDifficulty: number,
+): ProcessedEvent {
+  const postEvent = existing.postEvent;
+  const mergedEvents = unionEvents(
+    [postEvent],
+    existing.replies,
+    incoming.replies,
+  );
+
+  return {
+    ...scoreThreadPost(postEvent, mergedEvents, {
+      minReplyDifficulty: filterDifficulty,
+    }),
+    relayHints: existing.relayHints ?? incoming.relayHints,
+  };
+}
+
 export function mergeProcessedFeedEvents(
   bootstrapEvents: ProcessedEvent[],
   liveEvents: ProcessedEvent[],
+  filterDifficulty = 0,
 ): ProcessedEvent[] {
   if (liveEvents.length === 0) return bootstrapEvents;
 
@@ -92,14 +122,15 @@ export function mergeProcessedFeedEvents(
 
   liveEvents.forEach((event) => {
     const existing = mergedByRootId.get(event.postEvent.id);
-    if (
-      !existing ||
-      event.totalWork > existing.totalWork ||
-      (event.totalWork === existing.totalWork &&
-        event.replies.length > existing.replies.length)
-    ) {
+    if (!existing) {
       mergedByRootId.set(event.postEvent.id, event);
+      return;
     }
+
+    mergedByRootId.set(
+      event.postEvent.id,
+      rescoreMergedProcessedEvent(existing, event, filterDifficulty),
+    );
   });
 
   return [...mergedByRootId.values()].sort(compareProcessedEventsByWork);
@@ -266,8 +297,14 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
       mergeProcessedFeedEvents(
         bootstrapEligible ? visibleBootstrapProcessedEvents : [],
         liveProcessedEvents,
+        settings.filterDifficulty,
       ),
-    [bootstrapEligible, visibleBootstrapProcessedEvents, liveProcessedEvents],
+    [
+      bootstrapEligible,
+      visibleBootstrapProcessedEvents,
+      liveProcessedEvents,
+      settings.filterDifficulty,
+    ],
   );
 
   return { processedEvents, noteEvents: visibleNoteEvents };

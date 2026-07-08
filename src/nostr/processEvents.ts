@@ -4,7 +4,10 @@ import {
   feedRootRefsFromQualifyingActivity,
   isFeedPostEvent,
 } from "./feed-candidates.js";
-import { workScoreBreakdown } from "./processing/pow-score.js";
+import {
+  workScoreBreakdown,
+  type WorkScoreOptions,
+} from "./processing/pow-score.js";
 import type { ProcessedEvent, RelayHintsByEventId } from "./types.js";
 
 export type { ProcessedEvent } from "./types.js";
@@ -68,6 +71,22 @@ export function collectThreadReplies(
   }
 
   return replies;
+}
+
+export function scoreThreadPost(
+  postEvent: Event,
+  allEvents: Event[],
+  options: WorkScoreOptions = {},
+): ProcessedEvent {
+  const repliesByParent = buildRepliesByParent(allEvents);
+  const replies = collectThreadReplies(postEvent.id, repliesByParent);
+
+  return {
+    postEvent,
+    replies,
+    threadReplyCount: replies.length,
+    ...workScoreBreakdown(postEvent, replies, options),
+  };
 }
 
 export type ProcessFeedEventsOptions = {

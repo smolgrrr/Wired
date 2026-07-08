@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import type { Event } from "nostr-tools";
 import { subNotesOnce } from "../nostr/subscriptions";
-import { toProcessedEvents } from "../nostr/processEvents";
+import { scoreThreadPost } from "../nostr/processEvents";
 import { uniqBy } from "@lib/collections";
 import { useThreadEvents } from "./useThreadEvents";
 import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
 import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { filterModeratedEvents } from "../shared/lib/moderation";
+import { useSettings } from "../app/settings";
 
 export function useThreadViewModel(
   hexID: string,
@@ -14,8 +15,13 @@ export function useThreadViewModel(
   relayHints: readonly string[] = [],
 ) {
   const [showAllReplies, setShowAllReplies] = useState(true);
+  const { settings } = useSettings();
   const moderationManifest = useModerationManifest();
   const { noteEvents } = useThreadEvents(hexID, relayHints);
+  const scoreOptions = useMemo(
+    () => ({ minReplyDifficulty: settings.filterDifficulty }),
+    [settings.filterDifficulty],
+  );
 
   const allEvents = useMemo(() => {
     return filterModeratedEvents([...noteEvents, ...seedEvents], moderationManifest);
@@ -56,11 +62,15 @@ export function useThreadViewModel(
       (event) => !earlierIds.has(event.id) && opEvent.id !== event.id,
     );
 
-    return toProcessedEvents(
-      posts,
-      allEvents,
-    );
-  }, [opEvent, prevMentions, allEvents, moderationManifest]);
+    return posts
+      .map((postEvent) => scoreThreadPost(postEvent, allEvents, scoreOptions))
+      .sort((a, b) => a.postEvent.created_at - b.postEvent.created_at);
+  }, [opEvent, prevMentions, allEvents, moderationManifest, scoreOptions]);
+
+  const opScore = useMemo(() => {
+    if (!opEvent) return undefined;
+    return scoreThreadPost(opEvent, allEvents, scoreOptions);
+  }, [opEvent, allEvents, scoreOptions]);
 
   const earlierEvents = useMemo(() => {
     if (!opEvent) return [];
@@ -78,6 +88,7 @@ export function useThreadViewModel(
 
   return {
     opEvent,
+    opScore,
     earlierEvents,
     replyEvents,
     eventsById,

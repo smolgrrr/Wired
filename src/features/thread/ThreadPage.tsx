@@ -9,7 +9,6 @@ import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
 import { ThreadComposer } from "../compose/ThreadComposer";
 import { useInfiniteScroll } from "../../shared/hooks/useInfiniteScroll";
 import { useThreadViewModel } from "../../hooks/useThreadViewModel";
-import { eventWork } from "../../nostr/processing/pow-score";
 import {
   readThreadSeedEvents,
   useSnapshotThreadSeedEvents,
@@ -29,6 +28,7 @@ function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[]
   const openThread = useThreadNavigation();
   const {
     opEvent,
+    opScore,
     earlierEvents,
     replyEvents,
     eventsById,
@@ -36,13 +36,6 @@ function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[]
     setShowAllReplies,
     uniqMentions,
   } = useThreadViewModel(hexID, seedEvents, relayHints);
-  const directReplyEvents = replyEvents.filter((event) =>
-    event.postEvent.tags.some((tag) => tag[0] === "e" && tag[1] === hexID),
-  );
-  const opTotalWork = opEvent
-    ? eventWork(opEvent) +
-      directReplyEvents.reduce((total, event) => total + event.totalWork, 0)
-    : undefined;
 
   if (opEvent) {
     return (
@@ -61,10 +54,10 @@ function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[]
           ))}
           <PostCard
             event={opEvent}
-            replies={replyEvents.flatMap((event) => event.replies)}
+            replies={opScore?.replies ?? []}
             role="threadOp"
-            totalWork={opTotalWork || undefined}
-            replyCount={directReplyEvents.length}
+            totalWork={opScore?.totalWork}
+            replyCount={opScore?.threadReplyCount}
           />
         </ContentColumn>
         <ThreadComposer OPEvent={opEvent} />
