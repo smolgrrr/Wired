@@ -3,12 +3,16 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Event, UnsignedEvent } from "nostr-tools";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSubmitForm } from "./useSubmitForm";
+
+type ReactActGlobal = typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 
 const mocks = vi.hoisted(() => ({
   appendKey: vi.fn(),
   publish: vi.fn(),
+  fetchWiredAccountStatus: vi.fn(),
+  submitWiredAccountPost: vi.fn(),
 }));
 let mockWorkers: MockWorker[] = [];
 
@@ -33,6 +37,11 @@ vi.mock("../../nostr/client", () => ({
 
 vi.mock("./useStoredKeys", () => ({
   useStoredKeys: () => ({ appendKey: mocks.appendKey }),
+}));
+
+vi.mock("../../features/wiredAccount/api", () => ({
+  fetchWiredAccountStatus: mocks.fetchWiredAccountStatus,
+  submitWiredAccountPost: mocks.submitWiredAccountPost,
 }));
 
 class MockWorker {
@@ -69,8 +78,27 @@ const minedEvent = {
   tags: [...unsigned.tags, ["nonce", "1", "1"]],
 };
 
-function Probe({ onState }: { onState: (state: ReturnType<typeof useSubmitForm>) => void }) {
-  const state = useSubmitForm(unsigned, "1");
+const disabledWiredAccountStatus = {
+  configured: false,
+  pubkey: "",
+  minimumPow: 16,
+};
+
+const wiredPubkey = "a".repeat(64);
+const configuredWiredAccountStatus = {
+  configured: true,
+  pubkey: wiredPubkey,
+  minimumPow: 1,
+};
+
+function Probe({
+  difficulty = "1",
+  onState,
+}: {
+  difficulty?: string;
+  onState: (state: ReturnType<typeof useSubmitForm>) => void;
+}) {
+  const state = useSubmitForm(unsigned, difficulty);
   onState(state);
 
   return (
@@ -85,6 +113,14 @@ describe("useSubmitForm", () => {
   let root: Root;
   let state: ReturnType<typeof useSubmitForm>;
 
+  beforeAll(() => {
+    (globalThis as ReactActGlobal).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as ReactActGlobal).IS_REACT_ACT_ENVIRONMENT;
+  });
+
   beforeEach(() => {
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -92,6 +128,9 @@ describe("useSubmitForm", () => {
     mockWorkers = [];
     mocks.appendKey.mockReset();
     mocks.publish.mockReset();
+    mocks.fetchWiredAccountStatus.mockReset();
+    mocks.submitWiredAccountPost.mockReset();
+    mocks.fetchWiredAccountStatus.mockResolvedValue(disabledWiredAccountStatus);
     vi.stubGlobal("Worker", MockWorker);
     Object.defineProperty(window.navigator, "hardwareConcurrency", {
       configurable: true,
@@ -110,6 +149,7 @@ describe("useSubmitForm", () => {
   async function submitForm() {
     await act(async () => {
       container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
     });
   }
 
@@ -153,6 +193,115 @@ describe("useSubmitForm", () => {
     expect(state.submitError).toBeNull();
     expect(state.acceptedRelays).toEqual(["wss://relay.example"]);
     expect(mocks.appendKey).toHaveBeenCalledTimes(1);
+  });
+
+  it("mines high-PoW posts with the Wired account pubkey and submits them to wired-admin", async () => {
+    const wiredMinedEvent = {
+      ...unsigned,
+      id: "3".repeat(64),
+      pubkey: wiredPubkey,
+      tags: [...unsigned.tags, ["nonce", "2", "1"]],
+    };
+    const wiredSignedEvent = {
+      ...wiredMinedEvent,
+      sig: "4".repeat(128),
+    };
+    mocks.fetchWiredAccountStatus.mockResolvedValue(configuredWiredAccountStatus);
+    mocks.submitWiredAccountPost.mockResolvedValue({
+      ok: true,
+      event: wiredSignedEvent,
+      acceptedRelays: ["wss://wired.example"],
+    });
+
+    act(() => {
+      root.render(<Probe onState={(nextState) => (state = nextState)} />);
+    });
+
+    await submitForm();
+
+    expect(mockWorkers[0].postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      difficulty: 1,
+      unsigned: expect.objectContaining({ pubkey: wiredPubkey }),
+    }));
+
+    await act(async () => {
+      mockWorkers[0].emit({ type: "found", event: wiredMinedEvent });
+    });
+
+    expect(mocks.submitWiredAccountPost).toHaveBeenCalledTimes(1);
+    expect(mocks.submitWiredAccountPost).toHaveBeenCalledWith(wiredMinedEvent);
+    expect(mocks.submitWiredAccountPost.mock.calls[0][0]).not.toHaveProperty("sig");
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(mocks.appendKey).not.toHaveBeenCalled();
+    expect(state.signedPoWEvent).toEqual(wiredSignedEvent);
+    expect(state.acceptedRelays).toEqual(["wss://wired.example"]);
+    expect(state.submitStatus).toBe("published");
+  });
+
+  it("keeps below-threshold posts on the anonymous publish path", async () => {
+    mocks.fetchWiredAccountStatus.mockResolvedValue({
+      ...configuredWiredAccountStatus,
+      minimumPow: 20,
+    });
+    mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
+
+    act(() => {
+      root.render(<Probe onState={(nextState) => (state = nextState)} />);
+    });
+
+    await submitForm();
+
+    expect(mockWorkers[0].postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      difficulty: 1,
+      unsigned: expect.objectContaining({ pubkey: "f".repeat(64) }),
+    }));
+
+    await act(async () => {
+      mockWorkers[0].emit({ type: "found", event: minedEvent });
+    });
+
+    expect(mocks.publish).toHaveBeenCalledTimes(1);
+    expect(mocks.submitWiredAccountPost).not.toHaveBeenCalled();
+    expect(mocks.appendKey).toHaveBeenCalledTimes(1);
+    expect((state.signedPoWEvent as Event | undefined)?.pubkey).toBe("f".repeat(64));
+  });
+
+  it("does not flip a high-PoW submit attempt when difficulty changes mid-mine", async () => {
+    const wiredMinedEvent = {
+      ...unsigned,
+      id: "5".repeat(64),
+      pubkey: wiredPubkey,
+      tags: [...unsigned.tags, ["nonce", "3", "1"]],
+    };
+    const wiredSignedEvent = {
+      ...wiredMinedEvent,
+      sig: "6".repeat(128),
+    };
+    mocks.fetchWiredAccountStatus.mockResolvedValue(configuredWiredAccountStatus);
+    mocks.submitWiredAccountPost.mockResolvedValue({
+      ok: true,
+      event: wiredSignedEvent,
+      acceptedRelays: ["wss://wired.example"],
+    });
+
+    act(() => {
+      root.render(<Probe difficulty="1" onState={(nextState) => (state = nextState)} />);
+    });
+
+    await submitForm();
+    const worker = mockWorkers[0];
+
+    act(() => {
+      root.render(<Probe difficulty="0" onState={(nextState) => (state = nextState)} />);
+    });
+
+    await act(async () => {
+      worker.emit({ type: "found", event: wiredMinedEvent });
+    });
+
+    expect(mocks.submitWiredAccountPost).toHaveBeenCalledTimes(1);
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(state.signedPoWEvent).toEqual(wiredSignedEvent);
   });
 
   it("does not expose a posted event when publish rejects", async () => {

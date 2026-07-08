@@ -4,6 +4,11 @@ import { publish } from "../../nostr/client";
 import { bytesToHex } from "@noble/hashes/utils";
 import { useStoredKeys } from "./useStoredKeys";
 import { usePowMining } from "./usePowMining";
+import {
+  fetchWiredAccountStatus,
+  submitWiredAccountPost,
+  type WiredAccountStatus,
+} from "../../features/wiredAccount/api";
 
 export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
 
@@ -15,6 +20,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
   const [sk, setSk] = useState(generateSecretKey());
   const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
   const [signedPoWEvent, setSignedPoWEvent] = useState<Event>();
+  const [wiredAccountStatus, setWiredAccountStatus] = useState<WiredAccountStatus | null>(null);
   const activeSubmitId = useRef(0);
 
   const numCores = navigator.hardwareConcurrency || 4;
@@ -22,21 +28,50 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
   const doingWorkProp = submitStatus === "mining" || submitStatus === "publishing";
 
   useEffect(() => {
+    let cancelled = false;
+
+    void fetchWiredAccountStatus()
+      .then((status) => {
+        if (!cancelled) setWiredAccountStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setWiredAccountStatus(null);
+      });
+
     return () => {
+      cancelled = true;
       activeSubmitId.current += 1;
     };
   }, []);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const submitId = activeSubmitId.current + 1;
     activeSubmitId.current = submitId;
+    const submitDifficulty = difficulty;
+    const submitDifficultyNumber = Number(submitDifficulty);
     setSubmitStatus("mining");
     setSubmitError(null);
     setAcceptedRelays([]);
     setSignedPoWEvent(undefined);
 
+    const status = await fetchWiredAccountStatus({ force: true }).catch(() => wiredAccountStatus);
+    if (activeSubmitId.current !== submitId) return;
+    if (status && status !== wiredAccountStatus) {
+      setWiredAccountStatus(status);
+    }
+
+    const shouldUseWiredAccount =
+      Boolean(status?.configured && status.pubkey) &&
+      Number.isFinite(submitDifficultyNumber) &&
+      submitDifficultyNumber >= Number(status?.minimumPow);
+    const submitUnsigned = shouldUseWiredAccount && status?.pubkey
+      ? { ...unsigned, pubkey: status.pubkey }
+      : unsignedWithPubkey;
+
     startWork({
+      unsigned: submitUnsigned,
+      difficulty: submitDifficulty,
       onMined: async (minedEvent) => {
         if (activeSubmitId.current !== submitId) return;
 
@@ -44,6 +79,24 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
         setSubmitError(null);
 
         try {
+          if (shouldUseWiredAccount) {
+            const result = await submitWiredAccountPost(minedEvent);
+            if (activeSubmitId.current !== submitId) return;
+
+            if (result.acceptedRelays.length === 0) {
+              setSubmitStatus("failed");
+              setSubmitError("No relay accepted the event. Your draft was not posted.");
+              setSignedPoWEvent(undefined);
+              setAcceptedRelays([]);
+              return;
+            }
+
+            setAcceptedRelays(result.acceptedRelays);
+            setSignedPoWEvent(result.event);
+            setSubmitStatus("published");
+            return;
+          }
+
           const signedEvent = finalizeEvent(minedEvent, sk);
           const accepted = await publish(signedEvent);
           if (activeSubmitId.current !== submitId) return;

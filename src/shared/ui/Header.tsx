@@ -55,12 +55,6 @@ export function Header() {
         </Link>
         <nav className="flex shrink-0 gap-4" aria-label="Primary navigation">
           <NavLink
-            to="/confess"
-            label="confess"
-            isActive={pathname === "/confess"}
-            signalGlow
-          />
-          <NavLink
             to="/notifications"
             label="activity"
             isActive={pathname === "/notifications"}
