@@ -169,7 +169,13 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
       </Button>
 
       {isOpen && (
-        <div className="fixed inset-x-3 bottom-20 z-50 max-h-[calc(100dvh-7rem)] rounded-sm border border-ghost bg-surface-raised shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-2 sm:max-h-none sm:w-[min(22rem,calc(100vw-2rem))]">
+        <div
+          className={[
+            "z-50 flex max-h-[min(24rem,calc(100dvh-8rem))] w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-sm border border-ghost bg-surface-raised shadow-2xl",
+            "fixed bottom-20 left-1/2 -translate-x-1/2",
+            "sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(24rem,calc(100dvh-6rem))] sm:translate-x-0",
+          ].join(" ")}
+        >
           <div className="border-b border-ghost p-2">
             <Input
               type="search"
@@ -197,7 +203,7 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
             </div>
           )}
 
-          <div className="h-[min(16rem,calc(100dvh-16rem))] min-h-40 overflow-y-auto p-2 sm:h-64">
+          <div className="min-h-40 flex-1 overflow-y-auto p-2 sm:h-64 sm:flex-none">
             {visibleEmojis.length === 0 && (
               <p className="px-2 py-8 text-center text-meta text-secondary">
                 {catalogState.status === "error"
