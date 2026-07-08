@@ -21,6 +21,9 @@ The client uses it for:
 - feed bootstrap snapshots
 - moderation manifests
 - PoW relay writes and reads
-- Confess API calls
+- Wired account status and high-PoW post submission
+
+Production uses `https://relay.wiredsignal.online` for the Wired account API
+via `VITE_WIRED_ACCOUNT_API_BASE`.
 
 Do not commit local `.env*` files.
