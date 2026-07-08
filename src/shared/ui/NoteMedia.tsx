@@ -15,6 +15,62 @@ function MediaFallback() {
   );
 }
 
+type MediaOrientation = "landscape" | "portrait" | "square";
+
+function getOrientation(width?: number, height?: number): MediaOrientation {
+  if (!width || !height) return "landscape";
+  const ratio = width / height;
+  if (ratio > 1.1) return "landscape";
+  if (ratio < 0.9) return "portrait";
+  return "square";
+}
+
+function aspectRatioFromDimensions(width?: number, height?: number): string {
+  if (width && height) return `${width} / ${height}`;
+  return "16 / 9";
+}
+
+function imageClasses(orientation: MediaOrientation, compact?: boolean): string {
+  const base = "rounded border border-ghost object-contain";
+
+  if (compact) {
+    switch (orientation) {
+      case "portrait":
+        return [base, "mx-auto block max-w-[min(100%,12rem)] max-h-[16rem]"].join(" ");
+      case "square":
+        return [base, "mx-auto block max-w-[14rem] max-h-[14rem]"].join(" ");
+      default:
+        return [base, "mx-auto block max-w-full max-h-[12rem]"].join(" ");
+    }
+  }
+
+  return [base, "w-full max-h-[32rem]"].join(" ");
+}
+
+function videoWrapperClasses(orientation: MediaOrientation, compact?: boolean): string {
+  const base = "relative overflow-hidden rounded border border-ghost bg-surface";
+
+  if (compact) {
+    switch (orientation) {
+      case "portrait":
+        return [base, "mx-auto max-w-[min(100%,10rem)] max-h-[14rem]"].join(" ");
+      case "square":
+        return [base, "mx-auto max-w-[12rem] max-h-[12rem]"].join(" ");
+      default:
+        return [base, "mx-auto max-w-full max-h-[12rem]"].join(" ");
+    }
+  }
+
+  switch (orientation) {
+    case "portrait":
+      return [base, "mx-auto w-full max-w-[min(100%,18rem)] max-h-[min(60vh,32rem)]"].join(" ");
+    case "square":
+      return [base, "mx-auto w-full max-w-[24rem] max-h-[32rem]"].join(" ");
+    default:
+      return [base, "w-full max-h-[min(60vh,32rem)]"].join(" ");
+  }
+}
+
 function useOptimizedImage(
   url: string,
   width: number,
@@ -51,6 +107,7 @@ function MediaImage({
   if (failed) return <MediaFallback />;
 
   const hasDimensions = Boolean(item.width && item.height);
+  const orientation = getOrientation(item.width, item.height);
 
   return (
     <img
@@ -65,14 +122,11 @@ function MediaImage({
         onError();
         if (src === item.url) setFailed(true);
       }}
-      className={[
-        "w-full rounded border border-ghost object-contain",
-        compact ? "max-h-[120px]" : "max-h-[32rem]",
-      ].join(" ")}
+      className={imageClasses(orientation, compact)}
       style={
         hasDimensions
           ? { aspectRatio: `${item.width} / ${item.height}` }
-          : { aspectRatio: "4 / 3", minHeight: compact ? "5rem" : "12rem" }
+          : { aspectRatio: "4 / 3", minHeight: compact ? "6rem" : "12rem" }
       }
     />
   );
@@ -151,9 +205,16 @@ function MediaVideo({
   const [failed, setFailed] = useState(false);
   const [started, setStarted] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
+  const [resolvedDimensions, setResolvedDimensions] = useState({
+    width: item.width,
+    height: item.height,
+  });
 
-  const hasDimensions = Boolean(item.width && item.height);
-  const aspectRatio = hasDimensions ? `${item.width} / ${item.height}` : "16 / 9";
+  const orientation = getOrientation(resolvedDimensions.width, resolvedDimensions.height);
+  const aspectRatio = aspectRatioFromDimensions(
+    resolvedDimensions.width,
+    resolvedDimensions.height,
+  );
   const hasPoster = Boolean(item.posterUrl);
   const shouldPrimePreview = priority || inView;
   const requestFirstFrame = useCallback(() => {
@@ -175,6 +236,24 @@ function MediaVideo({
       // Cross-origin or streaming media may reject seeking; native controls remain usable.
     }
   }, [hasPoster]);
+  const handleLoadedMetadata = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (
+      !item.width &&
+      !item.height &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
+    ) {
+      setResolvedDimensions({
+        width: video.videoWidth,
+        height: video.videoHeight,
+      });
+    }
+
+    if (shouldPrimePreview) requestFirstFrame();
+  }, [item.width, item.height, requestFirstFrame, shouldPrimePreview]);
 
   useEffect(() => {
     if (hasPoster || !shouldPrimePreview || primedRef.current) return;
@@ -192,10 +271,7 @@ function MediaVideo({
   return (
     <div
       ref={inViewRef}
-      className={[
-        "relative overflow-hidden rounded border border-ghost bg-surface",
-        compact ? "max-h-[120px]" : "max-h-[min(60vh,24rem)]",
-      ].join(" ")}
+      className={videoWrapperClasses(orientation, compact)}
       style={{ aspectRatio }}
     >
       <video
@@ -206,9 +282,7 @@ function MediaVideo({
         preload={hasPoster || !shouldPrimePreview ? "metadata" : "auto"}
         playsInline
         onPlay={() => setStarted(true)}
-        onLoadedMetadata={() => {
-          if (shouldPrimePreview) requestFirstFrame();
-        }}
+        onLoadedMetadata={handleLoadedMetadata}
         onLoadedData={() => setPreviewReady(true)}
         onCanPlay={() => setPreviewReady(true)}
         onSeeked={() => setPreviewReady(true)}

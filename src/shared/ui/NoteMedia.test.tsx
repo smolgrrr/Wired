@@ -151,6 +151,128 @@ describe("NoteMedia video previews", () => {
     expect(video?.currentTime).toBe(0);
   });
 
+  it("uses orientation-aware compact classes for quoted landscape images", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          compact
+          item={{
+            url: "https://example.com/comic.jpg",
+            type: "image",
+            width: 1200,
+            height: 400,
+          }}
+        />,
+      );
+    });
+
+    const image = container.querySelector("img");
+    expect(image?.className).toContain("mx-auto");
+    expect(image?.className).toContain("max-h-[12rem]");
+    expect(image?.className.split(/\s+/)).not.toContain("w-full");
+    expect(image?.className).not.toContain("max-h-[120px]");
+    expect(image?.style.aspectRatio).toBe("1200 / 400");
+  });
+
+  it("uses orientation-aware compact classes for quoted portrait images", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          compact
+          item={{
+            url: "https://example.com/panel.jpg",
+            type: "image",
+            width: 800,
+            height: 1400,
+          }}
+        />,
+      );
+    });
+
+    const image = container.querySelector("img");
+    expect(image?.className).toContain("mx-auto");
+    expect(image?.className).toContain("max-w-[min(100%,12rem)]");
+    expect(image?.className).toContain("max-h-[16rem]");
+    expect(image?.className.split(/\s+/)).not.toContain("w-full");
+    expect(image?.style.aspectRatio).toBe("800 / 1400");
+  });
+
+  it("uses orientation-aware compact classes for quoted landscape video", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          compact
+          item={{
+            url: "https://example.com/quoted.mp4",
+            type: "video",
+            width: 640,
+            height: 360,
+          }}
+        />,
+      );
+    });
+
+    const wrapper = container.querySelector("video")?.parentElement;
+    expect(wrapper?.className).toContain("mx-auto");
+    expect(wrapper?.className).toContain("max-h-[12rem]");
+    expect(wrapper?.className).not.toContain("max-h-[120px]");
+    expect(wrapper?.style.aspectRatio).toBe("640 / 360");
+  });
+
+  it("constrains portrait video width in full posts", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{
+            url: "https://example.com/portrait.mp4",
+            type: "video",
+            width: 720,
+            height: 1280,
+          }}
+        />,
+      );
+    });
+
+    const wrapper = container.querySelector("video")?.parentElement;
+    expect(wrapper?.className).toContain("mx-auto");
+    expect(wrapper?.className).toContain("max-w-[min(100%,18rem)]");
+    expect(wrapper?.className).toContain("max-h-[min(60vh,32rem)]");
+    expect(wrapper?.style.aspectRatio).toBe("720 / 1280");
+  });
+
+  it("learns aspect ratio from loaded metadata when imeta dimensions are missing", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{
+            url: "https://example.com/bare-portrait.mp4",
+            type: "video",
+          }}
+        />,
+      );
+    });
+
+    const video = container.querySelector("video");
+    const wrapper = video?.parentElement;
+    expect(wrapper?.style.aspectRatio).toBe("16 / 9");
+
+    Object.defineProperty(video, "videoWidth", {
+      configurable: true,
+      value: 720,
+    });
+    Object.defineProperty(video, "videoHeight", {
+      configurable: true,
+      value: 1280,
+    });
+
+    act(() => {
+      video?.dispatchEvent(new Event("loadedmetadata", { bubbles: true }));
+    });
+
+    expect(wrapper?.style.aspectRatio).toBe("720 / 1280");
+    expect(wrapper?.className).toContain("max-w-[min(100%,18rem)]");
+  });
+
   it("keeps the media fallback on video errors", () => {
     act(() => {
       root.render(

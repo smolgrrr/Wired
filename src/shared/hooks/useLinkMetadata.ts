@@ -73,6 +73,7 @@ export function useLinkMetadata(url: string, enabled = true): LinkMetadataState 
     }
 
     let cancelled = false;
+    setState({ status: "loading" });
 
     void loadMetadata(url).then((result) => {
       if (!cancelled) {
