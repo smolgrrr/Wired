@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SmilePlus } from "lucide-react";
-import { getEmojiDisplayUrls } from "@lib/customEmoji";
+import { getEmojiPickerDisplayUrls } from "@lib/customEmoji";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
 import {
@@ -13,8 +13,9 @@ import {
 } from "./customEmojiCatalog";
 
 const MAX_VISIBLE_EMOJIS = 120;
-const FAILED_EMOJI_STORAGE_KEY = "wired.failedCustomEmojiPreviewUrls";
-const MAX_STORED_FAILED_EMOJIS = 500;
+const FAILED_EMOJI_STORAGE_KEY = "wired.failedCustomEmojis";
+const LEGACY_FAILED_EMOJI_STORAGE_KEY = "wired.failedCustomEmojiPreviewUrls";
+const MAX_STORED_FAILED_EMOJIS = 2000;
 
 type CustomEmojiPickerProps = {
   onSelect: (emoji: CustomEmoji) => void;
@@ -23,38 +24,60 @@ type CustomEmojiPickerProps = {
 type EmojiButtonProps = {
   emoji: CustomEmoji;
   onSelect: () => void;
-  onPreviewFailure: (urls: string[]) => void;
+  onPreviewFailure: (emoji: CustomEmoji) => void;
 };
 
-function loadFailedPreviewUrls() {
+export function emojiFailureKey(emoji: CustomEmoji): string {
+  return `${emoji.shortcode}:${emoji.url}`;
+}
+
+function loadFailedEmojiKeys() {
   if (typeof window === "undefined") return new Set<string>();
 
   try {
-    const storedUrls = JSON.parse(window.localStorage.getItem(FAILED_EMOJI_STORAGE_KEY) ?? "[]") as unknown;
+    const storedKeys = JSON.parse(
+      window.localStorage.getItem(FAILED_EMOJI_STORAGE_KEY) ?? "[]",
+    ) as unknown;
 
-    if (!Array.isArray(storedUrls)) {
+    if (!Array.isArray(storedKeys)) {
       return new Set<string>();
     }
 
-    return new Set(storedUrls.filter((url): url is string => typeof url === "string"));
+    return new Set(storedKeys.filter((key): key is string => typeof key === "string"));
   } catch {
     return new Set<string>();
   }
 }
 
-function storeFailedPreviewUrls(urls: Set<string>) {
+function storeFailedEmojiKeys(keys: Set<string>) {
   if (typeof window === "undefined") return;
 
-  const compactUrls = Array.from(urls).slice(-MAX_STORED_FAILED_EMOJIS);
-  window.localStorage.setItem(FAILED_EMOJI_STORAGE_KEY, JSON.stringify(compactUrls));
+  const compactKeys = Array.from(keys).slice(-MAX_STORED_FAILED_EMOJIS);
+  window.localStorage.setItem(FAILED_EMOJI_STORAGE_KEY, JSON.stringify(compactKeys));
+  window.localStorage.removeItem(LEGACY_FAILED_EMOJI_STORAGE_KEY);
 }
 
 function EmojiButton({ emoji, onSelect, onPreviewFailure }: EmojiButtonProps) {
-  const displayUrls = getEmojiDisplayUrls(emoji.previewUrl);
+  const displayUrls = getEmojiPickerDisplayUrls(emoji.previewUrl, emoji.url);
   const [displayUrlIndex, setDisplayUrlIndex] = useState(0);
+  const [isHidden, setIsHidden] = useState(false);
   const displayUrl = displayUrls[displayUrlIndex];
 
-  if (!displayUrl) {
+  const failPreview = useCallback(() => {
+    setIsHidden(true);
+    onPreviewFailure(emoji);
+  }, [emoji, onPreviewFailure]);
+
+  const tryNextUrl = useCallback(() => {
+    if (displayUrlIndex + 1 < displayUrls.length) {
+      setDisplayUrlIndex((current) => current + 1);
+      return;
+    }
+
+    failPreview();
+  }, [displayUrlIndex, displayUrls.length, failPreview]);
+
+  if (isHidden || !displayUrl) {
     return null;
   }
 
@@ -70,14 +93,14 @@ function EmojiButton({ emoji, onSelect, onPreviewFailure }: EmojiButtonProps) {
         src={displayUrl}
         alt=""
         className="max-h-full max-w-full object-contain"
-        onError={() => {
-          if (displayUrlIndex + 1 < displayUrls.length) {
-            setDisplayUrlIndex((current) => current + 1);
-            return;
-          }
+        onLoad={(event) => {
+          const image = event.currentTarget;
 
-          onPreviewFailure(displayUrls);
+          if (image.naturalWidth === 0 || image.naturalHeight === 0) {
+            tryNextUrl();
+          }
         }}
+        onError={tryNextUrl}
       />
     </button>
   );
@@ -88,7 +111,7 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const [search, setSearch] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
   const [catalogState, setCatalogState] = useState(getCustomEmojiCatalogState);
-  const [failedPreviewUrls, setFailedPreviewUrls] = useState(loadFailedPreviewUrls);
+  const [failedEmojiKeys, setFailedEmojiKeys] = useState(loadFailedEmojiKeys);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,22 +154,22 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const filteredEmojis = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return filterCustomEmojis(catalogState.emojis, query, activeGroup).filter((emoji) => {
-      const displayUrls = getEmojiDisplayUrls(emoji.previewUrl);
+    return filterCustomEmojis(catalogState.emojis, query, activeGroup).filter(
+      (emoji) => !failedEmojiKeys.has(emojiFailureKey(emoji)),
+    );
+  }, [activeGroup, catalogState.emojis, failedEmojiKeys, search]);
 
-      return !displayUrls.some((url) => failedPreviewUrls.has(url));
-    });
-  }, [activeGroup, catalogState.emojis, failedPreviewUrls, search]);
+  function handlePreviewFailure(emoji: CustomEmoji) {
+    const key = emojiFailureKey(emoji);
 
-  function handlePreviewFailure(urls: string[]) {
-    setFailedPreviewUrls((current) => {
-      if (urls.every((url) => current.has(url))) {
+    setFailedEmojiKeys((current) => {
+      if (current.has(key)) {
         return current;
       }
 
       const next = new Set(current);
-      urls.forEach((url) => next.add(url));
-      storeFailedPreviewUrls(next);
+      next.add(key);
+      storeFailedEmojiKeys(next);
       return next;
     });
   }

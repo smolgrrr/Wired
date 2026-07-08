@@ -35,3 +35,7 @@ export function getEmojiDisplayUrls(url: string) {
 
   return proxiedUrl ? [proxiedUrl, url] : [url];
 }
+
+export function getEmojiPickerDisplayUrls(previewUrl: string, url: string) {
+  return [...new Set([previewUrl, url].filter(Boolean))];
+}
