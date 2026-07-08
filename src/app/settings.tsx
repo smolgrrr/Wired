@@ -22,9 +22,19 @@ type SettingsContextValue = {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
+const LEGACY_DEFAULT_FILTER_DIFFICULTY = 21;
+
+function loadFilterDifficulty(): number {
+  const stored = Number(localStorage.getItem("filterDifficulty"));
+  if (!stored || stored === LEGACY_DEFAULT_FILTER_DIFFICULTY) {
+    return DEFAULT_FILTER_DIFFICULTY;
+  }
+  return stored;
+}
+
 const loadSettings = (): Settings => ({
   difficulty: Number(localStorage.getItem("difficulty")) || DEFAULT_POST_DIFFICULTY,
-  filterDifficulty: Number(localStorage.getItem("filterDifficulty")) || DEFAULT_FILTER_DIFFICULTY,
+  filterDifficulty: loadFilterDifficulty(),
   ageHours: Number(localStorage.getItem("age")) || 24,
   sortByPow: localStorage.getItem("sortBy") !== "false",
 });
