@@ -6,7 +6,8 @@ import {
 import { unfurlUrl } from "../../lib/unfurl.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
-const UNFURL_CACHE_HEADER = "public, max-age=3600";
+const UNFURL_CACHE_HEADER =
+  "public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600";
 export const FEED_BOOTSTRAP_CACHE_HEADER =
   "public, s-maxage=120, stale-while-revalidate=300";
 

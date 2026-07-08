@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isSafeUrl, unfurlUrl } from "./unfurl";
+import { isSafeUrl, resetUnfurlCachesForTests, unfurlUrl } from "./unfurl";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
@@ -23,6 +23,7 @@ describe("isSafeUrl", () => {
 
 describe("unfurlUrl", () => {
   beforeEach(() => {
+    resetUnfurlCachesForTests();
     mockedLookup.mockReset();
     mockedLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as never);
     vi.stubGlobal("fetch", vi.fn());
@@ -62,6 +63,61 @@ describe("unfurlUrl", () => {
       domain: "example.com",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops reading HTML after the head closes", async () => {
+    const fetchMock = vi.mocked(fetch);
+    const body = [
+      "<html><head>",
+      '<meta property="og:title" content="Head title">',
+      "</head>",
+      "<body>",
+      "x".repeat(100_000),
+    ].join("");
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(body);
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoded);
+        controller.close();
+      },
+    });
+
+    fetchMock.mockResolvedValue(
+      new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    );
+
+    await expect(unfurlUrl("https://example.com/post")).resolves.toMatchObject({
+      title: "Head title",
+      domain: "example.com",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses cached DNS lookups across redirect hops", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: "/next" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response("<html><head><title>Cached DNS</title></head></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+      );
+
+    await expect(unfurlUrl("https://example.com/post")).resolves.toMatchObject({
+      title: "Cached DNS",
+      domain: "example.com",
+    });
+    expect(mockedLookup).toHaveBeenCalledTimes(1);
   });
 
   it("uses the final redirect URL as the metadata base", async () => {

@@ -6,7 +6,15 @@ export type { LinkMetadata };
 
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_HTML_BYTES = 512_000;
+const MAX_HEAD_BYTES = 65_536;
 const MAX_REDIRECTS = 5;
+const HEAD_END_PATTERN = /<\/head>/i;
+
+const dnsResolutionCache = new Map<string, boolean>();
+
+export function resetUnfurlCachesForTests(): void {
+  dnsResolutionCache.clear();
+}
 const STANDARD_PORTS: Record<string, string> = {
   "http:": "80",
   "https:": "443",
@@ -65,16 +73,28 @@ export function isSafeUrl(url: string): boolean {
 }
 
 async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
-  if (isIP(hostname)) {
-    return !isPrivateAddress(hostname);
+  const normalized = hostname.toLowerCase();
+  const cached = dnsResolutionCache.get(normalized);
+  if (cached !== undefined) {
+    return cached;
   }
 
-  try {
-    const records = await lookup(hostname, { all: true, verbatim: true });
-    return records.length > 0 && records.every((record) => !isPrivateAddress(record.address));
-  } catch {
-    return false;
+  let isPublic = false;
+
+  if (isIP(hostname)) {
+    isPublic = !isPrivateAddress(hostname);
+  } else {
+    try {
+      const records = await lookup(hostname, { all: true, verbatim: true });
+      isPublic =
+        records.length > 0 && records.every((record) => !isPrivateAddress(record.address));
+    } catch {
+      isPublic = false;
+    }
   }
+
+  dnsResolutionCache.set(normalized, isPublic);
+  return isPublic;
 }
 
 async function isSafeFetchUrl(url: string): Promise<boolean> {
@@ -155,10 +175,22 @@ function extractMetadata(html: string, pageUrl: string): LinkMetadata {
   };
 }
 
+function shouldStopReadingHtml(html: string, bytes: number): boolean {
+  if (HEAD_END_PATTERN.test(html)) return true;
+  if (bytes >= MAX_HEAD_BYTES) return true;
+  if (bytes > MAX_HTML_BYTES) return true;
+  return false;
+}
+
 async function readLimitedHtml(response: Response): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) {
-    return response.text();
+    const html = await response.text();
+    const headMatch = html.match(HEAD_END_PATTERN);
+    if (headMatch?.index !== undefined) {
+      return html.slice(0, headMatch.index + headMatch[0].length);
+    }
+    return html.slice(0, MAX_HEAD_BYTES);
   }
 
   const decoder = new TextDecoder();
@@ -169,12 +201,21 @@ async function readLimitedHtml(response: Response): Promise<string> {
     const { done, value } = await reader.read();
     if (done) break;
     bytes += value.byteLength;
-    if (bytes > MAX_HTML_BYTES) break;
     html += decoder.decode(value, { stream: true });
+    if (shouldStopReadingHtml(html, bytes)) {
+      reader.cancel().catch(() => undefined);
+      break;
+    }
   }
 
   html += decoder.decode();
-  return html;
+
+  const headMatch = html.match(HEAD_END_PATTERN);
+  if (headMatch?.index !== undefined) {
+    return html.slice(0, headMatch.index + headMatch[0].length);
+  }
+
+  return html.slice(0, MAX_HEAD_BYTES);
 }
 
 function isRedirectStatus(status: number): boolean {
