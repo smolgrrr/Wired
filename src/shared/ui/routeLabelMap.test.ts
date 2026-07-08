@@ -4,7 +4,6 @@ import { getDisplaySegment, getPathDisplay } from "./routeLabelMap";
 describe("routeLabelMap", () => {
   it("maps known routes to display segments", () => {
     expect(getDisplaySegment("/")).toBe("");
-    expect(getDisplaySegment("/confess")).toBe("confess");
     expect(getDisplaySegment("/notifications")).toBe("activity");
     expect(getDisplaySegment("/raw")).toBe("raw");
     expect(getDisplaySegment("/settings")).toBe("settings");
@@ -13,7 +12,6 @@ describe("routeLabelMap", () => {
 
   it("builds path display labels", () => {
     expect(getPathDisplay("/")).toBe("/");
-    expect(getPathDisplay("/confess")).toBe("/confess");
     expect(getPathDisplay("/notifications")).toBe("/activity");
     expect(getPathDisplay("/raw")).toBe("/raw");
     expect(getPathDisplay("/settings")).toBe("/settings");

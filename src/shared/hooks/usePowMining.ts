@@ -3,6 +3,8 @@ import type { UnsignedEvent } from "nostr-tools";
 import type { MinedPowEvent, PowWorkerRequest, PowWorkerResponse } from "../../workers/powWorker";
 
 type StartWorkOptions = {
+  unsigned?: UnsignedEvent;
+  difficulty?: string;
   onMined: (event: MinedPowEvent) => void;
   onError?: () => void;
 };
@@ -29,7 +31,8 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
     setBestPow(0);
 
     const jobId = activeJobId.current;
-    const parsedDifficulty = Number.parseInt(difficulty, 10);
+    const workUnsigned = options?.unsigned ?? unsigned;
+    const parsedDifficulty = Number.parseInt(options?.difficulty ?? difficulty, 10);
     const startTime = Date.now();
     const nextWorkers = Array(numCores)
       .fill(null)
@@ -74,7 +77,7 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
 
       const request: PowWorkerRequest = {
         type: "mine",
-        unsigned,
+        unsigned: workUnsigned,
         difficulty: parsedDifficulty,
         nonceStart: index,
         nonceStep: numCores,

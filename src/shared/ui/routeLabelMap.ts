@@ -1,6 +1,5 @@
 const ROUTE_LABEL_MAP: Record<string, string> = {
   "/": "",
-  "/confess": "confess",
   "/notifications": "activity",
   "/raw": "raw",
   "/settings": "settings",

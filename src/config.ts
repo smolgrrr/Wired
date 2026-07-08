@@ -59,6 +59,10 @@ export const THREAD_RELAYS = [
   ...new Set([...POW_RELAYS, ...ENRICHMENT_RELAYS]),
 ] as const;
 
-export const CONFESS_API_BASE = (configuredEnv("VITE_CONFESS_API_BASE") || "")
+export const WIRED_ACCOUNT_API_BASE = (
+  configuredEnv("VITE_WIRED_ACCOUNT_API_BASE") ||
+  configuredEnv("VITE_CONFESS_API_BASE") ||
+  ""
+)
   .trim()
   .replace(/\/+$/, "");

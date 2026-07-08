@@ -4,7 +4,8 @@ A browser-first, anonymous Nostr social feed that uses proof-of-work to reduce s
 
 ## Overview
 - Nostr relay subscriptions provide feeds, threads, and notifications.
-- Posts are anonymous and signed with ephemeral browser-generated keys.
+- Posts below the Wired account PoW threshold are anonymous and signed with ephemeral browser-generated keys.
+- Posts at or above the Wired account PoW threshold are mined for the Wired account pubkey and submitted to wired-admin for signing and relay publish.
 - Proof-of-work is calculated in Web Workers before events are published.
 - Media URLs and `imeta` tags render as inline attachments below text. Other URLs become link preview cards (stripped from body). Nostr identifiers linkify inline (note/nevent open in-app; npub/nprofile/naddr open via `nostr:` href).
 
@@ -43,6 +44,12 @@ Optional relay configuration:
 - Set `VITE_POW_RELAYS` to a comma-separated list of public PoW relay WebSocket URLs, for example `wss://relay.wiredsignal.online`.
 - Set `VITE_ENRICHMENT_RELAYS` to a comma-separated list of read/enrichment relay WebSocket URLs if the defaults should be replaced.
 - If unset, the client uses the built-in relay defaults.
+
+Optional Wired account posting:
+
+- Set `VITE_WIRED_ACCOUNT_API_BASE` to the wired-admin public API origin if it is not served from the same origin as the client.
+- `VITE_CONFESS_API_BASE` is still accepted as a legacy alias for the same API origin.
+- Compose reads `GET /api/wired-account/status`. When the selected signal target is at least `minimumPow` and the response has `configured: true` plus a `pubkey`, the browser mines the event using that pubkey and posts the mined unsigned event to `POST /api/wired-account/posts`. Lower-signal posts keep the anonymous browser-signed publish path.
 
 Optional moderation filtering:
 
