@@ -153,6 +153,52 @@ describe("useSubmitForm", () => {
     });
   }
 
+  it("reports willUseWiredAccount as false when wired account is not configured", async () => {
+    act(() => {
+      root.render(<Probe difficulty="21" onState={(nextState) => (state = nextState)} />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(state.willUseWiredAccount).toBe(false);
+  });
+
+  it("reports willUseWiredAccount as true when signal meets the wired account minimum", async () => {
+    mocks.fetchWiredAccountStatus.mockResolvedValue({
+      ...configuredWiredAccountStatus,
+      minimumPow: 20,
+    });
+
+    act(() => {
+      root.render(<Probe difficulty="21" onState={(nextState) => (state = nextState)} />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(state.willUseWiredAccount).toBe(true);
+  });
+
+  it("reports willUseWiredAccount as false when signal is below the wired account minimum", async () => {
+    mocks.fetchWiredAccountStatus.mockResolvedValue({
+      ...configuredWiredAccountStatus,
+      minimumPow: 20,
+    });
+
+    act(() => {
+      root.render(<Probe difficulty="19" onState={(nextState) => (state = nextState)} />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(state.willUseWiredAccount).toBe(false);
+  });
+
   it("does not expose a posted event when no relay accepts the publish", async () => {
     mocks.publish.mockResolvedValue(new Set<string>());
 

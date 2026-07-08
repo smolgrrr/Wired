@@ -12,6 +12,19 @@ import {
 
 export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
 
+export function willUseWiredAccount(
+  difficulty: string,
+  status: WiredAccountStatus | null,
+): boolean {
+  const difficultyNumber = Number(difficulty);
+
+  return (
+    Boolean(status?.configured && status.pubkey) &&
+    Number.isFinite(difficultyNumber) &&
+    difficultyNumber >= Number(status?.minimumPow)
+  );
+}
+
 export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
   const { appendKey } = useStoredKeys();
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
@@ -49,7 +62,6 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     const submitId = activeSubmitId.current + 1;
     activeSubmitId.current = submitId;
     const submitDifficulty = difficulty;
-    const submitDifficultyNumber = Number(submitDifficulty);
     setSubmitStatus("mining");
     setSubmitError(null);
     setAcceptedRelays([]);
@@ -61,10 +73,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
       setWiredAccountStatus(status);
     }
 
-    const shouldUseWiredAccount =
-      Boolean(status?.configured && status.pubkey) &&
-      Number.isFinite(submitDifficultyNumber) &&
-      submitDifficultyNumber >= Number(status?.minimumPow);
+    const shouldUseWiredAccount = willUseWiredAccount(submitDifficulty, status);
     const submitUnsigned = shouldUseWiredAccount && status?.pubkey
       ? { ...unsigned, pubkey: status.pubkey }
       : unsignedWithPubkey;
@@ -143,5 +152,6 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     hashrate,
     bestPow,
     signedPoWEvent,
+    willUseWiredAccount: willUseWiredAccount(difficulty, wiredAccountStatus),
   };
 };

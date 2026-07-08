@@ -55,6 +55,7 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     hashrate,
     bestPow,
     signedPoWEvent,
+    willUseWiredAccount,
   } =
     useSubmitForm(unsigned, difficulty);
 
@@ -110,7 +111,12 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
         />
         {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
         <div className="min-h-14 flex items-center justify-between gap-4 mt-2">
-          <SignalStepper value={difficulty} onChange={setDifficulty} min={16} />
+          <SignalStepper
+            value={difficulty}
+            onChange={setDifficulty}
+            min={16}
+            active={willUseWiredAccount}
+          />
           <div className="flex items-center gap-3">
             <CustomEmojiPicker onSelect={handleEmojiSelect} />
             <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>
