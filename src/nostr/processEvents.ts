@@ -146,9 +146,7 @@ export const processFeedEvents = (
         replies,
         relayHints: relayHintsForEvent(postEvent.id, relayHintsByEventId),
         threadReplyCount: replies.length,
-        ...workScoreBreakdown(postEvent, replies, {
-          minReplyDifficulty: filterDifficulty,
-        }),
+        ...workScoreBreakdown(postEvent, replies),
       };
     })
     .sort(compareProcessedEventsByWork);

@@ -1,7 +1,7 @@
-import { DEFAULT_DIFFICULTY } from "../src/config.js";
+import { DEFAULT_FILTER_DIFFICULTY } from "../src/config.js";
 
 export const BOOTSTRAP_AGE_HOURS = 24;
-export const BOOTSTRAP_FILTER_DIFFICULTY = DEFAULT_DIFFICULTY;
+export const BOOTSTRAP_FILTER_DIFFICULTY = DEFAULT_FILTER_DIFFICULTY;
 export const BOOTSTRAP_CACHE_KEY = "feed:bootstrap:default";
 export const BOOTSTRAP_CACHE_TAG = "feed:bootstrap";
 export const BOOTSTRAP_CACHE_TTL_SECONDS = 300;

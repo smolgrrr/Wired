@@ -91,7 +91,7 @@ describe("mergeProcessedFeedEvents", () => {
       threadReplyCount: 2,
     });
 
-    const [merged] = mergeProcessedFeedEvents([bootstrapRow], [liveRow], 21);
+    const [merged] = mergeProcessedFeedEvents([bootstrapRow], [liveRow]);
 
     expect(merged.replies.map((reply) => reply.id)).toEqual([
       bootstrapReply.id,
@@ -100,8 +100,8 @@ describe("mergeProcessedFeedEvents", () => {
     ]);
     expect(merged).toMatchObject({
       threadReplyCount: 3,
-      replyWork: Math.pow(2, 24),
-      totalWork: Math.pow(2, 24) + Math.pow(2, 18),
+      replyWork: Math.pow(2, 24) + Math.pow(2, 17),
+      totalWork: Math.pow(2, 24) + Math.pow(2, 18) + Math.pow(2, 17),
     });
   });
 
@@ -125,11 +125,7 @@ describe("mergeProcessedFeedEvents", () => {
       threadReplyCount: 0,
     });
 
-    const [merged] = mergeProcessedFeedEvents(
-      [bootstrapRow],
-      [incompleteLiveRow],
-      16,
-    );
+    const [merged] = mergeProcessedFeedEvents([bootstrapRow], [incompleteLiveRow]);
 
     expect(merged).toMatchObject({
       replies: [bootstrapReply],
@@ -161,11 +157,7 @@ describe("mergeProcessedFeedEvents", () => {
       totalWork: Math.pow(2, 18),
     });
 
-    const result = mergeProcessedFeedEvents(
-      [bootstrapRow],
-      [newLiveRow, upgradedLiveRow],
-      16,
-    );
+    const result = mergeProcessedFeedEvents([bootstrapRow], [newLiveRow, upgradedLiveRow]);
 
     expect(result.map((item) => item.postEvent.id)).toEqual([
       existingRoot.id,

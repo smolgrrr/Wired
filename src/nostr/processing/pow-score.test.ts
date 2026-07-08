@@ -31,28 +31,28 @@ describe("pow-score", () => {
     expect(eventWork(evt)).toBe(Math.pow(2, verifyPow(evt)));
   });
 
-  it("replyWork mirrors reply PoW when it meets the minimum difficulty", () => {
+  it("replyWork mirrors reply PoW", () => {
     const reply = event({ tags: [["nonce", "1", "16"]] });
 
-    expect(replyWork(reply, { minReplyDifficulty: 16 })).toBe(Math.pow(2, 16));
+    expect(replyWork(reply)).toBe(Math.pow(2, 16));
   });
 
-  it("replyWork ignores replies below the minimum difficulty", () => {
+  it("replyWork includes replies below the feed filter difficulty", () => {
     const reply = event({ tags: [["nonce", "1", "15"]] });
 
-    expect(replyWork(reply, { minReplyDifficulty: 16 })).toBe(0);
+    expect(replyWork(reply, { minReplyDifficulty: 16 })).toBe(Math.pow(2, 15));
   });
 
-  it("totalWork sums root work and qualifying reply work", () => {
+  it("totalWork sums root work and all linked reply work", () => {
     const root = event();
     const qualifyingReply = event({ tags: [["nonce", "1", "16"]] });
-    const ignoredReply = event({ tags: [["nonce", "1", "15"]] });
+    const lowerPowReply = event({ tags: [["nonce", "1", "15"]] });
 
     expect(
-      totalWork(root, [qualifyingReply, ignoredReply], {
+      totalWork(root, [qualifyingReply, lowerPowReply], {
         minReplyDifficulty: 16,
       }),
-    ).toBe(eventWork(root) + replyWork(qualifyingReply));
+    ).toBe(eventWork(root) + replyWork(qualifyingReply) + replyWork(lowerPowReply));
   });
 
   it("sixteen 16-PoW replies equal one 20-PoW event worth of reply work", () => {
@@ -66,7 +66,6 @@ describe("pow-score", () => {
     const { replyWork: totalReplyWork, rankingReplyCount } = workScoreBreakdown(
       event({ tags: [["nonce", "root", "0"]] }),
       replies,
-      { minReplyDifficulty: 16 },
     );
 
     expect(totalReplyWork).toBe(Math.pow(2, 20));

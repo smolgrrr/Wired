@@ -1,9 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_DIFFICULTY, DEFAULT_RELAYS, configuredRelays } from "./config";
+import {
+  DEFAULT_DIFFICULTY,
+  DEFAULT_FILTER_DIFFICULTY,
+  DEFAULT_POST_DIFFICULTY,
+  DEFAULT_RELAYS,
+  configuredRelays,
+} from "./config";
 
 describe("DEFAULT_DIFFICULTY", () => {
-  it("defaults new posts to signal 21", () => {
-    expect(DEFAULT_DIFFICULTY).toBe(21);
+  it("defaults new posts to signal 20", () => {
+    expect(DEFAULT_POST_DIFFICULTY).toBe(20);
+    expect(DEFAULT_DIFFICULTY).toBe(DEFAULT_POST_DIFFICULTY);
+  });
+
+  it("defaults feed signal filtering to 16", () => {
+    expect(DEFAULT_FILTER_DIFFICULTY).toBe(16);
   });
 });
 

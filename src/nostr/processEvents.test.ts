@@ -225,8 +225,8 @@ describe("processFeedEvents", () => {
     expect(result[0]).toMatchObject({
       postEvent: oldRoot,
       replies: [parentReply, qualifyingNestedReply],
-      replyWork: Math.pow(2, 16),
-      rankingReplyCount: 1,
+      replyWork: 1 + Math.pow(2, 16),
+      rankingReplyCount: 2,
       threadReplyCount: 2,
     });
   });
@@ -251,7 +251,7 @@ describe("processFeedEvents", () => {
     expect(processFeedEvents([repost])).toEqual([]);
   });
 
-  it("uses the active filter difficulty as the minimum reply work difficulty", () => {
+  it("uses the active filter difficulty for eligibility without dropping reply work", () => {
     const lowerWorkRoot = event({
       id: "1".repeat(64),
       pubkey: "1".repeat(64),
@@ -284,8 +284,8 @@ describe("processFeedEvents", () => {
     ]);
     expect(result.find((item) => item.postEvent.id === lowerWorkRoot.id)).toMatchObject({
       replies: lowPowReplies,
-      replyWork: 0,
-      rankingReplyCount: 0,
+      replyWork: 20 * Math.pow(2, 15),
+      rankingReplyCount: 20,
     });
   });
 
@@ -396,9 +396,7 @@ describe("scoreThreadPost", () => {
     const allEvents = [root, directReply, nestedReply, highPowReply];
 
     const feedScore = processFeedEvents(allEvents, 16)[0];
-    const threadScore = scoreThreadPost(root, allEvents, {
-      minReplyDifficulty: 16,
-    });
+    const threadScore = scoreThreadPost(root, allEvents);
 
     expect(threadScore).toMatchObject({
       totalWork: feedScore.totalWork,

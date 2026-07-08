@@ -18,11 +18,7 @@ export function eventWork(event: Event): number {
 
 export function replyWork(reply: Event, options: WorkScoreOptions = {}): number {
   const difficulty = verifyPow(reply);
-  const minDifficulty = options.minReplyDifficulty ?? 0;
-
-  if (difficulty < minDifficulty) {
-    return 0;
-  }
+  void options;
 
   return Math.pow(2, difficulty);
 }

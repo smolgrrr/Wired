@@ -90,7 +90,6 @@ function unionEvents(...eventGroups: Event[][]): Event[] {
 function rescoreMergedProcessedEvent(
   existing: ProcessedEvent,
   incoming: ProcessedEvent,
-  filterDifficulty: number,
 ): ProcessedEvent {
   const postEvent = existing.postEvent;
   const mergedEvents = unionEvents(
@@ -100,9 +99,7 @@ function rescoreMergedProcessedEvent(
   );
 
   return {
-    ...scoreThreadPost(postEvent, mergedEvents, {
-      minReplyDifficulty: filterDifficulty,
-    }),
+    ...scoreThreadPost(postEvent, mergedEvents),
     relayHints: existing.relayHints ?? incoming.relayHints,
   };
 }
@@ -110,7 +107,6 @@ function rescoreMergedProcessedEvent(
 export function mergeProcessedFeedEvents(
   bootstrapEvents: ProcessedEvent[],
   liveEvents: ProcessedEvent[],
-  filterDifficulty = 0,
 ): ProcessedEvent[] {
   if (liveEvents.length === 0) return bootstrapEvents;
 
@@ -129,7 +125,7 @@ export function mergeProcessedFeedEvents(
 
     mergedByRootId.set(
       event.postEvent.id,
-      rescoreMergedProcessedEvent(existing, event, filterDifficulty),
+      rescoreMergedProcessedEvent(existing, event),
     );
   });
 
@@ -297,13 +293,11 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
       mergeProcessedFeedEvents(
         bootstrapEligible ? visibleBootstrapProcessedEvents : [],
         liveProcessedEvents,
-        settings.filterDifficulty,
       ),
     [
       bootstrapEligible,
       visibleBootstrapProcessedEvents,
       liveProcessedEvents,
-      settings.filterDifficulty,
     ],
   );
 

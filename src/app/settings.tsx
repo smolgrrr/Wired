@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_DIFFICULTY } from "../config";
+import { DEFAULT_FILTER_DIFFICULTY, DEFAULT_POST_DIFFICULTY } from "../config";
 
 export type Settings = {
   difficulty: number;
@@ -23,8 +23,8 @@ type SettingsContextValue = {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 const loadSettings = (): Settings => ({
-  difficulty: Number(localStorage.getItem("difficulty")) || DEFAULT_DIFFICULTY,
-  filterDifficulty: Number(localStorage.getItem("filterDifficulty")) || DEFAULT_DIFFICULTY,
+  difficulty: Number(localStorage.getItem("difficulty")) || DEFAULT_POST_DIFFICULTY,
+  filterDifficulty: Number(localStorage.getItem("filterDifficulty")) || DEFAULT_FILTER_DIFFICULTY,
   ageHours: Number(localStorage.getItem("age")) || 24,
   sortByPow: localStorage.getItem("sortBy") !== "false",
 });

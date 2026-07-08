@@ -7,7 +7,6 @@ import { useThreadEvents } from "./useThreadEvents";
 import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
 import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { filterModeratedEvents } from "../shared/lib/moderation";
-import { useSettings } from "../app/settings";
 
 export function useThreadViewModel(
   hexID: string,
@@ -15,13 +14,8 @@ export function useThreadViewModel(
   relayHints: readonly string[] = [],
 ) {
   const [showAllReplies, setShowAllReplies] = useState(true);
-  const { settings } = useSettings();
   const moderationManifest = useModerationManifest();
   const { noteEvents } = useThreadEvents(hexID, relayHints);
-  const scoreOptions = useMemo(
-    () => ({ minReplyDifficulty: settings.filterDifficulty }),
-    [settings.filterDifficulty],
-  );
 
   const allEvents = useMemo(() => {
     return filterModeratedEvents([...noteEvents, ...seedEvents], moderationManifest);
@@ -63,14 +57,14 @@ export function useThreadViewModel(
     );
 
     return posts
-      .map((postEvent) => scoreThreadPost(postEvent, allEvents, scoreOptions))
+      .map((postEvent) => scoreThreadPost(postEvent, allEvents))
       .sort((a, b) => a.postEvent.created_at - b.postEvent.created_at);
-  }, [opEvent, prevMentions, allEvents, moderationManifest, scoreOptions]);
+  }, [opEvent, prevMentions, allEvents, moderationManifest]);
 
   const opScore = useMemo(() => {
     if (!opEvent) return undefined;
-    return scoreThreadPost(opEvent, allEvents, scoreOptions);
-  }, [opEvent, allEvents, scoreOptions]);
+    return scoreThreadPost(opEvent, allEvents);
+  }, [opEvent, allEvents]);
 
   const earlierEvents = useMemo(() => {
     if (!opEvent) return [];
