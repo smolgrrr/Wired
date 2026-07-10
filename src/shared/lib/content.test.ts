@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Event } from "nostr-tools";
+import { Event, nip19 } from "nostr-tools";
 import { parseContent } from "./content";
+
+const PROFILE_PUBKEY = "82341f2e7e4b7ef002c65dde7dc0a22e7745af86f1b0638c1e1edf6b46e6e6a2";
 
 describe("parseContent", () => {
   it("strips media URLs from comment and returns media items", () => {
@@ -39,13 +41,24 @@ describe("parseContent", () => {
     });
   });
 
-  it("strips nostr bech32 identifiers from displayed content", () => {
+  it("strips nostr event identifiers from displayed content", () => {
     const content =
       "Wem nützt diese Näherung mehr?\nnostr:nevent1qqsyfzfk3zkvvmuyqd8hzu9008efyn4n53ucvx2353wknnltte0d33spz4mhxue69uhkummnw3ezuerpw3sju6rpw4esygy86n6j2pxy0rmwdj062z5y7mjngl2pyrz334pptd2jwjkh8slxwu6szplm";
     const event = { content } as Event;
 
     expect(parseContent(event)).toEqual({
       comment: "Wem nützt diese Näherung mehr?",
+      attachments: [],
+    });
+  });
+
+  it("preserves nostr profile identifiers for inline rendering", () => {
+    const nprofile = nip19.nprofileEncode({ pubkey: PROFILE_PUBKEY });
+    const content = `hello nostr:${nprofile} today`;
+    const event = { content } as Event;
+
+    expect(parseContent(event)).toEqual({
+      comment: content,
       attachments: [],
     });
   });

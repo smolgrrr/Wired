@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { normalizeUrl } from "@link/link";
 import { buildEmojiMap, getEmojiDisplayUrls, type BodyEmoji } from "@lib/customEmoji";
+import { getDisplayName } from "@lib/profile";
+import { decodeProfileRef, NOSTR_PROFILE_REF_PATTERN } from "@lib/quotedEvents";
 import { HTTP_URL_PATTERN } from "@lib/url";
+import { useProfile } from "../hooks/useProfiles";
 
 type LinkedBodyTextProps = {
   children: string;
@@ -12,11 +15,12 @@ type LinkedBodyTextProps = {
 const EMOJI_SHORTCODE_PATTERN = /:([A-Za-z0-9_+-]+):/g;
 
 type BodyToken = {
-  kind: "url" | "emoji";
+  kind: "url" | "emoji" | "profile";
   raw: string;
   index: number;
   url?: string;
   shortcode?: string;
+  pubkey?: string;
 };
 
 function InlineCustomEmoji({
@@ -51,6 +55,19 @@ function InlineCustomEmoji({
   );
 }
 
+function InlineProfileMention({ raw, pubkey }: { raw: string; pubkey: string }) {
+  const profile = useProfile(pubkey);
+
+  return (
+    <a
+      href={raw}
+      className="font-medium text-signal hover:underline"
+    >
+      @{getDisplayName(profile, pubkey)}
+    </a>
+  );
+}
+
 function getBodyTokens(content: string, emojiMap: Map<string, string>): BodyToken[] {
   const tokens: BodyToken[] = [];
 
@@ -64,6 +81,20 @@ function getBodyTokens(content: string, emojiMap: Map<string, string>): BodyToke
       raw,
       index,
       url: normalized || undefined,
+    });
+  }
+
+  for (const match of content.matchAll(NOSTR_PROFILE_REF_PATTERN)) {
+    const raw = match[0];
+    const profileRef = decodeProfileRef(raw);
+
+    if (!profileRef) continue;
+
+    tokens.push({
+      kind: "profile",
+      raw,
+      index: match.index ?? 0,
+      pubkey: profileRef.pubkey,
     });
   }
 
@@ -118,6 +149,14 @@ export function LinkedBodyText({ children, className, emojis = [] }: LinkedBodyT
           shortcode={token.shortcode}
           raw={token.raw}
           url={token.url}
+        />,
+      );
+    } else if (token.kind === "profile" && token.pubkey) {
+      parts.push(
+        <InlineProfileMention
+          key={`${token.pubkey}-${token.index}`}
+          raw={token.raw}
+          pubkey={token.pubkey}
         />,
       );
     } else if (token.kind === "url") {

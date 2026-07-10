@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Event } from "nostr-tools";
+import { Event, nip19 } from "nostr-tools";
 import {
+  decodeProfileRef,
   decodeNostrRef,
   extractMentionedEventRefs,
   extractQuotedRefs,
@@ -14,12 +15,34 @@ const NOTE_TAG_NOTE = "note1enxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxq
 const ISSUE_54_QUOTED_ID = "a38fb77ce8783c30bf64063fe78e8060f3b58e41476fb3a5cd94ddfb1b3837d1";
 const ISSUE_54_QUOTED_NEVENT =
   "nevent1qqs28rah0n58s0pshajqv0l836qxpua43eq5wman5hxefh0mrvur05gpzpmhxue69uhkummnw3ezumrpdejqygr2q2mat4wpemkr6zkj3ht3cn87awmrj7u4lm6u65pjey3r5y7s9gcs8lc6";
+const PROFILE_PUBKEY = "82341f2e7e4b7ef002c65dde7dc0a22e7745af86f1b0638c1e1edf6b46e6e6a2";
 
 describe("decodeNostrRef", () => {
   it("decodes nevent references to event ids and relay hints", () => {
     expect(decodeNostrRef(QUOTED_EVENT_NEVENT)).toEqual({
       id: QUOTED_EVENT_ID,
       relays: ["wss://relay.damus.io", "wss://offchain.pub"],
+    });
+  });
+});
+
+describe("decodeProfileRef", () => {
+  it("decodes npub references to pubkeys", () => {
+    expect(decodeProfileRef(`nostr:${nip19.npubEncode(PROFILE_PUBKEY)}`)).toEqual({
+      pubkey: PROFILE_PUBKEY,
+      relays: [],
+    });
+  });
+
+  it("decodes nprofile references to pubkeys and relay hints", () => {
+    const nprofile = nip19.nprofileEncode({
+      pubkey: PROFILE_PUBKEY,
+      relays: ["wss://relay.example/"],
+    });
+
+    expect(decodeProfileRef(`nostr:${nprofile}`)).toEqual({
+      pubkey: PROFILE_PUBKEY,
+      relays: ["wss://relay.example"],
     });
   });
 });
@@ -37,6 +60,15 @@ describe("extractQuotedRefs", () => {
         relays: ["wss://relay.damus.io", "wss://offchain.pub"],
       },
     ]);
+  });
+
+  it("does not treat inline profile references as quoted events", () => {
+    const event = {
+      content: `hello nostr:${nip19.nprofileEncode({ pubkey: PROFILE_PUBKEY })}`,
+      tags: [],
+    } as unknown as Event;
+
+    expect(extractQuotedRefs(event)).toEqual([]);
   });
 
   it("extracts refs from q tags", () => {

@@ -8,11 +8,11 @@ import {
 import { type LinkItem } from "@lib/linkUtils";
 import { normalizeStrippedContent } from "@lib/textCleanup";
 import { HTTP_URL_PATTERN } from "@lib/url";
-import { NOSTR_REF_PATTERN } from "./quotedEvents";
+import { NOSTR_EVENT_REF_PATTERN } from "./quotedEvents";
 
-/** Remove Nostr URI tokens from visible text — kept in event data, not shown. */
-function stripNostrRefs(content: string): string {
-  return normalizeStrippedContent(content.replace(NOSTR_REF_PATTERN, ""));
+/** Remove quoted event URI tokens from visible text; profile refs render inline. */
+function stripQuotedEventRefs(content: string): string {
+  return normalizeStrippedContent(content.replace(NOSTR_EVENT_REF_PATTERN, ""));
 }
 
 export type { LinkItem };
@@ -119,7 +119,7 @@ export function parseContent(event: Event): ParsedContent {
   );
 
   return {
-    comment: stripNostrRefs(strippedContent),
+    comment: stripQuotedEventRefs(strippedContent),
     attachments,
   };
 }
