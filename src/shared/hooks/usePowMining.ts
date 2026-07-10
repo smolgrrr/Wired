@@ -5,6 +5,7 @@ import type { MinedPowEvent, PowWorkerRequest, PowWorkerResponse } from "../../w
 type StartWorkOptions = {
   unsigned?: UnsignedEvent;
   difficulty?: string;
+  onHashrate?: (hashrate: number) => void;
   onMined: (event: MinedPowEvent) => void;
   onError?: () => void;
 };
@@ -58,7 +59,11 @@ export function usePowMining(numCores: number, unsigned: UnsignedEvent, difficul
 
         if (response.type === "progress") {
           const elapsedSeconds = (Date.now() - startTime) / 1000;
-          setHashrate(Math.floor(response.currentNonce / (elapsedSeconds || 1)));
+          const nextHashrate = Math.floor(response.currentNonce / (elapsedSeconds || 1));
+          setHashrate(nextHashrate);
+          if (nextHashrate > 0) {
+            options?.onHashrate?.(nextHashrate);
+          }
           setBestPow((currentBestPow) => Math.max(currentBestPow, response.bestPow));
           return;
         }

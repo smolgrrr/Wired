@@ -55,6 +55,7 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     hashrate,
     bestPow,
     signedPoWEvent,
+    powEta,
     willUseWiredAccount,
   } =
     useSubmitForm(unsigned, difficulty);
@@ -110,13 +111,16 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           rows={comment.split("\n").length || 1}
         />
         {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
-        <div className="min-h-14 flex items-center justify-between gap-4 mt-2">
-          <SignalStepper
-            value={difficulty}
-            onChange={setDifficulty}
-            min={16}
-            active={willUseWiredAccount}
-          />
+        <div className="min-h-14 flex items-start justify-between gap-4 mt-2">
+          <div className="flex flex-col items-start gap-1">
+            <SignalStepper
+              value={difficulty}
+              onChange={setDifficulty}
+              min={16}
+              active={willUseWiredAccount}
+            />
+            <p className="text-meta text-secondary">estimated mine time ~{powEta}</p>
+          </div>
           <div className="flex items-center gap-3">
             <CustomEmojiPicker onSelect={handleEmojiSelect} />
             <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>

@@ -131,6 +131,7 @@ describe("useSubmitForm", () => {
     mocks.fetchWiredAccountStatus.mockReset();
     mocks.submitWiredAccountPost.mockReset();
     mocks.fetchWiredAccountStatus.mockResolvedValue(disabledWiredAccountStatus);
+    window.localStorage.clear();
     vi.stubGlobal("Worker", MockWorker);
     Object.defineProperty(window.navigator, "hardwareConcurrency", {
       configurable: true,
@@ -180,6 +181,24 @@ describe("useSubmitForm", () => {
     });
 
     expect(state.willUseWiredAccount).toBe(true);
+  });
+
+  it("exposes a PoW ETA and caches measured mining hashrate", async () => {
+    act(() => {
+      root.render(<Probe difficulty="16" onState={(nextState) => (state = nextState)} />);
+    });
+
+    expect(state.powEta).toBe("1s");
+
+    await submitForm();
+
+    await act(async () => {
+      mockWorkers[0].emit({ type: "progress", currentNonce: 100_000, bestPow: 10 });
+    });
+
+    expect(state.hashrate).toBeGreaterThan(0);
+    expect(state.powEta).toBe("now");
+    expect(window.localStorage.getItem("wired:last-pow-hashrate")).toBe(String(state.hashrate));
   });
 
   it("reports willUseWiredAccount as false when signal is below the wired account minimum", async () => {
