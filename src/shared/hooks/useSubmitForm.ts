@@ -9,8 +9,26 @@ import {
   submitWiredAccountPost,
   type WiredAccountStatus,
 } from "../../features/wiredAccount/api";
+import { timeToGoEst } from "@lib/timeEstimate";
 
 export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
+
+const POW_HASHRATE_STORAGE_KEY = "wired:last-pow-hashrate";
+const FALLBACK_POW_HASHRATE = 50_000;
+
+function readStoredHashrate(): number {
+  if (typeof window === "undefined") return FALLBACK_POW_HASHRATE;
+
+  const value = Number(window.localStorage.getItem(POW_HASHRATE_STORAGE_KEY));
+  return Number.isFinite(value) && value > 0 ? value : FALLBACK_POW_HASHRATE;
+}
+
+function storeHashrate(value: number): void {
+  if (typeof window === "undefined") return;
+  if (!Number.isFinite(value) || value <= 0) return;
+
+  window.localStorage.setItem(POW_HASHRATE_STORAGE_KEY, String(Math.floor(value)));
+}
 
 export function willUseWiredAccount(
   difficulty: string,
@@ -34,6 +52,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
   const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
   const [signedPoWEvent, setSignedPoWEvent] = useState<Event>();
   const [wiredAccountStatus, setWiredAccountStatus] = useState<WiredAccountStatus | null>(null);
+  const [estimatedHashrate, setEstimatedHashrate] = useState(readStoredHashrate);
   const activeSubmitId = useRef(0);
 
   const numCores = navigator.hardwareConcurrency || 4;
@@ -81,6 +100,10 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     startWork({
       unsigned: submitUnsigned,
       difficulty: submitDifficulty,
+      onHashrate: (nextHashrate) => {
+        storeHashrate(nextHashrate);
+        setEstimatedHashrate(nextHashrate);
+      },
       onMined: async (minedEvent) => {
         if (activeSubmitId.current !== submitId) return;
 
@@ -152,6 +175,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
     hashrate,
     bestPow,
     signedPoWEvent,
+    powEta: timeToGoEst(difficulty, hashrate || estimatedHashrate),
     willUseWiredAccount: willUseWiredAccount(difficulty, wiredAccountStatus),
   };
 };
