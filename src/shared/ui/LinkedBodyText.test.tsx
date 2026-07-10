@@ -2,8 +2,19 @@
 
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { nip19 } from "nostr-tools";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LinkedBodyText } from "./LinkedBodyText";
+
+const mocks = vi.hoisted(() => ({
+  useProfile: vi.fn(),
+}));
+
+vi.mock("../hooks/useProfiles", () => ({
+  useProfile: mocks.useProfile,
+}));
+
+const PROFILE_PUBKEY = "82341f2e7e4b7ef002c65dde7dc0a22e7745af86f1b0638c1e1edf6b46e6e6a2";
 
 describe("LinkedBodyText", () => {
   let container: HTMLDivElement;
@@ -13,6 +24,7 @@ describe("LinkedBodyText", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
+    mocks.useProfile.mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -20,6 +32,7 @@ describe("LinkedBodyText", () => {
       root.unmount();
     });
     container.remove();
+    vi.clearAllMocks();
   });
 
   it("renders preserved body URLs as clickable hyperlinks", () => {
@@ -83,5 +96,23 @@ describe("LinkedBodyText", () => {
       "lain",
       "lain_happy",
     ]);
+  });
+
+  it("renders Nostr profile references as inline mentions", () => {
+    const nprofile = nip19.nprofileEncode({ pubkey: PROFILE_PUBKEY });
+    mocks.useProfile.mockReturnValue({ name: "jack" });
+
+    act(() => {
+      root.render(
+        <LinkedBodyText className="body">
+          {`hello nostr:${nprofile}`}
+        </LinkedBodyText>,
+      );
+    });
+
+    const link = container.querySelector("a");
+    expect(link?.textContent).toBe("@jack");
+    expect(link?.getAttribute("href")).toBe(`nostr:${nprofile}`);
+    expect(container.textContent).toBe("hello @jack");
   });
 });

@@ -1,10 +1,18 @@
 import { nip19, type Event } from "nostr-tools";
 
-export const NOSTR_REF_PATTERN =
-  /nostr:(?:note|nevent|naddr|npub|nprofile|nrelay)1[a-z0-9]+/gi;
+export const NOSTR_EVENT_REF_PATTERN =
+  /nostr:(?:note|nevent)1[a-z0-9]+/gi;
+export const NOSTR_PROFILE_REF_PATTERN =
+  /nostr:(?:npub|nprofile)1[a-z0-9]+/gi;
+export const NOSTR_REF_PATTERN = NOSTR_EVENT_REF_PATTERN;
 
 export type QuotedRef = {
   id: string;
+  relays: string[];
+};
+
+export type ProfileRef = {
+  pubkey: string;
   relays: string[];
 };
 
@@ -33,9 +41,28 @@ export function decodeNostrRef(ref: string): QuotedRef | null {
   return null;
 }
 
+export function decodeProfileRef(ref: string): ProfileRef | null {
+  const bech32 = ref.replace(/^nostr:/i, "");
+  try {
+    const decoded = nip19.decode(bech32);
+    if (decoded.type === "npub") {
+      return { pubkey: decoded.data as string, relays: [] };
+    }
+    if (decoded.type === "nprofile") {
+      return {
+        pubkey: decoded.data.pubkey,
+        relays: (decoded.data.relays ?? []).map(normalizeRelayUrl),
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function extractNostrRefs(content: string): QuotedRef[] {
   const refs: QuotedRef[] = [];
-  for (const match of content.matchAll(NOSTR_REF_PATTERN)) {
+  for (const match of content.matchAll(NOSTR_EVENT_REF_PATTERN)) {
     const ref = decodeNostrRef(match[0]);
     if (ref) refs.push(ref);
   }
