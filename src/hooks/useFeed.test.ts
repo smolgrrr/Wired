@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Event } from "nostr-tools";
 import type { ProcessedEvent } from "../nostr/types";
-import { mergeProcessedFeedEvents } from "./useFeed";
+import { deriveFeedStatus, mergeProcessedFeedEvents } from "./useFeed";
 
 vi.mock("../shared/pow/core", () => ({
   verifyPow: (event: Event) =>
@@ -169,5 +169,77 @@ describe("mergeProcessedFeedEvents", () => {
       totalWork: Math.pow(2, 20) + 1,
     });
     expect(result[1]).toEqual(newLiveRow);
+  });
+});
+
+describe("deriveFeedStatus", () => {
+  it("reports syncing before relays or snapshots have resolved", () => {
+    expect(
+      deriveFeedStatus({
+        processedCount: 0,
+        bootstrapEligible: true,
+        bootstrapLoadState: "loading",
+        bootstrapProcessedCount: 0,
+        liveEventCount: 0,
+        liveInitialEose: false,
+        relayWaitElapsed: false,
+      }).kind,
+    ).toBe("syncing");
+  });
+
+  it("reports snapshot while bootstrap rows are visible before live updates", () => {
+    expect(
+      deriveFeedStatus({
+        processedCount: 4,
+        bootstrapEligible: true,
+        bootstrapLoadState: "loaded",
+        bootstrapProcessedCount: 4,
+        liveEventCount: 0,
+        liveInitialEose: false,
+        relayWaitElapsed: false,
+      }).kind,
+    ).toBe("snapshot");
+  });
+
+  it("reports live once relay events arrive", () => {
+    expect(
+      deriveFeedStatus({
+        processedCount: 4,
+        bootstrapEligible: true,
+        bootstrapLoadState: "loaded",
+        bootstrapProcessedCount: 4,
+        liveEventCount: 1,
+        liveInitialEose: false,
+        relayWaitElapsed: false,
+      }).kind,
+    ).toBe("live");
+  });
+
+  it("reports degraded when visible snapshot rows outlive relay response", () => {
+    expect(
+      deriveFeedStatus({
+        processedCount: 4,
+        bootstrapEligible: true,
+        bootstrapLoadState: "loaded",
+        bootstrapProcessedCount: 4,
+        liveEventCount: 0,
+        liveInitialEose: false,
+        relayWaitElapsed: true,
+      }).kind,
+    ).toBe("degraded");
+  });
+
+  it("reports empty after the initial relay query completes without rows", () => {
+    expect(
+      deriveFeedStatus({
+        processedCount: 0,
+        bootstrapEligible: false,
+        bootstrapLoadState: "disabled",
+        bootstrapProcessedCount: 0,
+        liveEventCount: 0,
+        liveInitialEose: true,
+        relayWaitElapsed: false,
+      }).kind,
+    ).toBe("empty");
   });
 });

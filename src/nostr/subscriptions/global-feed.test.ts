@@ -15,7 +15,12 @@ vi.mock("../client", () => ({
   }),
 }));
 
-import { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
+import {
+  FEED_REPLY_PARENT_CHUNK_SIZE,
+  FEED_ROOT_FETCH_CHUNK_SIZE,
+  subGlobalFeed,
+  subRepliesForRootIds,
+} from "./global-feed";
 
 const rootNote = (id: string): Event => ({
   id,
@@ -387,9 +392,13 @@ describe("subGlobalFeed", () => {
       String(index).padStart(64, "0"),
     );
 
+    const firstLevelChunkCount = Math.ceil(
+      MAX_REPLY_PARENT_IDS / FEED_REPLY_PARENT_CHUNK_SIZE,
+    );
+
     subscribeMock.mockImplementation((requests) => {
       const id = String(subscribeMock.mock.calls.length);
-      if (Number(id) <= MAX_REPLY_FETCH_DEPTH) {
+      if (Number(id) <= firstLevelChunkCount + 1) {
         const { cb, onEose } = requests[0];
         cb(rootNote(String(Number(id)).repeat(64)), "wss://relay.damus.io");
         onEose?.();
@@ -399,14 +408,75 @@ describe("subGlobalFeed", () => {
 
     subRepliesForRootIds(rootIds, vi.fn(), { depth: MAX_REPLY_FETCH_DEPTH + 3 });
 
-    expect(subscribeMock).toHaveBeenCalledTimes(MAX_REPLY_FETCH_DEPTH);
+    expect(subscribeMock).toHaveBeenCalledTimes(firstLevelChunkCount + 1);
     const firstReplyRequest = subscribeMock.mock.calls[0][0][0];
-    expect(firstReplyRequest.filter["#e"]).toHaveLength(MAX_REPLY_PARENT_IDS);
+    expect(firstReplyRequest.filter["#e"]).toHaveLength(
+      FEED_REPLY_PARENT_CHUNK_SIZE,
+    );
     expect(firstReplyRequest.filter).toMatchObject({
       kinds: [1],
       limit: REPLY_QUERY_LIMIT,
       since: expect.any(Number),
     });
+  });
+
+  it("opens reply parent chunks sequentially", () => {
+    const rootIds = Array.from(
+      { length: FEED_REPLY_PARENT_CHUNK_SIZE + 5 },
+      (_, index) => String(index).padStart(64, "0"),
+    );
+
+    subscribeMock.mockImplementation(() => {
+      const id = String(subscribeMock.mock.calls.length);
+      return { id, close: vi.fn() };
+    });
+
+    subRepliesForRootIds(rootIds, vi.fn());
+
+    expect(subscribeMock).toHaveBeenCalledTimes(1);
+    expect(subscribeMock.mock.calls[0][0][0].filter["#e"]).toHaveLength(
+      FEED_REPLY_PARENT_CHUNK_SIZE,
+    );
+
+    subscribeMock.mock.calls[0][0][0].onEose?.();
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+    expect(subscribeMock.mock.calls[1][0][0].filter["#e"]).toHaveLength(5);
+  });
+
+  it("fetches missing root ids in sequential chunks", () => {
+    const rootIds = Array.from(
+      { length: FEED_ROOT_FETCH_CHUNK_SIZE + 3 },
+      (_, index) => String(index + 1).padStart(64, "0"),
+    );
+    const replies = rootIds.map((rootId, index) => ({
+      ...rootNote(String(index + 100).padStart(64, "0")),
+      tags: [["e", rootId, "wss://relay.example", "root"]],
+    }));
+
+    subscribeMock.mockImplementation((requests) => {
+      const id = String(subscribeMock.mock.calls.length);
+
+      if (id === "1") {
+        const { cb, onEose } = requests[0];
+        replies.forEach((reply) => cb(reply, "wss://powrelay.xyz"));
+        onEose?.();
+      }
+
+      return { id, close: vi.fn() };
+    });
+
+    subGlobalFeed(vi.fn(), 24, { rootFilterDifficulty: 0 });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+    expect(subscribeMock.mock.calls[1][0][0].filter.ids).toHaveLength(
+      FEED_ROOT_FETCH_CHUNK_SIZE,
+    );
+
+    subscribeMock.mock.calls[1][0][0].onEose?.();
+
+    expect(subscribeMock).toHaveBeenCalledTimes(3);
+    expect(subscribeMock.mock.calls[2][0][0].filter.ids).toHaveLength(3);
   });
 
   it("closes reply traversal children that are added after the parent closes", () => {

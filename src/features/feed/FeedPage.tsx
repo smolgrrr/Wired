@@ -7,6 +7,8 @@ import { PostCard } from "../../shared/ui/PostCard";
 import { FeedSortToggle } from "./FeedSortToggle";
 import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
 import { useThreadNavigation } from "../thread/useThreadNavigation";
+import { Placeholder } from "../../shared/ui/Placeholder";
+import type { FeedStatus, FeedStatusKind } from "../../hooks/useFeed";
 
 const SKIP_RESOLVE_COUNT = 3;
 const INITIAL_RESOLVE_COUNT = 20;
@@ -17,9 +19,37 @@ type FeedPageProps = {
   mode?: "default" | "raw";
 };
 
+const statusToneClass: Record<FeedStatusKind, string> = {
+  snapshot: "border-ghost text-secondary",
+  live: "border-signal-ghost text-signal",
+  syncing: "border-ghost text-secondary",
+  degraded: "border-danger-dim text-danger",
+  empty: "border-ghost text-muted",
+};
+
+function FeedStatusBanner({ status }: { status: FeedStatus }) {
+  return (
+    <div
+      className={[
+        "mb-3 flex min-h-9 items-center justify-between gap-3 border px-3 py-2 text-meta",
+        statusToneClass[status.kind],
+      ].join(" ")}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="uppercase [letter-spacing:var(--letter-spacing-meta)]">
+        {status.label}
+      </span>
+      <span className="min-w-0 truncate text-right text-muted">
+        {status.detail}
+      </span>
+    </div>
+  );
+}
+
 export default function FeedPage({ mode = "default" }: FeedPageProps) {
   const { settings, updateSettings } = useSettings();
-  const { processedEvents } = useFeed({ mode });
+  const { processedEvents, feedStatus } = useFeed({ mode });
   const visibleCount = useInfiniteScroll();
   const openThread = useThreadNavigation();
   const [resolveWindowOpen, setResolveWindowOpen] = useState(true);
@@ -55,7 +85,10 @@ export default function FeedPage({ mode = "default" }: FeedPageProps) {
         </div>
       </div>
       <ContentColumn>
-        {sortedEvents.slice(0, visibleCount).map((event, index) => {
+        <FeedStatusBanner status={feedStatus} />
+        {sortedEvents.length === 0 ? (
+          <Placeholder message={feedStatus.detail} />
+        ) : sortedEvents.slice(0, visibleCount).map((event, index) => {
           const shouldResolve =
             resolveWindowOpen &&
             index >= SKIP_RESOLVE_COUNT &&
