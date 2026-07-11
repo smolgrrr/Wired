@@ -85,7 +85,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={[
-              "min-h-[24px] min-w-[24px] px-3 py-1.5 text-meta rounded-sm transition-colors duration-hover",
+              "wired-touch-target wired-pressable min-h-[24px] min-w-[24px] px-3 py-1.5 text-meta rounded-sm transition-colors duration-hover",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-void",
               isSelected
                 ? "bg-surface-raised text-signal"

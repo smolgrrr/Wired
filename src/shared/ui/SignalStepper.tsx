@@ -39,7 +39,7 @@ export function SignalStepper({
         min={min}
         containerClassName="w-auto"
         className={[
-          "w-12 !min-h-[24px] !py-1 !px-2 text-meta border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
+          "wired-touch-field w-12 min-h-[24px] !py-1 !px-2 text-meta border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
           active ? "text-signal" : "",
         ].join(" ")}
         aria-label={difficultyLabel}

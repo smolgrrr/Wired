@@ -38,7 +38,7 @@ export function Button({
       disabled={isDisabled}
       aria-busy={loading || undefined}
       className={[
-        "inline-flex items-center justify-center rounded-sm min-h-[24px] min-w-[24px]",
+        "wired-touch-target wired-pressable inline-flex items-center justify-center rounded-sm min-h-[24px] min-w-[24px]",
         "transition-colors duration-hover",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-ghost focus-visible:ring-offset-2 focus-visible:ring-offset-void",
         variantClasses[variant],
