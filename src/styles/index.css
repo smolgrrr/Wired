@@ -93,6 +93,19 @@ body {
   box-shadow: 0 0 0 2px var(--void), 0 0 0 4px var(--signal-dim);
 }
 
+.wired-pressable {
+  touch-action: manipulation;
+  transform: translateY(0) scale(1);
+  transform-origin: center;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, transform;
+  transition-duration: var(--duration-hover);
+  transition-timing-function: var(--ease-out);
+}
+
+.wired-pressable:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
 .noise-overlay {
   position: fixed;
   inset: 0;
@@ -104,6 +117,15 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .wired-pressable {
+    transition-duration: 0ms;
+  }
+
+  .wired-pressable:active:not(:disabled) {
+    opacity: 0.82;
+    transform: none;
+  }
+
   .noise-overlay {
     opacity: 0;
   }
@@ -145,6 +167,15 @@ textarea {
   textarea,
   select {
     font-size: 16px !important;
+  }
+
+  .wired-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .wired-touch-field {
+    min-height: 44px;
   }
 }
 
