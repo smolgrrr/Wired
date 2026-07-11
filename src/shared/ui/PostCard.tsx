@@ -9,7 +9,7 @@ import { MetadataRow } from "./MetadataRow";
 import { ReplyContext } from "./ReplyContext";
 import { SignalAvatar } from "./SignalAvatar";
 import { useProfile } from "../hooks/useProfiles";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface PostCardProps {
@@ -40,10 +40,52 @@ const depthClasses: Record<number, string> = {
   3: "pl-12 opacity-[0.76]",
 };
 const EMPTY_RELAY_HINTS: readonly string[] = [];
+const NESTED_INTERACTIVE_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "summary",
+  "audio",
+  "video",
+  "img",
+  "[aria-label='attachment']",
+  "[aria-label$='attachments']",
+  "[contenteditable='true']",
+  "[role='button']",
+  "[role='link']",
+  "[role='menuitem']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+  "[role='img']",
+  "[data-post-card-interactive='true']",
+].join(",");
 
 function getDepthClass(depth?: number): string {
   if (depth === undefined) return "";
   return depthClasses[Math.min(depth, 3)] ?? depthClasses[3];
+}
+
+function getEventElement(target: EventTarget | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Node) return target.parentElement;
+  return null;
+}
+
+function isNestedInteractiveTarget(
+  target: EventTarget | null,
+  currentTarget: Element,
+): boolean {
+  const targetElement = getEventElement(target);
+  const nestedTarget = targetElement?.closest(NESTED_INTERACTIVE_SELECTOR);
+
+  return Boolean(
+    nestedTarget &&
+      nestedTarget !== currentTarget &&
+      currentTarget.contains(nestedTarget),
+  );
 }
 
 export function PostCard({
@@ -82,14 +124,46 @@ export function PostCard({
     navigate(buildThreadPath(event.id, relayHints));
   }, [event, onOpenThread, relatedEvents, relayHints, navigate]);
 
+  const handleCardClick = useCallback(
+    (clickEvent: MouseEvent<HTMLElement>) => {
+      if (!isNavigable) return;
+      if (clickEvent.defaultPrevented || clickEvent.button !== 0) return;
+      if (clickEvent.metaKey || clickEvent.altKey || clickEvent.ctrlKey || clickEvent.shiftKey) {
+        return;
+      }
+      if (isNestedInteractiveTarget(clickEvent.target, clickEvent.currentTarget)) return;
+
+      handleNavigate();
+    },
+    [handleNavigate, isNavigable],
+  );
+
+  const handleCardKeyDown = useCallback(
+    (keyEvent: KeyboardEvent<HTMLElement>) => {
+      if (!isNavigable || keyEvent.defaultPrevented || keyEvent.key !== "Enter") return;
+      if (isNestedInteractiveTarget(keyEvent.target, keyEvent.currentTarget)) return;
+
+      keyEvent.preventDefault();
+      handleNavigate();
+    },
+    [handleNavigate, isNavigable],
+  );
+
   const roleClass = role === "threadContext" ? "opacity-70" : "";
+  const ariaLabel = isNavigable
+    ? `Open thread by ${authorLabel}, signal ${signal}, ${timestamp}`
+    : `Post by ${authorLabel}, signal ${signal}, ${timestamp}`;
 
   return (
     <article
-      role="group"
-      aria-label={`Post by ${authorLabel}, signal ${signal}, ${timestamp}`}
+      role={isNavigable ? "link" : "group"}
+      tabIndex={isNavigable ? 0 : undefined}
+      aria-label={ariaLabel}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
       className={[
         "group py-4 border-b border-ghost",
+        isNavigable ? "post-card--openable" : "",
         roleClass,
         getDepthClass(depth),
         animate ? "motion-safe:animate-resolve-in" : "",
@@ -121,7 +195,6 @@ export function PostCard({
         signal={signal}
         replyCount={displayedReplyCount}
         timestamp={timestamp}
-        onOpenThread={isNavigable ? handleNavigate : undefined}
         forceSecondary={role === "threadOp"}
       />
     </article>

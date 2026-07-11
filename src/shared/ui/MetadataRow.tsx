@@ -1,12 +1,9 @@
-import type { MouseEvent } from "react";
 import { Activity, Network } from "lucide-react";
-import { Button } from "./Button";
 
 type MetadataRowProps = {
   signal: number;
   replyCount: number;
   timestamp: string;
-  onOpenThread?: () => void;
   forceSecondary?: boolean;
 };
 
@@ -18,26 +15,16 @@ export function MetadataRow({
   signal,
   replyCount,
   timestamp,
-  onOpenThread,
   forceSecondary = false,
 }: MetadataRowProps) {
-  const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (!onOpenThread) return;
-    if (event.target === event.currentTarget) {
-      onOpenThread();
-    }
-  };
-
   return (
     <div
       className={[
         "metadata-row flex items-center justify-between gap-3 pt-3 text-meta",
         forceSecondary ? "metadata-row--secondary" : "",
-        onOpenThread ? "cursor-pointer" : "",
       ]
         .filter(Boolean)
         .join(" ")}
-      onClick={handleRowClick}
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span
@@ -56,18 +43,6 @@ export function MetadataRow({
         </span>
         <span className="whitespace-nowrap">{timestamp}</span>
       </div>
-      {onOpenThread && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onOpenThread}
-          aria-label="open thread"
-          className="shrink-0"
-        >
-          open
-        </Button>
-      )}
     </div>
   );
 }
