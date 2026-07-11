@@ -7,6 +7,7 @@ interface PowTransmitStatusProps {
   hashrate: number;
   bestPow?: number;
   status?: SubmitStatus;
+  acceptedRelayCount?: number;
   className?: string;
 }
 
@@ -16,21 +17,32 @@ export function PowTransmitStatus({
   hashrate,
   bestPow = 0,
   status = "mining",
+  acceptedRelayCount = 0,
   className,
 }: PowTransmitStatusProps) {
+  const classes = `text-meta text-secondary ${className ?? ""}`.trim();
+
+  if (status === "published") {
+    return (
+      <p className={classes} role="status">
+        posted to {acceptedRelayCount} relay{acceptedRelayCount === 1 ? "" : "s"}
+      </p>
+    );
+  }
+
   if (!active) return null;
 
   if (status === "publishing") {
     return (
-      <p className={`text-meta text-secondary ${className ?? ""}`.trim()} role="status">
+      <p className={classes} role="status">
         publishing to relays…
       </p>
     );
   }
 
   return (
-    <p className={`text-meta text-secondary ${className ?? ""}`.trim()} role="status">
-      computing signal… ~{timeToGoEst(String(difficulty), hashrate)}
+    <p className={classes} role="status">
+      mining signal… ~{timeToGoEst(String(difficulty), hashrate)}
       {bestPow > 0 ? ` · pb:${bestPow}` : ""}
     </p>
   );
