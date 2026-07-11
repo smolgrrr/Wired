@@ -42,8 +42,8 @@ export function PowTransmitStatus({
 
   return (
     <p className={classes} role="status">
-      mining signal… ~{timeToGoEst(String(difficulty), hashrate)}
-      {bestPow > 0 ? ` · pb:${bestPow}` : ""}
+      mining signal… ETA ~{timeToGoEst(String(difficulty), hashrate)}
+      {bestPow > 0 ? ` · best signal ${bestPow}` : ""}
     </p>
   );
 }

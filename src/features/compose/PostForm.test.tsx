@@ -107,7 +107,8 @@ describe("PostForm", () => {
 
     expect(container.textContent).not.toContain("estimated mine time");
     expect(container.textContent).toContain("mining signal");
-    expect(container.textContent).toContain("pb:17");
+    expect(container.textContent).toContain("ETA");
+    expect(container.textContent).toContain("best signal 17");
   });
 
   it("shows a visible first-use compose affordance", () => {

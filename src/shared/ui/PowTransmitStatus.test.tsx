@@ -50,7 +50,8 @@ describe("PowTransmitStatus", () => {
     renderStatus({ active: true, status: "mining", bestPow: 4 });
 
     expect(container.querySelector("[role='status']")?.textContent).toContain("mining signal");
-    expect(container.querySelector("[role='status']")?.textContent).toContain("pb:4");
+    expect(container.querySelector("[role='status']")?.textContent).toContain("ETA");
+    expect(container.querySelector("[role='status']")?.textContent).toContain("best signal 4");
   });
 
   it("describes relay publishing", () => {
