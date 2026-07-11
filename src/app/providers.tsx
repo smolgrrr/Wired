@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { closeAllSubscriptions, initNostr, isNostrReady } from "../nostr/client";
+import { FeedStatusIndicatorProvider } from "./FeedStatusIndicatorProvider";
 import { SettingsProvider } from "./settings";
 
 type NostrContextValue = {
@@ -40,7 +41,9 @@ export function useNostrReady(): boolean {
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SettingsProvider>
-      <NostrProvider>{children}</NostrProvider>
+      <FeedStatusIndicatorProvider>
+        <NostrProvider>{children}</NostrProvider>
+      </FeedStatusIndicatorProvider>
     </SettingsProvider>
   );
 }

@@ -1,5 +1,38 @@
 import { Link, useLocation } from "react-router-dom";
+import { useFeedStatusIndicator } from "../../app/feedStatusIndicator";
+import type { FeedStatusKind } from "../../hooks/useFeed";
 import { getPathDisplay } from "./routeLabelMap";
+
+const feedStatusIndicatorClass: Record<FeedStatusKind, string> = {
+  live: "bg-signal shadow-[0_0_8px_var(--signal-dim)]",
+  degraded: "bg-danger shadow-[0_0_8px_var(--danger-dim)]",
+  syncing: "bg-[var(--text-secondary)]",
+  snapshot: "bg-[var(--text-muted)]",
+  empty: "bg-[var(--text-ghost)]",
+};
+
+const feedStatusLabel: Record<FeedStatusKind, string> = {
+  live: "feed live",
+  degraded: "feed degraded",
+  syncing: "feed syncing",
+  snapshot: "feed snapshot",
+  empty: "feed empty",
+};
+
+function FeedStatusLed({ statusKind }: { statusKind?: FeedStatusKind }) {
+  if (!statusKind) return null;
+
+  return (
+    <span
+      className={[
+        "h-2 w-2 shrink-0 rounded-full",
+        feedStatusIndicatorClass[statusKind],
+      ].join(" ")}
+      role="status"
+      aria-label={feedStatusLabel[statusKind]}
+    />
+  );
+}
 
 function NavLink({
   to,
@@ -33,6 +66,7 @@ function NavLink({
 export function Header() {
   const { pathname } = useLocation();
   const pathDisplay = getPathDisplay(pathname);
+  const { statusKind } = useFeedStatusIndicator();
 
   return (
     <header className="mx-auto px-4 sm:px-6 lg:px-8 h-[var(--header-height)] flex items-center border-b border-ghost">
@@ -45,9 +79,10 @@ export function Header() {
       <div className="flex w-full items-center justify-between gap-4">
         <Link
           to="/"
-          className="flex min-w-0 items-center gap-1 truncate focus-visible:outline-none"
+          className="flex min-w-0 items-center gap-1.5 truncate focus-visible:outline-none"
           title={`signal ${pathDisplay}`}
         >
+          <FeedStatusLed statusKind={statusKind} />
           <span className="text-meta text-secondary shrink-0">signal</span>
           <span className="text-meta text-signal font-medium truncate border-b-2 border-signal pb-0.5">
             {pathDisplay}
