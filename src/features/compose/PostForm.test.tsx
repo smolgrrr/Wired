@@ -84,7 +84,7 @@ describe("PostForm", () => {
     });
 
     expect(container.textContent).toContain("signal");
-    expect(container.textContent).toContain("estimated mine time ~12s");
+    expect(container.textContent).toContain("ETA ~12s");
   });
 
   it("does not duplicate the PoW ETA while mining", () => {
@@ -111,7 +111,7 @@ describe("PostForm", () => {
     expect(container.textContent).toContain("best signal 17");
   });
 
-  it("shows a visible first-use compose affordance", () => {
+  it("keeps the composer labelled with a quieter visible affordance", () => {
     act(() => {
       root.render(<PostForm />);
     });
@@ -120,7 +120,8 @@ describe("PostForm", () => {
     const textarea = container.querySelector("textarea");
 
     expect(label?.textContent).toBe("Write a note");
-    expect(textarea?.getAttribute("placeholder")).toBe("Share a note with the network");
+    expect(label?.className).toContain("sr-only");
+    expect(textarea?.getAttribute("placeholder")).toBe("write something...");
     expect(textarea?.id).toBe(label?.getAttribute("for"));
   });
 

@@ -7,6 +7,7 @@ type SignalStepperProps = {
   min?: number | string;
   label?: string;
   active?: boolean;
+  meta?: string;
 };
 
 export function SignalStepper({
@@ -15,6 +16,7 @@ export function SignalStepper({
   min = 16,
   label = "signal",
   active = false,
+  meta,
 }: SignalStepperProps) {
   const numericValue = parseInt(value, 10) || 0;
   const minValue = typeof min === "string" ? parseInt(min, 10) || 0 : min;
@@ -25,7 +27,7 @@ export function SignalStepper({
   return (
     <div
       className={[
-        "inline-flex items-center gap-0.5 bg-surface border rounded-sm px-1 py-0.5 transition-colors",
+        "flex w-full max-w-full items-center gap-0.5 bg-surface border rounded-sm px-1 py-0.5 transition-colors",
         active
           ? "border-signal drop-shadow-[0_0_6px_var(--signal-dim)]"
           : "border-ghost",
@@ -62,6 +64,11 @@ export function SignalStepper({
       >
         +
       </Button>
+      {meta && (
+        <span className="ml-auto w-[13ch] shrink-0 truncate border-l border-ghost pl-2 pr-1 text-right text-micro text-muted">
+          {meta}
+        </span>
+      )}
     </div>
   );
 }

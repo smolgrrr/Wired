@@ -4,19 +4,21 @@ import { forwardRef, useId } from "react";
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   variant?: "default" | "compose";
   label?: string;
+  labelHidden?: boolean;
 }
 
 const variantClasses: Record<NonNullable<TextareaProps["variant"]>, string> = {
   default:
     "rounded-sm bg-surface border border-ghost px-3 py-2 resize-y",
   compose:
-    "min-h-[var(--compose-min-height)] resize-none bg-surface border-0 border-b border-ghost rounded-none px-3 py-2",
+    "min-h-[var(--compose-min-height)] resize-none bg-surface border-0 border-b border-ghost rounded-none px-3 py-2 placeholder:text-muted placeholder:opacity-60",
 };
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
   {
     variant = "default",
     label,
+    labelHidden = false,
     id: idProp,
     className = "",
     ...props
@@ -29,7 +31,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-meta text-secondary mb-1">
+        <label
+          htmlFor={id}
+          className={
+            labelHidden
+              ? "sr-only"
+              : "block text-meta text-secondary mb-1"
+          }
+        >
           {label}
         </label>
       )}

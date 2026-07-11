@@ -271,10 +271,10 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
         aria-label="open custom emoji picker"
         aria-expanded={isOpen}
         title="custom emoji"
-        className="px-2"
+        className="h-8 w-8 p-0 text-muted hover:text-secondary"
         onClick={togglePicker}
       >
-        <SmilePlus className="h-4 w-4" aria-hidden="true" />
+        <SmilePlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
       </Button>
 
       {isOpen && (
