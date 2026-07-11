@@ -7,6 +7,8 @@ import { PostCard } from "../../shared/ui/PostCard";
 import { FeedSortToggle } from "./FeedSortToggle";
 import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
 import { useThreadNavigation } from "../thread/useThreadNavigation";
+import { Placeholder } from "../../shared/ui/Placeholder";
+import { useHeaderFeedStatus } from "../../app/feedStatusIndicator";
 
 const SKIP_RESOLVE_COUNT = 3;
 const INITIAL_RESOLVE_COUNT = 20;
@@ -19,10 +21,11 @@ type FeedPageProps = {
 
 export default function FeedPage({ mode = "default" }: FeedPageProps) {
   const { settings, updateSettings } = useSettings();
-  const { processedEvents } = useFeed({ mode });
+  const { processedEvents, feedStatus } = useFeed({ mode });
   const visibleCount = useInfiniteScroll();
   const openThread = useThreadNavigation();
   const [resolveWindowOpen, setResolveWindowOpen] = useState(true);
+  useHeaderFeedStatus(feedStatus.kind);
 
   useEffect(() => {
     const timer = setTimeout(
@@ -55,7 +58,9 @@ export default function FeedPage({ mode = "default" }: FeedPageProps) {
         </div>
       </div>
       <ContentColumn>
-        {sortedEvents.slice(0, visibleCount).map((event, index) => {
+        {sortedEvents.length === 0 ? (
+          <Placeholder message={feedStatus.detail} />
+        ) : sortedEvents.slice(0, visibleCount).map((event, index) => {
           const shouldResolve =
             resolveWindowOpen &&
             index >= SKIP_RESOLVE_COUNT &&

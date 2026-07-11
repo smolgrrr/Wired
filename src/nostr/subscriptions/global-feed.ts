@@ -14,14 +14,19 @@ import { createSubHandleOwner } from "./utils";
 import {
   buildReplyFilter,
   clampReplyDepth,
+  limitReplyParentIds,
   sinceFromAgeHours,
 } from "./query-limits";
+
+export const FEED_REPLY_PARENT_CHUNK_SIZE = 20;
+export const FEED_ROOT_FETCH_CHUNK_SIZE = 20;
 
 type GlobalFeedOptions = {
   rootRelayUrls?: readonly string[];
   replyRelayUrls?: readonly string[];
   rootFilterDifficulty?: number;
   replyDepth?: number;
+  onInitialEose?: () => void;
 };
 
 function uniqueRelays(relays: readonly string[]): string[] {
@@ -38,6 +43,14 @@ function rootRelayUrls(
   ]);
 
   return relays.length > 0 ? relays : undefined;
+}
+
+function chunkItems<T>(items: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
 class FeedReplyTraversal {
@@ -61,9 +74,31 @@ class FeedReplyTraversal {
   private subscribeParents(parentIds: string[], depth: number) {
     if (parentIds.length === 0 || depth <= 0) return;
 
+    const chunks = chunkItems(
+      limitReplyParentIds(parentIds),
+      FEED_REPLY_PARENT_CHUNK_SIZE,
+    );
     const childReplyIds = new Set<string>();
+    this.subscribeParentChunk(chunks, 0, childReplyIds, depth);
+  }
+
+  private subscribeParentChunk(
+    parentChunks: string[][],
+    index: number,
+    childReplyIds: Set<string>,
+    depth: number,
+  ) {
+    const parentIds = parentChunks[index];
+    if (!parentIds) {
+      this.subscribeParents(Array.from(childReplyIds), depth - 1);
+      return;
+    }
+
     const filter = buildReplyFilter(parentIds, this.since);
-    if (!filter) return;
+    if (!filter) {
+      this.subscribeParentChunk(parentChunks, index + 1, childReplyIds, depth);
+      return;
+    }
 
     this.owner.add(getRegistry().subscribe([
       {
@@ -75,7 +110,12 @@ class FeedReplyTraversal {
         },
         closeOnEose: true,
         onEose: () => {
-          this.subscribeParents(Array.from(childReplyIds), depth - 1);
+          this.subscribeParentChunk(
+            parentChunks,
+            index + 1,
+            childReplyIds,
+            depth,
+          );
         },
       },
     ]));
@@ -114,47 +154,65 @@ class FeedRootFetch {
 
     refsToFetch.forEach((ref) => this.requestedIds.add(ref.id));
 
-    {
-      const chunk = mergeFeedRootRefs(refsToFetch);
-      const ids = chunk.map((ref) => ref.id);
-      if (ids.length > 0) {
-        const nextRefs = new Map<string, FeedRootRef>();
-        const addNextRef = (ref: FeedRootRef) => {
-          const [merged] = mergeFeedRootRefs([
-            ...(nextRefs.get(ref.id) ? [nextRefs.get(ref.id)!] : []),
-            ref,
-          ]);
-          nextRefs.set(ref.id, merged);
-        };
+    const chunks = chunkItems(
+      mergeFeedRootRefs(refsToFetch),
+      FEED_ROOT_FETCH_CHUNK_SIZE,
+    );
+    this.subscribeRootChunk(chunks, 0, new Map(), depth);
+  }
 
-        this.owner.add(getRegistry().subscribe([
-          {
-            filter: {
-              ids,
-              kinds: [1],
-              limit: ids.length,
-            },
-            relayUrls: rootRelayUrls(chunk, this.fallbackRelayUrls),
-            cb: (evt, relay) => {
-              this.eventsById.set(evt.id.toLowerCase(), evt);
-              this.onEvent(evt, relay);
-
-              const nextRef = resolveFeedRootRef(evt, this.eventsById);
-              if (nextRef?.id === evt.id.toLowerCase()) {
-                this.onRootEvents([evt]);
-                return;
-              }
-
-              if (nextRef) addNextRef(nextRef);
-            },
-            closeOnEose: true,
-            onEose: () => {
-              this.start([...nextRefs.values()], depth - 1);
-            },
-          },
-        ]));
-      }
+  private subscribeRootChunk(
+    rootChunks: FeedRootRef[][],
+    index: number,
+    nextRefs: Map<string, FeedRootRef>,
+    depth: number,
+  ) {
+    const chunk = rootChunks[index];
+    if (!chunk) {
+      this.start([...nextRefs.values()], depth - 1);
+      return;
     }
+
+    const ids = chunk.map((ref) => ref.id);
+    if (ids.length === 0) {
+      this.subscribeRootChunk(rootChunks, index + 1, nextRefs, depth);
+      return;
+    }
+
+    const addNextRef = (ref: FeedRootRef) => {
+      const [merged] = mergeFeedRootRefs([
+        ...(nextRefs.get(ref.id) ? [nextRefs.get(ref.id)!] : []),
+        ref,
+      ]);
+      nextRefs.set(ref.id, merged);
+    };
+
+    this.owner.add(getRegistry().subscribe([
+      {
+        filter: {
+          ids,
+          kinds: [1],
+          limit: ids.length,
+        },
+        relayUrls: rootRelayUrls(chunk, this.fallbackRelayUrls),
+        cb: (evt, relay) => {
+          this.eventsById.set(evt.id.toLowerCase(), evt);
+          this.onEvent(evt, relay);
+
+          const nextRef = resolveFeedRootRef(evt, this.eventsById);
+          if (nextRef?.id === evt.id.toLowerCase()) {
+            this.onRootEvents([evt]);
+            return;
+          }
+
+          if (nextRef) addNextRef(nextRef);
+        },
+        closeOnEose: true,
+        onEose: () => {
+          this.subscribeRootChunk(rootChunks, index + 1, nextRefs, depth);
+        },
+      },
+    ]));
   }
 }
 
@@ -236,6 +294,7 @@ export const subGlobalFeed = (
         },
         closeOnEose: true,
         onEose: () => {
+          options.onInitialEose?.();
           const rootRefs = feedRootRefsFromQualifyingActivity(
             activityEvents,
             options.rootFilterDifficulty ?? 0,

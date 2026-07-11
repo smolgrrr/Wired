@@ -28,8 +28,33 @@ import {
 } from "../shared/lib/feedBootstrapClient";
 
 const FEED_REPLY_DEPTH = 3;
+const FEED_RELAY_DEGRADED_AFTER_MS = 8000;
 
 type FeedMode = "default" | "raw";
+type FeedBootstrapLoadState = "disabled" | "loading" | "loaded" | "error";
+
+export type FeedStatusKind =
+  | "snapshot"
+  | "live"
+  | "syncing"
+  | "degraded"
+  | "empty";
+
+export type FeedStatus = {
+  kind: FeedStatusKind;
+  label: string;
+  detail: string;
+};
+
+type FeedStatusInput = {
+  processedCount: number;
+  bootstrapEligible: boolean;
+  bootstrapLoadState: FeedBootstrapLoadState;
+  bootstrapProcessedCount: number;
+  liveEventCount: number;
+  liveInitialEose: boolean;
+  relayWaitElapsed: boolean;
+};
 
 function mergeNoteEvents(...eventGroups: Event[][]): Event[] {
   const merged = new Map<string, Event>();
@@ -67,6 +92,80 @@ function eventsFromProcessedFeedEvents(processedEvents: ProcessedEvent[]): Event
   });
 
   return events;
+}
+
+export function deriveFeedStatus({
+  processedCount,
+  bootstrapEligible,
+  bootstrapLoadState,
+  bootstrapProcessedCount,
+  liveEventCount,
+  liveInitialEose,
+  relayWaitElapsed,
+}: FeedStatusInput): FeedStatus {
+  if (liveEventCount > 0) {
+    return {
+      kind: "live",
+      label: "live",
+      detail: "relay updates are flowing",
+    };
+  }
+
+  if (processedCount === 0) {
+    if (liveInitialEose) {
+      return {
+        kind: "empty",
+        label: "empty",
+        detail: "no qualifying feed events found",
+      };
+    }
+
+    if (bootstrapLoadState === "error" || relayWaitElapsed) {
+      return {
+        kind: "degraded",
+        label: "degraded",
+        detail: "relays are slow or unavailable",
+      };
+    }
+
+    return {
+      kind: "syncing",
+      label: "syncing",
+      detail: "checking relays for recent work",
+    };
+  }
+
+  if (bootstrapEligible && bootstrapProcessedCount > 0) {
+    if (!liveInitialEose && relayWaitElapsed) {
+      return {
+        kind: "degraded",
+        label: "degraded",
+        detail: "showing snapshot while relays catch up",
+      };
+    }
+
+    return {
+      kind: "snapshot",
+      label: "snapshot",
+      detail: liveInitialEose
+        ? "latest relay check is complete"
+        : "checking relays for live updates",
+    };
+  }
+
+  if (!liveInitialEose && relayWaitElapsed) {
+    return {
+      kind: "degraded",
+      label: "degraded",
+      detail: "relays are slow or unavailable",
+    };
+  }
+
+  return {
+    kind: "syncing",
+    label: "syncing",
+    detail: "checking relays for recent work",
+  };
 }
 
 function isProcessedEventModerated(
@@ -137,6 +236,12 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   const moderationManifest = useModerationManifest();
   const isRawMode = mode === "raw";
   const bootstrapEligible = !isRawMode && canUseFeedBootstrap(settings);
+  const [bootstrapLoadState, setBootstrapLoadState] =
+    useState<FeedBootstrapLoadState>(
+      bootstrapEligible ? "loading" : "disabled",
+    );
+  const [liveInitialEose, setLiveInitialEose] = useState(false);
+  const [relayWaitElapsed, setRelayWaitElapsed] = useState(false);
   const [bootstrapProcessedEvents, setBootstrapProcessedEvents] = useState<ProcessedEvent[]>([]);
   const [bootstrapEvents, setBootstrapEvents] = useState<Event[]>([]);
   const [bootstrapRootIds, setBootstrapRootIds] = useState<string[]>([]);
@@ -145,6 +250,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
 
   useEffect(() => {
     if (!bootstrapEligible) {
+      setBootstrapLoadState("disabled");
       setBootstrapProcessedEvents([]);
       setBootstrapEvents([]);
       setBootstrapRootIds([]);
@@ -153,11 +259,13 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     }
 
     let cancelled = false;
+    setBootstrapLoadState("loading");
 
     void loadFeedBootstrapSnapshot()
       .then((snapshot) => {
         if (cancelled) return;
         if (!snapshot) {
+          setBootstrapLoadState("loaded");
           setBootstrapProcessedEvents([]);
           setBootstrapEvents([]);
           setBootstrapRootIds([]);
@@ -173,10 +281,12 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
         setBootstrapRootIds(
           processedEvents.map((event) => event.postEvent.id),
         );
+        setBootstrapLoadState("loaded");
         seedProfiles(snapshot.profiles);
       })
       .catch(() => {
         // Fall back to live relay subscription only.
+        setBootstrapLoadState("error");
         setBootstrapProcessedEvents([]);
         setBootstrapEvents([]);
         setBootstrapRootIds([]);
@@ -188,6 +298,18 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     };
   }, [bootstrapEligible, settings.ageHours, settings.filterDifficulty]);
 
+  useEffect(() => {
+    setLiveInitialEose(false);
+    setRelayWaitElapsed(false);
+
+    const timer = window.setTimeout(
+      () => setRelayWaitElapsed(true),
+      FEED_RELAY_DEGRADED_AFTER_MS,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [mode, settings.ageHours, settings.filterDifficulty]);
+
   const subscribe = useCallback(
     (onEvent: Parameters<typeof subGlobalFeed>[0]) =>
       subGlobalFeed(
@@ -198,6 +320,7 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
           replyRelayUrls: THREAD_RELAYS,
           rootFilterDifficulty: settings.filterDifficulty,
           replyDepth: FEED_REPLY_DEPTH,
+          onInitialEose: () => setLiveInitialEose(true),
         },
       ),
     [settings.ageHours, settings.filterDifficulty],
@@ -300,6 +423,27 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
       liveProcessedEvents,
     ],
   );
+  const feedStatus = useMemo(
+    () =>
+      deriveFeedStatus({
+        processedCount: processedEvents.length,
+        bootstrapEligible,
+        bootstrapLoadState,
+        bootstrapProcessedCount: visibleBootstrapProcessedEvents.length,
+        liveEventCount: liveEvents.length,
+        liveInitialEose,
+        relayWaitElapsed,
+      }),
+    [
+      processedEvents.length,
+      bootstrapEligible,
+      bootstrapLoadState,
+      visibleBootstrapProcessedEvents.length,
+      liveEvents.length,
+      liveInitialEose,
+      relayWaitElapsed,
+    ],
+  );
 
-  return { processedEvents, noteEvents: visibleNoteEvents };
+  return { processedEvents, noteEvents: visibleNoteEvents, feedStatus };
 }
