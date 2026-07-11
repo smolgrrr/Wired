@@ -30,6 +30,14 @@ function aspectRatioFromDimensions(width?: number, height?: number): string {
   return "16 / 9";
 }
 
+function dimensionAttrs(
+  width?: number,
+  height?: number,
+): { width?: number; height?: number } {
+  if (!width || !height) return {};
+  return { width, height };
+}
+
 function imageClasses(orientation: MediaOrientation, compact?: boolean): string {
   const base = "rounded border border-ghost object-contain";
 
@@ -78,14 +86,29 @@ function useOptimizedImage(
 ) {
   const [useRaw, setUseRaw] = useState(false);
 
+  useEffect(() => {
+    setUseRaw(false);
+  }, [url]);
+
+  const optimizedSrc = optimizedImageUrl(url, width);
+  const isOptimized = optimizedSrc !== url;
+
   if (useRaw) {
-    return { src: url, srcSet: undefined, onError: () => setUseRaw(true) };
+    return {
+      src: url,
+      srcSet: undefined,
+      isOptimized: false,
+      onError: () => undefined,
+    };
   }
 
   return {
-    src: optimizedImageUrl(url, width),
-    srcSet: optimizedImageSrcSet(url, srcSetWidths),
-    onError: () => setUseRaw(true),
+    src: optimizedSrc,
+    srcSet: isOptimized ? optimizedImageSrcSet(url, srcSetWidths) : undefined,
+    isOptimized,
+    onError: () => {
+      if (isOptimized) setUseRaw(true);
+    },
   };
 }
 
@@ -102,7 +125,11 @@ function MediaImage({
   const maxWidth = compact ? 384 : 828;
   const width = pickOptimizedWidth(item.width, maxWidth);
   const srcSetWidths = compact ? [384, 640] : [640, 828, 1200];
-  const { src, srcSet, onError } = useOptimizedImage(item.url, width, srcSetWidths);
+  const { src, srcSet, isOptimized, onError } = useOptimizedImage(
+    item.url,
+    width,
+    srcSetWidths,
+  );
 
   if (failed) return <MediaFallback />;
 
@@ -114,13 +141,14 @@ function MediaImage({
       src={src}
       srcSet={srcSet}
       sizes={compact ? "384px" : "(max-width: 768px) 100vw, 828px"}
+      {...dimensionAttrs(item.width, item.height)}
       alt=""
       loading={priority ? "eager" : "lazy"}
-      fetchPriority={priority ? "high" : undefined}
+      {...(priority ? { fetchpriority: "high" } : {})}
       decoding="async"
       onError={() => {
         onError();
-        if (src === item.url) setFailed(true);
+        if (!isOptimized) setFailed(true);
       }}
       className={imageClasses(orientation, compact)}
       style={
@@ -149,7 +177,11 @@ function GridImage({
   const maxWidth = compact ? 384 : 640;
   const width = pickOptimizedWidth(item.width, maxWidth);
   const srcSetWidths = compact ? [384, 640] : [384, 640, 828];
-  const { src, srcSet, onError } = useOptimizedImage(item.url, width, srcSetWidths);
+  const { src, srcSet, isOptimized, onError } = useOptimizedImage(
+    item.url,
+    width,
+    srcSetWidths,
+  );
 
   if (failed) return <MediaFallback />;
 
@@ -165,13 +197,14 @@ function GridImage({
         src={src}
         srcSet={srcSet}
         sizes={compact ? "384px" : "(max-width: 768px) 50vw, 640px"}
+        {...dimensionAttrs(item.width, item.height)}
         alt=""
         loading={priority ? "eager" : "lazy"}
-        fetchPriority={priority ? "high" : undefined}
+        {...(priority ? { fetchpriority: "high" } : {})}
         decoding="async"
         onError={() => {
           onError();
-          if (src === item.url) setFailed(true);
+          if (!isOptimized) setFailed(true);
         }}
         className={[
           "h-full w-full object-cover",
@@ -278,6 +311,7 @@ function MediaVideo({
         ref={videoRef}
         src={item.url}
         poster={item.posterUrl}
+        {...dimensionAttrs(resolvedDimensions.width, resolvedDimensions.height)}
         controls
         preload={hasPoster || !shouldPrimePreview ? "metadata" : "auto"}
         playsInline

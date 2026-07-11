@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useFeed } from "../../hooks/useFeed";
 import { useSettings } from "../../app/settings";
 import { useInfiniteScroll } from "../../shared/hooks/useInfiniteScroll";
-import { PostForm } from "../compose/PostForm";
 import { PostCard } from "../../shared/ui/PostCard";
 import { FeedSortToggle } from "./FeedSortToggle";
 import { ContentColumn, PageShell } from "../../shared/ui/PageShell";
@@ -15,6 +14,10 @@ const INITIAL_RESOLVE_COUNT = 20;
 const RESOLVE_DURATION_MS = 600;
 const STAGGER_MS = 40;
 
+const LazyPostForm = lazy(() =>
+  import("../compose/PostForm").then((module) => ({ default: module.PostForm })),
+);
+
 type FeedPageProps = {
   mode?: "default" | "raw";
 };
@@ -25,6 +28,7 @@ export default function FeedPage({ mode = "default" }: FeedPageProps) {
   const visibleCount = useInfiniteScroll();
   const openThread = useThreadNavigation();
   const [resolveWindowOpen, setResolveWindowOpen] = useState(true);
+  const [showComposer, setShowComposer] = useState(false);
   useHeaderFeedStatus(feedStatus.kind);
 
   useEffect(() => {
@@ -33,6 +37,11 @@ export default function FeedPage({ mode = "default" }: FeedPageProps) {
       RESOLVE_DURATION_MS + INITIAL_RESOLVE_COUNT * STAGGER_MS,
     );
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowComposer(true), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const sortedEvents = useMemo(() => {
@@ -52,8 +61,12 @@ export default function FeedPage({ mode = "default" }: FeedPageProps) {
             sortByPow={settings.sortByPow}
             onToggle={() => updateSettings({ sortByPow: !settings.sortByPow })}
           />
-          <div className="min-w-0 flex-1">
-            <PostForm />
+          <div className="min-h-[8.5rem] min-w-0 flex-1">
+            {showComposer && (
+              <Suspense fallback={null}>
+                <LazyPostForm />
+              </Suspense>
+            )}
           </div>
         </div>
       </div>

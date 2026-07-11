@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MediaAttachment, NoteMedia } from "./NoteMedia";
+import { MediaAttachment, MediaGrid, NoteMedia } from "./NoteMedia";
 
 (
   globalThis as typeof globalThis & {
@@ -71,6 +71,8 @@ describe("NoteMedia video previews", () => {
     expect(video?.getAttribute("preload")).toBe("metadata");
     expect(video?.hasAttribute("controls")).toBe(true);
     expect(video?.getAttribute("poster")).toBeNull();
+    expect(video?.getAttribute("width")).toBe("640");
+    expect(video?.getAttribute("height")).toBe("360");
     expect(video?.parentElement?.style.aspectRatio).toBe("640 / 360");
     expect(container.textContent).toContain("video preview");
     expect(loadMock).not.toHaveBeenCalled();
@@ -167,6 +169,8 @@ describe("NoteMedia video previews", () => {
     });
 
     const image = container.querySelector("img");
+    expect(image?.getAttribute("width")).toBe("1200");
+    expect(image?.getAttribute("height")).toBe("400");
     expect(image?.className).toContain("mx-auto");
     expect(image?.className).toContain("max-h-[12rem]");
     expect(image?.className.split(/\s+/)).not.toContain("w-full");
@@ -190,11 +194,59 @@ describe("NoteMedia video previews", () => {
     });
 
     const image = container.querySelector("img");
+    expect(image?.getAttribute("width")).toBe("800");
+    expect(image?.getAttribute("height")).toBe("1400");
     expect(image?.className).toContain("mx-auto");
     expect(image?.className).toContain("max-w-[min(100%,12rem)]");
     expect(image?.className).toContain("max-h-[16rem]");
     expect(image?.className.split(/\s+/)).not.toContain("w-full");
     expect(image?.style.aspectRatio).toBe("800 / 1400");
+  });
+
+  it("sets dimensions on grid images when imeta dimensions are present", () => {
+    act(() => {
+      root.render(
+        <MediaGrid
+          items={[
+            {
+              url: "https://example.com/one.jpg",
+              type: "image",
+              width: 1600,
+              height: 900,
+            },
+            {
+              url: "https://example.com/two.jpg",
+              type: "image",
+              width: 900,
+              height: 1600,
+            },
+          ]}
+        />,
+      );
+    });
+
+    const images = container.querySelectorAll("img");
+    expect(images[0]?.getAttribute("width")).toBe("1600");
+    expect(images[0]?.getAttribute("height")).toBe("900");
+    expect(images[1]?.getAttribute("width")).toBe("900");
+    expect(images[1]?.getAttribute("height")).toBe("1600");
+  });
+
+  it("omits image dimensions when imeta dimensions are missing", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{
+            url: "https://example.com/photo.jpg",
+            type: "image",
+          }}
+        />,
+      );
+    });
+
+    const image = container.querySelector("img");
+    expect(image?.hasAttribute("width")).toBe(false);
+    expect(image?.hasAttribute("height")).toBe(false);
   });
 
   it("uses orientation-aware compact classes for quoted landscape video", () => {
@@ -271,6 +323,8 @@ describe("NoteMedia video previews", () => {
 
     expect(wrapper?.style.aspectRatio).toBe("720 / 1280");
     expect(wrapper?.className).toContain("max-w-[min(100%,18rem)]");
+    expect(video?.getAttribute("width")).toBe("720");
+    expect(video?.getAttribute("height")).toBe("1280");
   });
 
   it("keeps the media fallback on video errors", () => {

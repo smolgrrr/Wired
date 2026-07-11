@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Event } from "nostr-tools";
 import {
   eventsFromSnapshot,
@@ -11,6 +11,10 @@ import {
   VERCEL_FEED_BOOTSTRAP_URL,
 } from "./feedBootstrapClient";
 import type { FeedBootstrapResponse } from "./feedBootstrapClient";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const event = (overrides: Partial<Event> = {}): Event => ({
   id: "f".repeat(64),
@@ -241,6 +245,41 @@ describe("fetchFeedBootstrapSnapshot", () => {
     );
 
     expect(result).toEqual(snapshot());
+    expect(calls).toEqual([
+      "https://snapshot.example/feed.json",
+      VERCEL_FEED_BOOTSTRAP_URL,
+    ]);
+  });
+
+  it("keeps the Vercel fallback cheap when the external snapshot misses", async () => {
+    vi.useFakeTimers();
+    resetFeedBootstrapSnapshotCache();
+    const calls: string[] = [];
+    const fetcher = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(String(input));
+      if (String(input).startsWith("https://snapshot.example")) {
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      }
+
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+
+    const result = fetchFeedBootstrapSnapshot(
+      fetcher,
+      "https://snapshot.example/feed.json",
+      { timeoutMs: 1_000, fallbackTimeoutMs: 25 },
+    );
+
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expect(result).resolves.toBeNull();
     expect(calls).toEqual([
       "https://snapshot.example/feed.json",
       VERCEL_FEED_BOOTSTRAP_URL,

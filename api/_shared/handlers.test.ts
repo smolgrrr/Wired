@@ -79,6 +79,26 @@ describe("shared API handlers", () => {
     });
   });
 
+  it("explains bootstrap cache misses when refresh-on-read is disabled", async () => {
+    const service = new FeedBootstrapCacheService({
+      store: new MemoryFeedBootstrapStore(),
+      allowRefreshOnRead: () => false,
+    });
+
+    await expect(handleFeedBootstrapApi({ method: "GET" }, { service })).resolves.toMatchObject({
+      status: 503,
+      body: {
+        error: "bootstrap unavailable",
+        cache: {
+          hit: false,
+          refreshOnRead: false,
+          refreshing: false,
+        },
+        lastRefreshError: null,
+      },
+    });
+  });
+
   it("returns a refresh summary from the shared cache service", async () => {
     delete process.env.CRON_SECRET;
     process.env.NODE_ENV = "test";

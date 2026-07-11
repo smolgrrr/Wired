@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Event } from "nostr-tools";
-import { PostForm } from "./PostForm";
 import { Button } from "../../shared/ui/Button";
 import { ContentColumn } from "../../shared/ui/PageShell";
 
 type PostType = "" | "Reply" | "Quote" | undefined;
+
+const LazyPostForm = lazy(() =>
+  import("./PostForm").then((module) => ({ default: module.PostForm })),
+);
 
 export function ThreadComposer({ OPEvent }: { OPEvent: Event }) {
   const [showForm, setShowForm] = useState(false);
@@ -39,7 +42,9 @@ export function ThreadComposer({ OPEvent }: { OPEvent: Event }) {
       {showForm && postType && (
         <ContentColumn className="my-2">
           <p className="text-meta text-muted text-center mb-2">{postType.toLowerCase()}</p>
-          <PostForm refEvent={OPEvent} tagType={postType} />
+          <Suspense fallback={null}>
+            <LazyPostForm refEvent={OPEvent} tagType={postType} />
+          </Suspense>
         </ContentColumn>
       )}
     </>
