@@ -120,6 +120,11 @@ export async function handleFeedBootstrapApi(
   if (!snapshot) {
     return json(503, {
       error: "bootstrap unavailable",
+      cache: {
+        hit: false,
+        refreshOnRead: service.canRefreshOnRead(),
+        refreshing: service.isRefreshing(),
+      },
       lastRefreshError: service.getLastRefreshError(),
     });
   }

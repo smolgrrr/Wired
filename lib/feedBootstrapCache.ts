@@ -126,6 +126,10 @@ export class FeedBootstrapCacheService {
     return this.lastRefreshError;
   }
 
+  canRefreshOnRead(): boolean {
+    return this.allowRefreshOnRead();
+  }
+
   read(): Promise<FeedBootstrapSnapshot | null> {
     return this.store.read();
   }

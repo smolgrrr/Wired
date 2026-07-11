@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pubkeyToGrid } from "@lib/pubkeyToGrid";
 import { optimizedAvatarUrl } from "@lib/optimizedImageUrl";
 
@@ -71,10 +71,15 @@ export function SignalAvatar({
   const pixels = sizePixels[size];
   const ariaLabel = label ?? `author ${pubkey.slice(0, 8)}`;
 
+  useEffect(() => {
+    setImageFailed(false);
+    setUseRawUrl(false);
+  }, [pictureUrl]);
+
   if (pictureUrl && !imageFailed) {
-    const src = useRawUrl
-      ? pictureUrl
-      : optimizedAvatarUrl(pictureUrl, pixels);
+    const optimizedSrc = optimizedAvatarUrl(pictureUrl, pixels);
+    const isOptimized = optimizedSrc !== pictureUrl;
+    const src = useRawUrl ? pictureUrl : optimizedSrc;
 
     return (
       <img
@@ -83,11 +88,11 @@ export function SignalAvatar({
         width={pixels}
         height={pixels}
         loading={priority ? "eager" : "lazy"}
-        fetchPriority={priority ? "high" : undefined}
+        {...(priority ? { fetchpriority: "high" } : {})}
         decoding="async"
         aria-label={ariaLabel}
         onError={() => {
-          if (!useRawUrl) {
+          if (!useRawUrl && isOptimized) {
             setUseRawUrl(true);
             return;
           }

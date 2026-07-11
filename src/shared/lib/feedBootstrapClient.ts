@@ -9,11 +9,18 @@ export type FeedBootstrapResponse = FeedBootstrapSnapshot;
 
 export const VERCEL_FEED_BOOTSTRAP_URL = "/api/feed/bootstrap";
 export const FEED_SNAPSHOT_URL_ENV = "VITE_FEED_SNAPSHOT_URL";
+export const FEED_BOOTSTRAP_FETCH_TIMEOUT_MS = 3_000;
+export const FEED_BOOTSTRAP_FALLBACK_TIMEOUT_MS = 800;
 
 type FetchLike = (
   input: RequestInfo | URL,
   init?: RequestInit,
 ) => Promise<Response>;
+
+type FeedBootstrapFetchOptions = {
+  timeoutMs?: number;
+  fallbackTimeoutMs?: number;
+};
 
 let cachedSnapshot: FeedBootstrapResponse | null = null;
 let snapshotPromise: Promise<FeedBootstrapResponse | null> | null = null;
@@ -31,19 +38,63 @@ export function feedBootstrapUrls(
     : [VERCEL_FEED_BOOTSTRAP_URL];
 }
 
+function timeoutSignal(timeoutMs: number): { signal?: AbortSignal; cleanup(): void } {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return { cleanup: () => undefined };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => globalThis.clearTimeout(timeoutId),
+  };
+}
+
+function timeoutForBootstrapUrl(
+  url: string,
+  externalSnapshotUrl: string | null,
+  { timeoutMs, fallbackTimeoutMs }: FeedBootstrapFetchOptions,
+): number {
+  if (externalSnapshotUrl && url === VERCEL_FEED_BOOTSTRAP_URL) {
+    return fallbackTimeoutMs ?? FEED_BOOTSTRAP_FALLBACK_TIMEOUT_MS;
+  }
+
+  return timeoutMs ?? FEED_BOOTSTRAP_FETCH_TIMEOUT_MS;
+}
+
+async function fetchSnapshotFromUrl(
+  fetcher: FetchLike,
+  url: string,
+  timeoutMs: number,
+): Promise<FeedBootstrapResponse | null> {
+  const timeout = timeoutSignal(timeoutMs);
+
+  try {
+    const response = await fetcher(url, { signal: timeout.signal });
+    if (!response.ok) return null;
+
+    const snapshot = (await response.json()) as unknown;
+    return isFeedBootstrapSnapshot(snapshot) ? snapshot : null;
+  } finally {
+    timeout.cleanup();
+  }
+}
+
 export async function fetchFeedBootstrapSnapshot(
   fetcher: FetchLike = fetch,
   externalSnapshotUrl: string | null = configuredFeedSnapshotUrl(),
+  options: FeedBootstrapFetchOptions = {},
 ): Promise<FeedBootstrapResponse | null> {
   for (const url of feedBootstrapUrls(externalSnapshotUrl)) {
     try {
-      const response = await fetcher(url);
-      if (!response.ok) continue;
-
-      const snapshot = (await response.json()) as unknown;
-      if (isFeedBootstrapSnapshot(snapshot)) {
-        return snapshot;
-      }
+      const snapshot = await fetchSnapshotFromUrl(
+        fetcher,
+        url,
+        timeoutForBootstrapUrl(url, externalSnapshotUrl, options),
+      );
+      if (snapshot) return snapshot;
     } catch {
       // Try the next bootstrap source.
     }
