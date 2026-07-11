@@ -79,6 +79,7 @@ export function Header() {
       <div className="flex w-full items-center justify-between gap-4">
         <Link
           to="/"
+          aria-label="go to main feed"
           className="flex min-w-0 items-center gap-1.5 truncate focus-visible:outline-none"
           title={`signal ${pathDisplay}`}
         >
