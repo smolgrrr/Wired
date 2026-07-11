@@ -8,6 +8,10 @@ export const DEFAULT_RELAYS = [
   "wss://pow.relays.land",
 ] as const;
 
+export const DEFAULT_BLOSSOM_SERVERS = [
+  "https://blossom.primal.net",
+] as const;
+
 export const DEFAULT_ENRICHMENT_RELAYS = [
   "wss://relay.damus.io",
   "wss://offchain.pub",
@@ -30,6 +34,27 @@ export function configuredRelays(
     .filter((relay) => relay.startsWith("wss://"));
 
   return relays.length > 0 ? relays : fallback;
+}
+
+export function configuredHttpUrls(
+  envValue: string | undefined,
+  fallback: readonly string[],
+) {
+  if (!envValue?.trim()) return fallback;
+
+  const urls = envValue
+    .split(",")
+    .map((url) => url.trim().replace(/\/+$/, ""))
+    .filter((url) => {
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    });
+
+  return urls.length > 0 ? urls : fallback;
 }
 
 function configuredEnv(key: string): string | undefined {
@@ -60,6 +85,11 @@ export const QUOTE_FALLBACK_RELAYS = [
 export const THREAD_RELAYS = [
   ...new Set([...POW_RELAYS, ...ENRICHMENT_RELAYS]),
 ] as const;
+
+export const BLOSSOM_SERVERS = configuredHttpUrls(
+  configuredEnv("VITE_BLOSSOM_SERVERS"),
+  DEFAULT_BLOSSOM_SERVERS,
+);
 
 export const WIRED_ACCOUNT_API_BASE = (
   configuredEnv("VITE_WIRED_ACCOUNT_API_BASE") ||

@@ -10,6 +10,7 @@ type ReactActGlobal = typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 const mocks = vi.hoisted(() => ({
   handleSubmit: vi.fn(),
   useSubmitForm: vi.fn(),
+  useMediaUploads: vi.fn(),
 }));
 
 vi.mock("../../app/settings", () => ({
@@ -38,6 +39,14 @@ vi.mock("./CustomEmojiPicker", () => ({
   CustomEmojiPicker: () => <button type="button">emoji</button>,
 }));
 
+vi.mock("./MediaUploadPicker", () => ({
+  MediaUploadPicker: () => <button type="button">media</button>,
+}));
+
+vi.mock("./useMediaUploads", () => ({
+  useMediaUploads: mocks.useMediaUploads,
+}));
+
 describe("PostForm", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -56,6 +65,16 @@ describe("PostForm", () => {
     root = createRoot(container);
     mocks.handleSubmit.mockReset();
     mocks.handleSubmit.mockResolvedValue(undefined);
+    mocks.useMediaUploads.mockReturnValue({
+      uploads: [],
+      uploadedMedia: [],
+      hasUploading: false,
+      hasFailed: false,
+      addFiles: vi.fn(),
+      removeUpload: vi.fn(),
+      retryUpload: vi.fn(),
+      clearUploads: vi.fn(),
+    });
     mocks.useSubmitForm.mockReturnValue({
       handleSubmit: mocks.handleSubmit,
       doingWorkProp: false,
@@ -139,10 +158,91 @@ describe("PostForm", () => {
     const message = container.querySelector("[role='status']");
 
     expect(mocks.handleSubmit).not.toHaveBeenCalled();
-    expect(message?.textContent).toBe("Write something before transmitting.");
+    expect(message?.textContent).toBe("Write something or attach media before transmitting.");
     expect(textarea?.getAttribute("aria-invalid")).toBe("true");
     expect(textarea?.getAttribute("aria-describedby")).toBe(message?.id);
     expect(document.activeElement).toBe(textarea);
+  });
+
+  it("allows media-only transmits", async () => {
+    mocks.useMediaUploads.mockReturnValue({
+      uploads: [],
+      uploadedMedia: [
+        {
+          url: "https://cdn.example/image.png",
+          mime: "image/png",
+          sha256: "a".repeat(64),
+          size: 123,
+        },
+      ],
+      hasUploading: false,
+      hasFailed: false,
+      addFiles: vi.fn(),
+      removeUpload: vi.fn(),
+      retryUpload: vi.fn(),
+      clearUploads: vi.fn(),
+    });
+
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    await act(async () => {
+      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(mocks.handleSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks transmits while media is uploading", async () => {
+    mocks.useMediaUploads.mockReturnValue({
+      uploads: [],
+      uploadedMedia: [],
+      hasUploading: true,
+      hasFailed: false,
+      addFiles: vi.fn(),
+      removeUpload: vi.fn(),
+      retryUpload: vi.fn(),
+      clearUploads: vi.fn(),
+    });
+
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    await act(async () => {
+      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(mocks.handleSubmit).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Wait for media uploads to finish.");
+  });
+
+  it("blocks transmits when a media upload failed", async () => {
+    mocks.useMediaUploads.mockReturnValue({
+      uploads: [],
+      uploadedMedia: [],
+      hasUploading: false,
+      hasFailed: true,
+      addFiles: vi.fn(),
+      removeUpload: vi.fn(),
+      retryUpload: vi.fn(),
+      clearUploads: vi.fn(),
+    });
+
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    await act(async () => {
+      container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(mocks.handleSubmit).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Remove or retry failed media uploads.");
   });
 
   it("delegates non-empty transmits to the submit hook", async () => {

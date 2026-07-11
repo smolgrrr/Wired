@@ -1,10 +1,12 @@
 import { Event, UnsignedEvent } from "nostr-tools";
+import type { UploadedMedia } from "@lib/blossom";
 
 export type ComposeDraft = {
   comment: string;
   refEvent?: Event;
   tagType?: "Reply" | "Quote" | "";
   customEmojis?: CustomEmojiTag[];
+  media?: UploadedMedia[];
 };
 
 const CLIENT_TAG: string[] = ["client", "getwired.app"];
@@ -42,17 +44,45 @@ function buildCustomEmojiTags(comment: string, customEmojis: CustomEmojiTag[] = 
     .map((emoji) => ["emoji", emoji.shortcode, emoji.url]);
 }
 
+function buildMediaTags(media: UploadedMedia[] = []): string[][] {
+  return media.map((item) => {
+    const fields = [
+      "imeta",
+      `url ${item.url}`,
+      `m ${item.mime}`,
+      `x ${item.sha256}`,
+      `size ${item.size}`,
+    ];
+
+    if (item.width && item.height) {
+      fields.push(`dim ${item.width}x${item.height}`);
+    }
+    fields.push(...(item.imetaFields ?? []));
+
+    return fields;
+  });
+}
+
+function buildContent(comment: string, media: UploadedMedia[] = []): string {
+  const mediaUrls = media.map((item) => item.url).filter(Boolean);
+  if (mediaUrls.length === 0) return comment;
+
+  const body = comment.trimEnd();
+  return [body, mediaUrls.join("\n")].filter(Boolean).join("\n\n");
+}
+
 export function buildUnsignedEvent(draft: ComposeDraft): UnsignedEvent {
-  const { comment, refEvent, tagType = "", customEmojis } = draft;
+  const { comment, refEvent, tagType = "", customEmojis, media } = draft;
   const created_at = Math.floor(Date.now() / 1000);
   const refTags =
     refEvent && tagType ? buildRefTags(refEvent, tagType) : [];
   const customEmojiTags = buildCustomEmojiTags(comment, customEmojis);
+  const mediaTags = buildMediaTags(media);
 
   return {
     kind: 1,
-    tags: dedupeTags([CLIENT_TAG, ...refTags, ...customEmojiTags]),
-    content: comment,
+    tags: dedupeTags([CLIENT_TAG, ...refTags, ...customEmojiTags, ...mediaTags]),
+    content: buildContent(comment, media),
     created_at,
     pubkey: "",
   };
