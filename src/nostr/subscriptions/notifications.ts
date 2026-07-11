@@ -2,10 +2,22 @@ import { getRegistry } from "../client";
 import type { SubCallback, SubHandle } from "../types";
 import { emptySubHandle } from "./utils";
 
-export const subNotifications = (pubkeys: string[], onEvent: SubCallback): SubHandle => {
+export const subNotifications = (
+  pubkeys: string[],
+  onEvent: SubCallback,
+  onEose?: () => void,
+): SubHandle => {
   if (pubkeys.length === 0) {
     return emptySubHandle("notifications:empty");
   }
+
+  let eoseCount = 0;
+  const handleEose = () => {
+    eoseCount += 1;
+    if (eoseCount >= 2) {
+      onEose?.();
+    }
+  };
 
   return getRegistry().subscribe([
     {
@@ -16,6 +28,7 @@ export const subNotifications = (pubkeys: string[], onEvent: SubCallback): SubHa
       },
       cb: onEvent,
       closeOnEose: true,
+      onEose: handleEose,
     },
     {
       filter: {
@@ -25,6 +38,7 @@ export const subNotifications = (pubkeys: string[], onEvent: SubCallback): SubHa
       },
       cb: onEvent,
       closeOnEose: true,
+      onEose: handleEose,
     },
   ]);
 };
