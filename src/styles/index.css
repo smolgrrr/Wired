@@ -106,6 +106,25 @@ body {
   transform: translateY(1px) scale(0.98);
 }
 
+.post-card--openable {
+  cursor: pointer;
+  border-radius: 0.125rem;
+  touch-action: manipulation;
+  transition:
+    background-color var(--duration-hover) var(--ease-out),
+    box-shadow var(--duration-focus) var(--ease-out),
+    transform var(--duration-hover) var(--ease-out);
+}
+
+.post-card--openable:active {
+  background-color: rgba(255, 255, 255, 0.045);
+  transform: translateY(1px);
+}
+
+.post-card--openable:focus-visible {
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
 .noise-overlay {
   position: fixed;
   inset: 0;
@@ -155,6 +174,10 @@ body {
   .group:hover .metadata-row:not(.metadata-row--secondary),
   .group:focus-within .metadata-row:not(.metadata-row--secondary) {
     color: var(--text-secondary);
+  }
+
+  .post-card--openable:hover {
+    background-color: rgba(255, 255, 255, 0.025);
   }
 }
 
