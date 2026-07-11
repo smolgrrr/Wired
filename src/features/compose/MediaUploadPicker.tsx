@@ -20,6 +20,8 @@ const accept = [
 type MediaUploadPickerProps = {
   uploads: MediaUpload[];
   disabled?: boolean;
+  showButton?: boolean;
+  showUploads?: boolean;
   onAddFiles: (files: FileList) => void;
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
@@ -57,6 +59,8 @@ function UploadPreview({ upload }: { upload: MediaUpload }) {
 export function MediaUploadPicker({
   uploads,
   disabled = false,
+  showButton = true,
+  showUploads = true,
   onAddFiles,
   onRemove,
   onRetry,
@@ -77,18 +81,20 @@ export function MediaUploadPicker({
           event.currentTarget.value = "";
         }}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        title="attach media"
-        aria-label="attach media"
-        onClick={() => inputRef.current?.click()}
-      >
-        <ImagePlus aria-hidden="true" size={16} />
-      </Button>
-      {uploads.length > 0 && (
+      {showButton && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          title="attach media"
+          aria-label="attach media"
+          onClick={() => inputRef.current?.click()}
+        >
+          <ImagePlus aria-hidden="true" size={16} />
+        </Button>
+      )}
+      {showUploads && uploads.length > 0 && (
         <div className="grid grid-cols-1 gap-2" aria-label="media uploads">
           {uploads.map((upload) => (
             <div

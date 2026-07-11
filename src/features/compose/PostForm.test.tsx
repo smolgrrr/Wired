@@ -106,6 +106,21 @@ describe("PostForm", () => {
     expect(container.textContent).toContain("ETA ~12s");
   });
 
+  it("keeps media and emoji controls together below the signal selector", () => {
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    const emojiButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "emoji",
+    );
+    const mediaButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "media",
+    );
+
+    expect(emojiButton?.parentElement).toBe(mediaButton?.parentElement);
+  });
+
   it("does not duplicate the PoW ETA while mining", () => {
     mocks.useSubmitForm.mockReturnValue({
       handleSubmit: mocks.handleSubmit,
