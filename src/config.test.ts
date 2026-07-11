@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DIFFICULTY,
+  DEFAULT_BLOSSOM_SERVERS,
   DEFAULT_FILTER_DIFFICULTY,
   DEFAULT_POST_DIFFICULTY,
   DEFAULT_RELAYS,
+  configuredHttpUrls,
   configuredRelays,
 } from "./config";
 
@@ -21,6 +23,12 @@ describe("DEFAULT_DIFFICULTY", () => {
 describe("DEFAULT_RELAYS", () => {
   it("includes the Wired relay in the main feed relay list", () => {
     expect(DEFAULT_RELAYS).toContain("wss://relay.wiredsignal.online");
+  });
+});
+
+describe("DEFAULT_BLOSSOM_SERVERS", () => {
+  it("provides a default media upload server", () => {
+    expect(DEFAULT_BLOSSOM_SERVERS[0]).toMatch(/^https:\/\//);
   });
 });
 
@@ -42,6 +50,28 @@ describe("configuredRelays", () => {
   it("uses fallback relays when env contains no wss URLs", () => {
     expect(configuredRelays("https://bad.example", ["wss://fallback.example"])).toEqual([
       "wss://fallback.example",
+    ]);
+  });
+});
+
+describe("configuredHttpUrls", () => {
+  it("uses fallback URLs when env is unset", () => {
+    expect(configuredHttpUrls(undefined, ["https://fallback.example"])).toEqual([
+      "https://fallback.example",
+    ]);
+  });
+
+  it("parses comma-separated HTTPS URLs and strips trailing slashes", () => {
+    expect(
+      configuredHttpUrls(" https://one.example/,http://bad.example,https://two.example/path/ ", [
+        "https://fallback.example",
+      ]),
+    ).toEqual(["https://one.example", "https://two.example/path"]);
+  });
+
+  it("uses fallback URLs when env contains no HTTPS URLs", () => {
+    expect(configuredHttpUrls("wss://bad.example", ["https://fallback.example"])).toEqual([
+      "https://fallback.example",
     ]);
   });
 });

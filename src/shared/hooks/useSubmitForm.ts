@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { generateSecretKey, getPublicKey, finalizeEvent, type UnsignedEvent, type Event } from "nostr-tools";
+import {
+  generateSecretKey,
+  getPublicKey,
+  finalizeEvent,
+  type UnsignedEvent,
+  type Event,
+} from "nostr-tools";
 import { publish } from "../../nostr/client";
 import { bytesToHex } from "@noble/hashes/utils";
 import { useStoredKeys } from "./useStoredKeys";
@@ -12,6 +18,11 @@ import {
 import { timeToGoEst } from "@lib/timeEstimate";
 
 export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
+
+type SubmitFormOptions = {
+  secretKey?: Uint8Array;
+  onRotateSecretKey?: (secretKey: Uint8Array) => void;
+};
 
 const POW_HASHRATE_STORAGE_KEY = "wired:last-pow-hashrate";
 const FALLBACK_POW_HASHRATE = 50_000;
@@ -43,12 +54,18 @@ export function willUseWiredAccount(
   );
 }
 
-export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
+export const useSubmitForm = (
+  unsigned: UnsignedEvent,
+  difficulty: string,
+  options: SubmitFormOptions = {},
+) => {
   const { appendKey } = useStoredKeys();
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [acceptedRelays, setAcceptedRelays] = useState<string[]>([]);
-  const [sk, setSk] = useState(generateSecretKey());
+  const [internalSk, setInternalSk] = useState(generateSecretKey());
+  const sk = options.secretKey ?? internalSk;
+  const rotateSecretKey = options.onRotateSecretKey ?? setInternalSk;
   const unsignedWithPubkey = { ...unsigned, pubkey: getPublicKey(sk) };
   const [signedPoWEvent, setSignedPoWEvent] = useState<Event>();
   const [wiredAccountStatus, setWiredAccountStatus] = useState<WiredAccountStatus | null>(null);
@@ -125,6 +142,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
 
             setAcceptedRelays(result.acceptedRelays);
             setSignedPoWEvent(result.event);
+            rotateSecretKey(generateSecretKey());
             setSubmitStatus("published");
             return;
           }
@@ -144,7 +162,7 @@ export const useSubmitForm = (unsigned: UnsignedEvent, difficulty: string) => {
           setAcceptedRelays([...accepted]);
           setSignedPoWEvent(signedEvent);
           appendKey(bytesToHex(sk), getPublicKey(sk));
-          setSk(generateSecretKey());
+          rotateSecretKey(generateSecretKey());
           setSubmitStatus("published");
         } catch {
           if (activeSubmitId.current !== submitId) return;

@@ -1,5 +1,5 @@
-import { useState, useEffect, useId, useMemo, useRef } from "react";
-import { Event as NostrEvent } from "nostr-tools";
+import { useState, useEffect, useId, useMemo, useRef, useCallback } from "react";
+import { Event as NostrEvent, finalizeEvent, generateSecretKey, type EventTemplate } from "nostr-tools";
 import { useSubmitForm } from "../../shared/hooks/useSubmitForm";
 import { buildUnsignedEvent, type CustomEmojiTag } from "./buildUnsignedEvent";
 import { PostCard } from "../../shared/ui/PostCard";
@@ -12,6 +12,8 @@ import { SignalStepper } from "../../shared/ui/SignalStepper";
 import { useThreadNavigation } from "../thread/useThreadNavigation";
 import { CustomEmojiPicker } from "./CustomEmojiPicker";
 import type { CustomEmoji } from "./customEmojiCatalog";
+import { MediaUploadPicker } from "./MediaUploadPicker";
+import { useMediaUploads } from "./useMediaUploads";
 
 interface PostFormProps {
   refEvent?: NostrEvent;
@@ -25,6 +27,7 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
   const [difficulty, setDifficulty] = useState(String(settings.difficulty));
   const [emptySubmitMessage, setEmptySubmitMessage] = useState("");
   const [selectedEmojis, setSelectedEmojis] = useState<CustomEmojiTag[]>([]);
+  const [composeSecretKey, setComposeSecretKey] = useState(generateSecretKey);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emptySubmitMessageId = useId();
   const composerLabel = tagType === "Reply" ? "Write a reply" : tagType === "Quote" ? "Add your quote" : "Write a note";
@@ -33,6 +36,20 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     () => selectedEmojis.filter((emoji) => comment.includes(`:${emoji.shortcode}:`)),
     [comment, selectedEmojis],
   );
+  const signBlossomAuth = useCallback(
+    (template: EventTemplate) => finalizeEvent(template, composeSecretKey),
+    [composeSecretKey],
+  );
+  const {
+    uploads,
+    uploadedMedia,
+    hasUploading,
+    hasFailed,
+    addFiles,
+    removeUpload,
+    retryUpload,
+    clearUploads,
+  } = useMediaUploads(signBlossomAuth);
 
   const unsigned = useMemo(
     () =>
@@ -41,8 +58,9 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
         refEvent,
         tagType,
         customEmojis: activeEmojiTags,
+        media: uploadedMedia,
       }),
-    [activeEmojiTags, comment, refEvent, tagType],
+    [activeEmojiTags, comment, refEvent, tagType, uploadedMedia],
   );
 
   useEffect(() => {
@@ -61,14 +79,27 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     powEta,
     willUseWiredAccount,
   } =
-    useSubmitForm(unsigned, difficulty);
+    useSubmitForm(unsigned, difficulty, {
+      secretKey: composeSecretKey,
+      onRotateSecretKey: setComposeSecretKey,
+    });
   const showPowEta = !doingWorkProp && submitStatus !== "published";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (comment.trim() === "") {
-      setEmptySubmitMessage("Write something before transmitting.");
+    if (hasUploading) {
+      setEmptySubmitMessage("Wait for media uploads to finish.");
+      return;
+    }
+
+    if (hasFailed) {
+      setEmptySubmitMessage("Remove or retry failed media uploads.");
+      return;
+    }
+
+    if (comment.trim() === "" && uploadedMedia.length === 0) {
+      setEmptySubmitMessage("Write something or attach media before transmitting.");
       textareaRef.current?.focus();
       return;
     }
@@ -82,7 +113,8 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
 
     setComment("");
     setSelectedEmojis([]);
-  }, [signedPoWEvent]);
+    clearUploads();
+  }, [clearUploads, signedPoWEvent]);
 
   function handleEmojiSelect(emoji: CustomEmoji) {
     const token = `:${emoji.shortcode}:`;
@@ -126,6 +158,18 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           rows={comment.split("\n").length || 1}
         />
         {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
+        {uploads.length > 0 && (
+          <div className="mt-2">
+            <MediaUploadPicker
+              uploads={uploads}
+              disabled={doingWorkProp}
+              showButton={false}
+              onAddFiles={addFiles}
+              onRemove={removeUpload}
+              onRetry={retryUpload}
+            />
+          </div>
+        )}
         <div className="mt-2 flex min-h-20 flex-col gap-2">
           <div className="min-w-0">
             <SignalStepper
@@ -137,8 +181,18 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
             />
           </div>
           <div className="flex items-center justify-between gap-3">
-            <CustomEmojiPicker onSelect={handleEmojiSelect} />
-            <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>
+            <div className="flex items-center gap-2">
+              <CustomEmojiPicker onSelect={handleEmojiSelect} />
+              <MediaUploadPicker
+                uploads={uploads}
+                disabled={doingWorkProp}
+                showUploads={false}
+                onAddFiles={addFiles}
+                onRemove={removeUpload}
+                onRetry={retryUpload}
+              />
+            </div>
+            <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp || hasUploading} loading={doingWorkProp}>
               transmit
             </Button>
           </div>
