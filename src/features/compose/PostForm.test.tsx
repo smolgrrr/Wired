@@ -87,6 +87,29 @@ describe("PostForm", () => {
     expect(container.textContent).toContain("estimated mine time ~12s");
   });
 
+  it("does not duplicate the PoW ETA while mining", () => {
+    mocks.useSubmitForm.mockReturnValue({
+      handleSubmit: mocks.handleSubmit,
+      doingWorkProp: true,
+      submitStatus: "mining",
+      submitError: null,
+      acceptedRelays: [],
+      hashrate: 10,
+      bestPow: 17,
+      signedPoWEvent: undefined,
+      powEta: "52m 20s",
+      willUseWiredAccount: false,
+    });
+
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    expect(container.textContent).not.toContain("estimated mine time");
+    expect(container.textContent).toContain("mining signal");
+    expect(container.textContent).toContain("pb:17");
+  });
+
   it("shows a visible first-use compose affordance", () => {
     act(() => {
       root.render(<PostForm />);

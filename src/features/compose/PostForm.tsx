@@ -62,6 +62,7 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     willUseWiredAccount,
   } =
     useSubmitForm(unsigned, difficulty);
+  const showPowEta = !doingWorkProp && submitStatus !== "published";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -132,7 +133,9 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
               min={16}
               active={willUseWiredAccount}
             />
-            <p className="text-meta text-secondary">estimated mine time ~{powEta}</p>
+            {showPowEta && (
+              <p className="text-meta text-secondary">estimated mine time ~{powEta}</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <CustomEmojiPicker onSelect={handleEmojiSelect} />
