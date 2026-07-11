@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SmilePlus } from "lucide-react";
+import { SmilePlus, X } from "lucide-react";
 import { getEmojiPickerDisplayUrls } from "@lib/customEmoji";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
@@ -113,6 +113,9 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   const [catalogState, setCatalogState] = useState(getCustomEmojiCatalogState);
   const [failedEmojiKeys, setFailedEmojiKeys] = useState(loadFailedEmojiKeys);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
     const unsubscribe = subscribeCustomEmojiCatalog(() => {
@@ -128,28 +131,88 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
     void loadCustomEmojiCatalog().catch(() => undefined);
   }, [isOpen]);
 
+  const closePicker = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  const getTriggerButton = useCallback(
+    () =>
+      wrapperRef.current?.querySelector<HTMLButtonElement>("[data-custom-emoji-trigger]") ??
+      null,
+    [],
+  );
+
+  const openPicker = useCallback(() => {
+    const activeElement = document.activeElement;
+
+    previouslyFocusedRef.current =
+      activeElement instanceof HTMLElement && activeElement !== document.body
+        ? activeElement
+        : getTriggerButton();
+    setIsOpen(true);
+  }, [getTriggerButton]);
+
+  const togglePicker = useCallback(() => {
+    if (isOpen) {
+      closePicker();
+      return;
+    }
+
+    openPicker();
+  }, [closePicker, isOpen, openPicker]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (!wasOpenRef.current) return;
+
+      wasOpenRef.current = false;
+      const focusTarget = previouslyFocusedRef.current?.isConnected
+        ? previouslyFocusedRef.current
+        : getTriggerButton();
+
+      focusTarget?.focus();
+      previouslyFocusedRef.current = null;
+      return;
+    }
+
+    wasOpenRef.current = true;
+
+    const focusSearch = () => {
+      panelRef.current?.querySelector<HTMLInputElement>("input[type='search']")?.focus();
+    };
+
+    if (typeof window.requestAnimationFrame === "function") {
+      const frame = window.requestAnimationFrame(focusSearch);
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const timeout = window.setTimeout(focusSearch, 0);
+    return () => window.clearTimeout(timeout);
+  }, [getTriggerButton, isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
 
-    function handlePointerDown(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent) {
       if (wrapperRef.current?.contains(event.target as Node)) return;
-      setIsOpen(false);
+      closePicker();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setIsOpen(false);
+        event.preventDefault();
+        closePicker();
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen]);
+  }, [closePicker, isOpen]);
 
   const filteredEmojis = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -175,6 +238,28 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
   }
 
   const visibleEmojis = filteredEmojis.slice(0, MAX_VISIBLE_EMOJIS);
+  const trimmedSearch = search.trim();
+  const isCatalogLoading = catalogState.status === "idle" || catalogState.status === "loading";
+  const emptyState =
+    catalogState.status === "error"
+      ? {
+          title: "Emotes could not load",
+          description: "Close the picker and try again in a moment.",
+        }
+      : isCatalogLoading
+        ? {
+            title: "Loading emotes",
+            description: "Preparing the custom emote catalog.",
+          }
+        : trimmedSearch
+          ? {
+              title: "No matches",
+              description: `No custom emotes match "${trimmedSearch}".`,
+            }
+          : {
+              title: "No emotes in this group",
+              description: "Try another range or search by shortcode.",
+            };
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -182,85 +267,128 @@ export function CustomEmojiPicker({ onSelect }: CustomEmojiPickerProps) {
         type="button"
         variant="ghost"
         size="sm"
+        data-custom-emoji-trigger="true"
         aria-label="open custom emoji picker"
         aria-expanded={isOpen}
         title="custom emoji"
         className="px-2"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={togglePicker}
       >
         <SmilePlus className="h-4 w-4" aria-hidden="true" />
       </Button>
 
       {isOpen && (
-        <div
-          className={[
-            "z-50 flex max-h-[min(24rem,calc(100dvh-8rem))] w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-sm border border-ghost bg-surface-raised shadow-2xl",
-            "fixed bottom-20 left-1/2 -translate-x-1/2",
-            "sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(24rem,calc(100dvh-6rem))] sm:translate-x-0",
-          ].join(" ")}
-        >
-          <div className="border-b border-ghost p-2">
-            <Input
-              type="search"
-              placeholder="search emotes"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="min-h-[36px] text-[16px]"
-            />
-          </div>
+        <>
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-40 bg-void/60 backdrop-blur-sm animate-fade-in motion-reduce:animate-none sm:hidden"
+            onPointerDown={closePicker}
+          />
 
-          {!search && (
-            <div className="flex gap-1 overflow-x-auto border-b border-ghost p-2">
-              {EMOJI_GROUPS.map((group, index) => (
-                <Button
-                  key={group.label}
-                  type="button"
-                  variant={activeGroup === index ? "primary" : "ghost"}
-                  size="sm"
-                  className="shrink-0 px-2"
-                  onClick={() => setActiveGroup(index)}
-                >
-                  {group.label}
-                </Button>
-              ))}
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label="custom emote picker"
+            className={[
+              "z-50 flex flex-col overflow-hidden border border-ghost bg-surface-raised shadow-2xl",
+              "fixed inset-x-0 bottom-0 max-h-[min(32rem,calc(100dvh-1rem))] rounded-t-sm",
+              "animate-[slideUp_220ms_var(--ease-out)] motion-reduce:animate-none",
+              "sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(24rem,calc(100dvh-6rem))] sm:w-[24rem] sm:rounded-sm sm:animate-fade-in",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-ghost px-3 py-2 sm:hidden">
+              <h2 className="text-body font-medium text-primary">Custom emotes</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="close custom emoji picker"
+                className="h-8 w-8 p-0"
+                onClick={closePicker}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
             </div>
-          )}
 
-          <div className="min-h-40 flex-1 overflow-y-auto p-2 sm:h-64 sm:flex-none">
-            {visibleEmojis.length === 0 && (
-              <p className="px-2 py-8 text-center text-meta text-secondary">
-                {catalogState.status === "error"
-                  ? "emotes failed to load"
-                  : catalogState.status === "ready"
-                    ? "no emotes found"
-                    : "loading emotes"}
-              </p>
-            )}
+            <div className="border-b border-ghost p-2">
+              <Input
+                type="search"
+                aria-label="search custom emotes"
+                placeholder="search emotes"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="min-h-[36px] text-[16px]"
+              />
+            </div>
 
-            {visibleEmojis.length > 0 && (
-              <div className="grid grid-cols-8 gap-1">
-                {visibleEmojis.map((emoji) => (
-                  <EmojiButton
-                    key={`${emoji.shortcode}-${emoji.url}`}
-                    emoji={emoji}
-                    onSelect={() => {
-                      onSelect(emoji);
-                      setIsOpen(false);
-                      setSearch("");
-                    }}
-                    onPreviewFailure={handlePreviewFailure}
-                  />
+            {!trimmedSearch && (
+              <div className="flex gap-1 overflow-x-auto border-b border-ghost p-2">
+                {EMOJI_GROUPS.map((group, index) => (
+                  <Button
+                    key={group.label}
+                    type="button"
+                    variant={activeGroup === index ? "primary" : "ghost"}
+                    size="sm"
+                    className="shrink-0 px-2"
+                    onClick={() => setActiveGroup(index)}
+                  >
+                    {group.label}
+                  </Button>
                 ))}
               </div>
             )}
-          </div>
 
-          {filteredEmojis.length > MAX_VISIBLE_EMOJIS && (
-            <p className="border-t border-ghost px-3 py-2 text-meta text-muted">
-              showing {MAX_VISIBLE_EMOJIS} of {filteredEmojis.length}
-            </p>
-          )}
-        </div>
+            <div className="min-h-40 flex-1 overflow-y-auto p-2 sm:h-64 sm:flex-none">
+              {visibleEmojis.length === 0 && (
+                <div
+                  role={isCatalogLoading ? "status" : undefined}
+                  className="flex min-h-40 flex-col items-center justify-center gap-4 px-4 py-8 text-center"
+                >
+                  {isCatalogLoading && (
+                    <div
+                      aria-hidden="true"
+                      className="grid w-full max-w-56 grid-cols-8 gap-1 motion-safe:animate-pulse motion-reduce:animate-none"
+                    >
+                      {Array.from({ length: 24 }, (_, index) => (
+                        <div
+                          key={index}
+                          className="aspect-square rounded-sm border border-ghost bg-surface"
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-body text-primary">{emptyState.title}</p>
+                    <p className="mt-1 text-meta text-secondary">{emptyState.description}</p>
+                  </div>
+                </div>
+              )}
+
+              {visibleEmojis.length > 0 && (
+                <div className="grid grid-cols-8 gap-1">
+                  {visibleEmojis.map((emoji) => (
+                    <EmojiButton
+                      key={`${emoji.shortcode}-${emoji.url}`}
+                      emoji={emoji}
+                      onSelect={() => {
+                        onSelect(emoji);
+                        setSearch("");
+                        closePicker();
+                      }}
+                      onPreviewFailure={handlePreviewFailure}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {filteredEmojis.length > MAX_VISIBLE_EMOJIS && (
+              <p className="border-t border-ghost px-3 py-2 text-meta text-muted">
+                showing {MAX_VISIBLE_EMOJIS} of {filteredEmojis.length}
+              </p>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
