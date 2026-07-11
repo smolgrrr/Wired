@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { Event as NostrEvent } from "nostr-tools";
 import { useSubmitForm } from "../../shared/hooks/useSubmitForm";
 import { buildUnsignedEvent, type CustomEmojiTag } from "./buildUnsignedEvent";
@@ -23,8 +23,11 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
   const openThread = useThreadNavigation();
   const [comment, setComment] = useState("");
   const [difficulty, setDifficulty] = useState(String(settings.difficulty));
+  const [emptySubmitMessage, setEmptySubmitMessage] = useState("");
   const [selectedEmojis, setSelectedEmojis] = useState<CustomEmojiTag[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emptySubmitMessageId = useId();
+  const composerLabel = tagType === "Reply" ? "Write a reply" : tagType === "Quote" ? "Add your quote" : "Write a note";
 
   const activeEmojiTags = useMemo(
     () => selectedEmojis.filter((emoji) => comment.includes(`:${emoji.shortcode}:`)),
@@ -59,14 +62,18 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     willUseWiredAccount,
   } =
     useSubmitForm(unsigned, difficulty);
+  const showPowEta = !doingWorkProp && submitStatus !== "published";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (comment.trim() === "") {
+      setEmptySubmitMessage("Write something before transmitting.");
+      textareaRef.current?.focus();
       return;
     }
 
+    setEmptySubmitMessage("");
     await originalHandleSubmit(event);
   };
 
@@ -102,9 +109,16 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           ref={textareaRef}
           name="com"
           variant="compose"
+          label={composerLabel}
+          placeholder="Share a note with the network"
           value={comment}
+          aria-invalid={emptySubmitMessage ? true : undefined}
+          aria-describedby={emptySubmitMessage ? emptySubmitMessageId : undefined}
           onChange={(e) => {
             setComment(e.target.value);
+            if (e.target.value.trim()) {
+              setEmptySubmitMessage("");
+            }
             e.target.style.height = "auto";
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
@@ -119,7 +133,9 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
               min={16}
               active={willUseWiredAccount}
             />
-            <p className="text-meta text-secondary">estimated mine time ~{powEta}</p>
+            {showPowEta && (
+              <p className="text-meta text-secondary">estimated mine time ~{powEta}</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <CustomEmojiPicker onSelect={handleEmojiSelect} />
@@ -128,20 +144,21 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
             </Button>
           </div>
         </div>
+        {emptySubmitMessage && (
+          <p id={emptySubmitMessageId} className="text-danger text-meta text-right" role="status">
+            {emptySubmitMessage}
+          </p>
+        )}
         <PowTransmitStatus
-          active={doingWorkProp}
+          active={doingWorkProp || submitStatus === "published"}
           difficulty={difficulty}
           hashrate={hashrate}
           bestPow={bestPow}
           status={submitStatus}
+          acceptedRelayCount={acceptedRelays.length}
           className="text-right"
         />
         {submitError && <p className="text-danger text-meta text-right">{submitError}</p>}
-        {submitStatus === "published" && acceptedRelays.length > 0 && (
-          <p className="text-meta text-secondary text-right">
-            posted to {acceptedRelays.length} relay{acceptedRelays.length === 1 ? "" : "s"}
-          </p>
-        )}
         {signedPoWEvent && (
           <PostCard
             event={signedPoWEvent}
