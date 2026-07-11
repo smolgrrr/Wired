@@ -110,7 +110,8 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           name="com"
           variant="compose"
           label={composerLabel}
-          placeholder="Share a note with the network"
+          labelHidden
+          placeholder="write something..."
           value={comment}
           aria-invalid={emptySubmitMessage ? true : undefined}
           aria-describedby={emptySubmitMessage ? emptySubmitMessageId : undefined}
@@ -125,19 +126,17 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           rows={comment.split("\n").length || 1}
         />
         {tagType === "Quote" && refEvent && <QuotePreview event={refEvent} />}
-        <div className="min-h-14 flex items-start justify-between gap-4 mt-2">
-          <div className="flex flex-col items-start gap-1">
+        <div className="mt-2 flex min-h-20 flex-col gap-2">
+          <div className="min-w-0">
             <SignalStepper
               value={difficulty}
               onChange={setDifficulty}
               min={16}
               active={willUseWiredAccount}
+              meta={showPowEta ? `ETA ~${powEta}` : undefined}
             />
-            {showPowEta && (
-              <p className="text-meta text-secondary">estimated mine time ~{powEta}</p>
-            )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
             <CustomEmojiPicker onSelect={handleEmojiSelect} />
             <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp} loading={doingWorkProp}>
               transmit
