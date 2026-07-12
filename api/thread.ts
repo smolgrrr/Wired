@@ -1,0 +1,51 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { buildThreadMetadata, injectThreadMetadata } from "../lib/threadMetadata.js";
+import { resolveThreadPreview } from "../lib/threadPreview.js";
+
+const CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
+
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function requestOrigin(req: VercelRequest): string {
+  const protocol = first(req.headers["x-forwarded-proto"]) || "https";
+  const host = first(req.headers["x-forwarded-host"]) || first(req.headers.host);
+  return `${protocol}://${host}`;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).send("method not allowed");
+  }
+
+  const ref = first(req.query.id);
+  const origin = requestOrigin(req);
+  const canonicalUrl = new URL(`/thread/${encodeURIComponent(ref)}`, origin).toString();
+
+  const [shellResponse, preview] = await Promise.all([
+    fetch(new URL("/", origin), {
+      headers: { Accept: "text/html", "x-wired-thread-shell": "1" },
+    }),
+    resolveThreadPreview(ref, { origin }),
+  ]);
+
+  if (!shellResponse.ok) {
+    return res.status(502).send("Wired is temporarily unavailable");
+  }
+
+  const imageUrl = new URL(
+    `/api/thread-card?id=${encodeURIComponent(ref)}&replies=${preview?.replyCount ?? 0}`,
+    origin,
+  ).toString();
+
+  const html = injectThreadMetadata(
+    await shellResponse.text(),
+    buildThreadMetadata(preview, canonicalUrl, imageUrl),
+  );
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", CACHE_CONTROL);
+  return res.status(200).send(html);
+}

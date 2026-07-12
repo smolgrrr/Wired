@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Event } from "nostr-tools";
 import { getThreadDepth } from "@lib/getThreadDepth";
 import { Placeholder } from "../../shared/ui/Placeholder";
@@ -16,6 +16,7 @@ import {
 import { useThreadNavigation } from "./useThreadNavigation";
 import { decodeThreadRef } from "@lib/threadRefs";
 import { uniqBy } from "@lib/collections";
+import { cleanThreadExcerpt } from "@lib/threadExcerpt";
 
 function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[] }) {
   const visibleReplyEvents = useInfiniteScroll();
@@ -36,6 +37,30 @@ function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[]
     setShowAllReplies,
     uniqMentions,
   } = useThreadViewModel(hexID, seedEvents, relayHints);
+
+  useEffect(() => {
+    if (!opEvent) return;
+
+    const previousTitle = document.title;
+    const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    const previousDescription = description?.content;
+    const excerpt = cleanThreadExcerpt(opEvent.content) || "An anonymous signal on Wired.";
+    const replyCount = opScore?.threadReplyCount ?? 0;
+
+    document.title = `${excerpt} — Wired`;
+    if (description) {
+      description.content = `Read this anonymous signal and ${replyCount} ${
+        replyCount === 1 ? "reply" : "replies"
+      } on Wired.`;
+    }
+
+    return () => {
+      document.title = previousTitle;
+      if (description && previousDescription !== undefined) {
+        description.content = previousDescription;
+      }
+    };
+  }, [opEvent, opScore?.threadReplyCount]);
 
   if (opEvent) {
     return (

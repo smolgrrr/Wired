@@ -92,6 +92,10 @@
   ],
   "rewrites": [
     {
+      "source": "/thread/:id",
+      "destination": "/api/thread?id=:id"
+    },
+    {
       "source": "/((?!api/|_vercel/|src/|@|node_modules/|assets/|fonts/|favicon\\.svg|robots\\.txt|noise\\.png).*)",
       "destination": "/index.html"
     }
