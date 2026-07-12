@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { buildThreadMetadata, injectThreadMetadata } from "../lib/threadMetadata.js";
 import { resolveThreadPreview } from "../lib/threadPreview.js";
 
@@ -14,6 +16,21 @@ function requestOrigin(req: VercelRequest): string {
   return `${protocol}://${host}`;
 }
 
+async function loadHtmlShell(origin: string): Promise<string | null> {
+  try {
+    return await readFile(path.join(process.cwd(), "dist/index.html"), "utf8");
+  } catch {
+    try {
+      const response = await fetch(new URL("/", origin), {
+        headers: { Accept: "text/html", "x-wired-thread-shell": "1" },
+      });
+      return response.ok ? await response.text() : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -24,14 +41,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const origin = requestOrigin(req);
   const canonicalUrl = new URL(`/thread/${encodeURIComponent(ref)}`, origin).toString();
 
-  const [shellResponse, preview] = await Promise.all([
-    fetch(new URL("/", origin), {
-      headers: { Accept: "text/html", "x-wired-thread-shell": "1" },
-    }),
+  const [shell, preview] = await Promise.all([
+    loadHtmlShell(origin),
     resolveThreadPreview(ref, { origin }),
   ]);
 
-  if (!shellResponse.ok) {
+  if (!shell) {
     return res.status(502).send("Wired is temporarily unavailable");
   }
 
@@ -41,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ).toString();
 
   const html = injectThreadMetadata(
-    await shellResponse.text(),
+    shell,
     buildThreadMetadata(preview, canonicalUrl, imageUrl),
   );
 

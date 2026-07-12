@@ -1,18 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import handler from "../api/thread";
 
+vi.mock("node:fs/promises", () => ({
+  readFile: vi.fn().mockResolvedValue(
+    '<html><head><meta name="description" content="The Wired" /><title>The Wired</title></head><body><div id="root"></div></body></html>',
+  ),
+}));
+
 describe("thread HTML handler", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("serves the SPA shell with crawler metadata for invalid references", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        '<html><head><meta name="description" content="The Wired" /><title>The Wired</title></head><body></body></html>',
-        { status: 200 },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
     const headers = new Map<string, string>();
     let status = 0;
     let body = "";
@@ -40,10 +38,7 @@ describe("thread HTML handler", () => {
     expect(status).toBe(200);
     expect(headers.get("Content-Type")).toBe("text/html; charset=utf-8");
     expect(headers.get("Cache-Control")).toContain("stale-while-revalidate");
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL("https://wiredsignal.online/"),
-      expect.objectContaining({ headers: expect.objectContaining({ Accept: "text/html" }) }),
-    );
+    expect(body).toContain('<div id="root"></div>');
     expect(body).toContain('property="og:title" content="Wired"');
     expect(body).toContain('rel="canonical" href="https://wiredsignal.online/thread/invalid"');
     expect(body).toContain("/api/thread-card?id=invalid&amp;replies=0");

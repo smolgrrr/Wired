@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci",
+  "functions": {
+    "api/thread.ts": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/refresh-feed",
