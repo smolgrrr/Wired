@@ -1,4 +1,5 @@
 import { ImageResponse } from "@vercel/og";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { resolveThreadPreview } from "../lib/threadPreview.js";
 
 export const config = { runtime: "nodejs" };
@@ -7,11 +8,9 @@ function replyLabel(count: number): string {
   return `${count} ${count === 1 ? "reply" : "replies"}`;
 }
 
-export default async function handler(request: Request) {
-  const url = new URL(request.url);
-  const ref = url.searchParams.get("id") ?? undefined;
-  const preview = await resolveThreadPreview(ref, { origin: url.origin });
-
+export function renderThreadCard(
+  preview: Awaited<ReturnType<typeof resolveThreadPreview>>,
+) {
   return new ImageResponse(
     (
       <div
@@ -77,4 +76,29 @@ export default async function handler(request: Request) {
       height: 630,
     },
   );
+}
+
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function requestOrigin(req: VercelRequest): string {
+  const protocol = first(req.headers["x-forwarded-proto"]) || "https";
+  const host = first(req.headers["x-forwarded-host"]) || first(req.headers.host);
+  return `${protocol}://${host}`;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).send("method not allowed");
+  }
+
+  const ref = first(req.query.id) || undefined;
+  const preview = await resolveThreadPreview(ref, { origin: requestOrigin(req) });
+  const image = renderThreadCard(preview);
+  const body = Buffer.from(await image.arrayBuffer());
+
+  image.headers.forEach((value, name) => res.setHeader(name, value));
+  return res.status(image.status).send(body);
 }
