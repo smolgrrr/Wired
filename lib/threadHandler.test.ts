@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import handler from "./thread";
+import handler from "../api/thread";
 
 describe("thread HTML handler", () => {
   afterEach(() => vi.unstubAllGlobals());
