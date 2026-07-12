@@ -214,14 +214,14 @@ describe("PostCard thread opening", () => {
       root.render(<PostCard event={event()} replies={[]} role="threadOp" totalWork={16} />);
     });
 
-    expect(container.querySelector("button[aria-label='Share this thread']")).not.toBeNull();
+    expect(container.querySelector("button[aria-label='More sharing options']")).not.toBeNull();
     expect(container.textContent).toContain("wiredsignal.online");
 
     act(() => {
       root.render(<PostCard event={event()} replies={[]} role="feed" totalWork={16} />);
     });
 
-    expect(container.querySelector("button[aria-label='Share this thread']")).toBeNull();
+    expect(container.querySelector("button[aria-label='More sharing options']")).toBeNull();
     expect(container.textContent).not.toContain("wiredsignal.online");
   });
 });

@@ -1,4 +1,4 @@
-import { Check, Share2 } from "lucide-react";
+import { Check, MessageCircle, Share2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildThreadPath } from "@lib/threadRefs";
 
@@ -83,19 +83,54 @@ export function ShareControl({
     showStatus((await copyText(url)) ? "copied" : "error");
   }, [eventId, excerpt, relayHints, showStatus]);
 
-  const label = status === "copied" ? "copied" : status === "error" ? "copy failed" : "share";
-  const Icon = status === "copied" ? Check : Share2;
+  const handleDiscord = useCallback(async () => {
+    const url = canonicalThreadUrl(eventId, relayHints);
+    showStatus((await copyText(url)) ? "copied" : "error");
+  }, [eventId, relayHints, showStatus]);
+
+  const url = canonicalThreadUrl(eventId, relayHints);
+  const xIntentUrl = new URL("https://x.com/intent/post");
+  xIntentUrl.searchParams.set(
+    "text",
+    `${excerpt?.trim().slice(0, 180) || "Wired signal"}\n${url}`,
+  );
+  const statusLabel = status === "copied" ? "link copied" : "copy failed";
 
   return (
-    <button
-      type="button"
-      onClick={handleShare}
-      className="wired-touch-target wired-pressable inline-flex min-h-[24px] min-w-[24px] items-center gap-1 rounded-sm text-secondary transition-colors duration-hover hover:text-primary focus-visible:outline-none"
-      aria-label={status === "idle" ? "Share this thread" : label}
-      aria-live="polite"
-    >
-      <Icon aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
-      <span>{label}</span>
-    </button>
+    <div className="flex items-center gap-3" aria-label="Share this thread">
+      <a
+        href={xIntentUrl.toString()}
+        target="_blank"
+        rel="noreferrer"
+        className="wired-touch-target wired-pressable inline-flex min-h-[24px] min-w-[24px] items-center rounded-sm text-secondary transition-colors duration-hover hover:text-primary focus-visible:outline-none"
+        aria-label="Share this thread on X"
+      >
+        X
+      </a>
+      <button
+        type="button"
+        onClick={handleDiscord}
+        className="wired-touch-target wired-pressable inline-flex min-h-[24px] min-w-[24px] items-center gap-1 rounded-sm text-secondary transition-colors duration-hover hover:text-primary focus-visible:outline-none"
+        aria-label="Copy this thread link for Discord"
+      >
+        <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+        <span>Discord</span>
+      </button>
+      <button
+        type="button"
+        onClick={handleShare}
+        className="wired-touch-target wired-pressable inline-flex min-h-[24px] min-w-[24px] items-center gap-1 rounded-sm text-secondary transition-colors duration-hover hover:text-primary focus-visible:outline-none"
+        aria-label="More sharing options"
+      >
+        <Share2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+        <span>more</span>
+      </button>
+      {status !== "idle" && (
+        <span className="inline-flex items-center gap-1 text-signal" aria-live="polite">
+          {status === "copied" && <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />}
+          {statusLabel}
+        </span>
+      )}
+    </div>
   );
 }

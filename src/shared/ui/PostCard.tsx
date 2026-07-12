@@ -183,6 +183,11 @@ export function PostCard({
           priority={avatarPriority}
         />
         <span className="min-w-0 truncate">{authorLabel}</span>
+        {role === "threadOp" && (
+          <span className="ml-auto shrink-0 text-muted" aria-label="Wired website">
+            wiredsignal.online
+          </span>
+        )}
       </header>
 
       <div className="post-content flex flex-col gap-2 break-words">
@@ -199,24 +204,14 @@ export function PostCard({
         forceSecondary={role === "threadOp"}
         trailing={
           role === "threadOp" ? (
-            <>
-              <span className="hidden text-muted sm:inline" aria-label="Wired website">
-                wiredsignal.online
-              </span>
-              <ShareControl
-                eventId={event.id}
-                relayHints={relayHints}
-                excerpt={event.content}
-              />
-            </>
+            <ShareControl
+              eventId={event.id}
+              relayHints={relayHints}
+              excerpt={event.content}
+            />
           ) : undefined
         }
       />
-      {role === "threadOp" && (
-        <div className="pt-2 text-right text-micro text-muted sm:hidden" aria-hidden="true">
-          wiredsignal.online
-        </div>
-      )}
     </article>
   );
 }
