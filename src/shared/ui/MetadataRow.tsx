@@ -1,10 +1,12 @@
 import { Activity, Network } from "lucide-react";
+import type { ReactNode } from "react";
 
 type MetadataRowProps = {
   signal: number;
   replyCount: number;
   timestamp: string;
   forceSecondary?: boolean;
+  trailing?: ReactNode;
 };
 
 function getReplyLabel(replyCount: number) {
@@ -16,6 +18,7 @@ export function MetadataRow({
   replyCount,
   timestamp,
   forceSecondary = false,
+  trailing,
 }: MetadataRowProps) {
   return (
     <div
@@ -43,6 +46,7 @@ export function MetadataRow({
         </span>
         <span className="whitespace-nowrap">{timestamp}</span>
       </div>
+      {trailing && <div className="flex shrink-0 items-center gap-3">{trailing}</div>}
     </div>
   );
 }
