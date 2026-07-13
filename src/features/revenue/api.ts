@@ -37,6 +37,24 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 let configPromise: Promise<RevenueConfig> | null = null;
+const ACTIVATION_QUEUE_KEY = "wired:pending-revenue-activations";
+
+function pendingActivations(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const value = JSON.parse(window.localStorage.getItem(ACTIVATION_QUEUE_KEY) || "[]") as unknown;
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function storePendingActivations(enrollmentIds: string[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACTIVATION_QUEUE_KEY, JSON.stringify([...new Set(enrollmentIds)]));
+}
 
 export function fetchRevenueConfig(options: { force?: boolean } = {}): Promise<RevenueConfig> {
   if (!configPromise || options.force) {
@@ -77,7 +95,16 @@ async function updateEnrollment(enrollmentId: string, action: "activate" | "fail
 }
 
 export function activateRevenueEnrollment(enrollmentId: string): Promise<void> {
-  return updateEnrollment(enrollmentId, "activate");
+  storePendingActivations([...pendingActivations(), enrollmentId]);
+  return updateEnrollment(enrollmentId, "activate").then(() => {
+    storePendingActivations(pendingActivations().filter((candidate) => candidate !== enrollmentId));
+  });
+}
+
+export async function retryPendingRevenueActivations(): Promise<void> {
+  for (const enrollmentId of pendingActivations()) {
+    await activateRevenueEnrollment(enrollmentId).catch(() => {});
+  }
 }
 
 export function failRevenueEnrollment(enrollmentId: string): Promise<void> {

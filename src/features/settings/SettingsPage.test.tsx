@@ -168,6 +168,17 @@ describe("SettingsPage", () => {
     expect(container.textContent).not.toContain("creator-secret@wallet.example is unavailable");
   });
 
+  it("rejects a malformed Lightning address without persisting it", async () => {
+    revenueMock.validateLightningAddress.mockRejectedValue(new Error("invalid Lightning address"));
+    renderPage();
+
+    changeInput("lightningAddress", "not-an-address");
+    await submitSettings();
+
+    expect(settingsMock.updateSettings).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Could not validate that Lightning address");
+  });
+
   it("replaces a previously saved destination only after validation", async () => {
     settingsMock.settings.lightningAddress = "old@wallet.example";
     renderPage();

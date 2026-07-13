@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   enrollBrowserEvent: vi.fn(),
   activateRevenueEnrollment: vi.fn(),
   failRevenueEnrollment: vi.fn(),
+  retryPendingRevenueActivations: vi.fn(),
 }));
 let mockWorkers: MockWorker[] = [];
 
@@ -56,6 +57,7 @@ vi.mock("../../features/revenue/api", async (importOriginal) => {
     enrollBrowserEvent: mocks.enrollBrowserEvent,
     activateRevenueEnrollment: mocks.activateRevenueEnrollment,
     failRevenueEnrollment: mocks.failRevenueEnrollment,
+    retryPendingRevenueActivations: mocks.retryPendingRevenueActivations,
   };
 });
 
@@ -151,6 +153,8 @@ describe("useSubmitForm", () => {
     mocks.enrollBrowserEvent.mockReset();
     mocks.activateRevenueEnrollment.mockReset();
     mocks.failRevenueEnrollment.mockReset();
+    mocks.retryPendingRevenueActivations.mockReset();
+    mocks.retryPendingRevenueActivations.mockResolvedValue(undefined);
     mocks.fetchWiredAccountStatus.mockResolvedValue(disabledWiredAccountStatus);
     mocks.fetchRevenueConfig.mockResolvedValue({
       enabled: true,
@@ -324,6 +328,9 @@ describe("useSubmitForm", () => {
       expect.objectContaining({ tags: expect.arrayContaining([["zap", "a".repeat(64), "wss://wired.example"]]) }),
       "creator@wallet.example",
     );
+    expect(JSON.stringify(mocks.enrollBrowserEvent.mock.calls[0]?.[0])).not.toContain(
+      "creator@wallet.example",
+    );
     expect(mocks.enrollBrowserEvent.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.publish.mock.invocationCallOrder[0],
     );
@@ -365,7 +372,7 @@ describe("useSubmitForm", () => {
     }));
   });
 
-  it("reports a published post separately when revenue activation fails", async () => {
+  it("keeps a published enrollment queued when revenue activation is ambiguous", async () => {
     mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
     mocks.activateRevenueEnrollment.mockRejectedValue(new Error("activation unavailable"));
     act(() => {
@@ -387,9 +394,10 @@ describe("useSubmitForm", () => {
 
     expect(state.signedPoWEvent).toBeDefined();
     expect(state.acceptedRelays).toEqual(["wss://relay.example"]);
-    expect(state.submitError).toMatch(/post was published/i);
+    expect(state.submitStatus).toBe("published");
+    expect(state.submitError).toMatch(/retry automatically/i);
     expect(state.revenueFallbackAvailable).toBe(false);
-    expect(mocks.failRevenueEnrollment).toHaveBeenCalledWith("enrollment-1");
+    expect(mocks.failRevenueEnrollment).not.toHaveBeenCalled();
   });
 
   it("mines high-PoW posts with the Wired account pubkey and submits them to wired-admin", async () => {
@@ -466,6 +474,9 @@ describe("useSubmitForm", () => {
 
     expect(mocks.submitWiredAccountPost).toHaveBeenCalledWith(
       wiredRevenueMinedEvent,
+      "creator@wallet.example",
+    );
+    expect(JSON.stringify(mocks.submitWiredAccountPost.mock.calls[0]?.[0])).not.toContain(
       "creator@wallet.example",
     );
     expect(mocks.enrollBrowserEvent).not.toHaveBeenCalled();

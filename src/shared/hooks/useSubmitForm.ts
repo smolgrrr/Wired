@@ -21,6 +21,7 @@ import {
   enrollBrowserEvent,
   failRevenueEnrollment,
   fetchRevenueConfig,
+  retryPendingRevenueActivations,
   withRevenueZapTag,
 } from "../../features/revenue/api";
 
@@ -96,6 +97,7 @@ export const useSubmitForm = (
       .catch(() => {
         if (!cancelled) setWiredAccountStatus(null);
       });
+    void retryPendingRevenueActivations();
 
     return () => {
       cancelled = true;
@@ -211,7 +213,16 @@ export const useSubmitForm = (
           rotateSecretKey(generateSecretKey());
           browserEventPublished = true;
           if (enrollment) {
-            await activateRevenueEnrollment(enrollment.enrollmentId);
+            try {
+              await activateRevenueEnrollment(enrollment.enrollmentId);
+            } catch {
+              setSubmitStatus("published");
+              setSubmitError(
+                "Your post was published. Revenue activation will retry automatically.",
+              );
+              browserEnrollmentId = null;
+              return;
+            }
           }
           setSubmitStatus("published");
           browserEnrollmentId = null;
