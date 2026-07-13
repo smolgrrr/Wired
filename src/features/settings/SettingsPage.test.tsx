@@ -51,6 +51,7 @@ describe("SettingsPage", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     settingsMock.updateSettings.mockClear();
+    settingsMock.settings.lightningAddress = "";
     revenueMock.validateLightningAddress.mockReset();
     revenueMock.validateLightningAddress.mockImplementation(async (address: string) => ({
       ok: true,
@@ -154,13 +155,42 @@ describe("SettingsPage", () => {
   });
 
   it("does not replace the saved address when validation fails", async () => {
-    revenueMock.validateLightningAddress.mockRejectedValue(new Error("address unavailable"));
+    revenueMock.validateLightningAddress.mockRejectedValue(
+      new Error("creator-secret@wallet.example is unavailable"),
+    );
     renderPage();
 
     changeInput("lightningAddress", "creator@wallet.example");
     await submitSettings();
 
     expect(settingsMock.updateSettings).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("address unavailable");
+    expect(container.textContent).toContain("Could not validate that Lightning address");
+    expect(container.textContent).not.toContain("creator-secret@wallet.example is unavailable");
+  });
+
+  it("replaces a previously saved destination only after validation", async () => {
+    settingsMock.settings.lightningAddress = "old@wallet.example";
+    renderPage();
+
+    changeInput("lightningAddress", "New@Wallet.Example");
+    await submitSettings();
+
+    expect(revenueMock.validateLightningAddress).toHaveBeenCalledWith("New@Wallet.Example");
+    expect(settingsMock.updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      lightningAddress: "new@wallet.example",
+    }));
+  });
+
+  it("removes a saved destination without sending it for validation", async () => {
+    settingsMock.settings.lightningAddress = "old@wallet.example";
+    renderPage();
+
+    changeInput("lightningAddress", "");
+    await submitSettings();
+
+    expect(revenueMock.validateLightningAddress).not.toHaveBeenCalled();
+    expect(settingsMock.updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      lightningAddress: "",
+    }));
   });
 });

@@ -157,6 +157,7 @@ export const useSubmitForm = (
         setSubmitStatus("publishing");
         setSubmitError(null);
         let browserEnrollmentId: string | null = null;
+        let browserEventPublished = false;
 
         try {
           if (shouldUseWiredAccount) {
@@ -170,6 +171,7 @@ export const useSubmitForm = (
               setSubmitError("No relay accepted the event. Your draft was not posted.");
               setSignedPoWEvent(undefined);
               setAcceptedRelays([]);
+              if (payoutAddress) setRevenueFallbackAvailable(true);
               return;
             }
 
@@ -186,7 +188,6 @@ export const useSubmitForm = (
             : null;
           if (enrollment) {
             browserEnrollmentId = enrollment.enrollmentId;
-            await activateRevenueEnrollment(enrollment.enrollmentId);
           }
           const accepted = await publish(signedEvent);
           if (activeSubmitId.current !== submitId) return;
@@ -200,6 +201,7 @@ export const useSubmitForm = (
             setSubmitError("No relay accepted the event. Your draft was not posted.");
             setSignedPoWEvent(undefined);
             setAcceptedRelays([]);
+            if (payoutAddress) setRevenueFallbackAvailable(true);
             return;
           }
 
@@ -207,19 +209,27 @@ export const useSubmitForm = (
           setSignedPoWEvent(signedEvent);
           appendKey(bytesToHex(sk), getPublicKey(sk));
           rotateSecretKey(generateSecretKey());
+          browserEventPublished = true;
+          if (enrollment) {
+            await activateRevenueEnrollment(enrollment.enrollmentId);
+          }
           setSubmitStatus("published");
           browserEnrollmentId = null;
         } catch {
           if (activeSubmitId.current !== submitId) return;
 
           setSubmitStatus("failed");
-          setSubmitError("Publishing failed. Your draft was not posted.");
-          setSignedPoWEvent(undefined);
-          setAcceptedRelays([]);
+          setSubmitError(browserEventPublished
+            ? "Your post was published, but revenue enrollment could not be activated."
+            : "Publishing failed. Your draft was not posted.");
+          if (!browserEventPublished) {
+            setSignedPoWEvent(undefined);
+            setAcceptedRelays([]);
+          }
           if (browserEnrollmentId) {
             await failRevenueEnrollment(browserEnrollmentId).catch(() => {});
           }
-          if (payoutAddress) setRevenueFallbackAvailable(true);
+          if (payoutAddress && !browserEventPublished) setRevenueFallbackAvailable(true);
         }
       },
       onError: () => {

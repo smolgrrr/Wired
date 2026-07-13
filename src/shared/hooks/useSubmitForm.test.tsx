@@ -327,8 +327,69 @@ describe("useSubmitForm", () => {
     expect(mocks.enrollBrowserEvent.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.publish.mock.invocationCallOrder[0],
     );
+    expect(mocks.publish.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.activateRevenueEnrollment.mock.invocationCallOrder[0],
+    );
     expect(mocks.activateRevenueEnrollment).toHaveBeenCalledWith("enrollment-1");
     expect(state.submitStatus).toBe("published");
+  });
+
+  it("keeps a relay-rejected revenue enrollment non-creditable and offers a rebuilt fallback", async () => {
+    mocks.publish.mockResolvedValue(new Set<string>());
+    act(() => {
+      root.render(
+        <Probe payoutAddress="creator@wallet.example" onState={(nextState) => (state = nextState)} />,
+      );
+    });
+
+    await submitForm();
+    const revenueMinedEvent = {
+      ...minedEvent,
+      tags: [...minedEvent.tags, ["zap", "a".repeat(64), "wss://wired.example"]],
+    };
+    await act(async () => {
+      mockWorkers[0].emit({ type: "found", event: revenueMinedEvent });
+    });
+
+    expect(mocks.activateRevenueEnrollment).not.toHaveBeenCalled();
+    expect(mocks.failRevenueEnrollment).toHaveBeenCalledWith("enrollment-1");
+    expect(state.revenueFallbackAvailable).toBe(true);
+
+    await act(async () => {
+      await state.handleSubmitWithoutRevenue();
+    });
+    expect(mockWorkers[1].postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      unsigned: expect.objectContaining({
+        tags: expect.not.arrayContaining([expect.arrayContaining(["zap"])]),
+      }),
+    }));
+  });
+
+  it("reports a published post separately when revenue activation fails", async () => {
+    mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
+    mocks.activateRevenueEnrollment.mockRejectedValue(new Error("activation unavailable"));
+    act(() => {
+      root.render(
+        <Probe payoutAddress="creator@wallet.example" onState={(nextState) => (state = nextState)} />,
+      );
+    });
+
+    await submitForm();
+    await act(async () => {
+      mockWorkers[0].emit({
+        type: "found",
+        event: {
+          ...minedEvent,
+          tags: [...minedEvent.tags, ["zap", "a".repeat(64), "wss://wired.example"]],
+        },
+      });
+    });
+
+    expect(state.signedPoWEvent).toBeDefined();
+    expect(state.acceptedRelays).toEqual(["wss://relay.example"]);
+    expect(state.submitError).toMatch(/post was published/i);
+    expect(state.revenueFallbackAvailable).toBe(false);
+    expect(mocks.failRevenueEnrollment).toHaveBeenCalledWith("enrollment-1");
   });
 
   it("mines high-PoW posts with the Wired account pubkey and submits them to wired-admin", async () => {
@@ -409,6 +470,34 @@ describe("useSubmitForm", () => {
     );
     expect(mocks.enrollBrowserEvent).not.toHaveBeenCalled();
     expect(state.submitStatus).toBe("published");
+  });
+
+  it("offers a non-revenue fallback when a Wired-account relay rejects the post", async () => {
+    mocks.fetchWiredAccountStatus.mockResolvedValue(configuredWiredAccountStatus);
+    mocks.submitWiredAccountPost.mockResolvedValue({
+      ok: true,
+      event: { ...minedEvent, sig: "4".repeat(128) },
+      acceptedRelays: [],
+    });
+    act(() => {
+      root.render(
+        <Probe payoutAddress="creator@wallet.example" onState={(nextState) => (state = nextState)} />,
+      );
+    });
+
+    await submitForm();
+    await act(async () => {
+      mockWorkers[0].emit({
+        type: "found",
+        event: {
+          ...minedEvent,
+          pubkey: wiredPubkey,
+          tags: [...minedEvent.tags, ["zap", "a".repeat(64), "wss://wired.example"]],
+        },
+      });
+    });
+
+    expect(state.revenueFallbackAvailable).toBe(true);
   });
 
   it("keeps below-threshold posts on the anonymous publish path", async () => {

@@ -80,11 +80,9 @@ export default function SettingsPage() {
       });
       setLightningAddress(normalizedAddress);
       setSaveStatus("saved");
-    } catch (error) {
+    } catch {
       setSaveStatus("idle");
-      setLightningAddressError(
-        error instanceof Error ? error.message : "Lightning address validation failed",
-      );
+      setLightningAddressError("Could not validate that Lightning address. Check it and try again.");
     } finally {
       setSaving(false);
     }
