@@ -86,18 +86,11 @@ function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[]
             relayHints={relayHints}
           />
         </ContentColumn>
-        <ThreadComposer OPEvent={opEvent} />
-        <div className="mx-auto mb-2 h-px max-w-content bg-[var(--border-ghost)]" />
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAllReplies(!showAllReplies)}
-          >
-            {showAllReplies ? "hide low-signal" : "reveal low-signal"}
-          </Button>
-        </div>
+        <ThreadComposer
+          OPEvent={opEvent}
+          showAllReplies={showAllReplies}
+          onToggleLowSignal={() => setShowAllReplies(!showAllReplies)}
+        />
         <ContentColumn>
           {replyEvents
             .slice(0, visibleReplyEvents)

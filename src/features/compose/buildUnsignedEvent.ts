@@ -9,7 +9,7 @@ export type ComposeDraft = {
   media?: UploadedMedia[];
 };
 
-const CLIENT_TAG: string[] = ["client", "getwired.app"];
+const CLIENT_TAG: string[] = ["client", "wiredsignal.online"];
 
 export type CustomEmojiTag = {
   shortcode: string;

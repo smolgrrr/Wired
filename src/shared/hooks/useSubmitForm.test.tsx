@@ -65,7 +65,7 @@ class MockWorker {
 
 const unsigned: UnsignedEvent = {
   kind: 1,
-  tags: [["client", "getwired.app"]],
+  tags: [["client", "wiredsignal.online"]],
   content: "test reply",
   created_at: 1,
   pubkey: "",
