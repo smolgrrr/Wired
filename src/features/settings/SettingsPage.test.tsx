@@ -14,8 +14,13 @@ const settingsMock = vi.hoisted(() => ({
     filterDifficulty: 16,
     ageHours: 24,
     sortByPow: true,
+    lightningAddress: "",
   },
   updateSettings: vi.fn(),
+}));
+
+const revenueMock = vi.hoisted(() => ({
+  validateLightningAddress: vi.fn(),
 }));
 
 vi.mock("../../app/settings", () => ({
@@ -23,6 +28,10 @@ vi.mock("../../app/settings", () => ({
     settings: settingsMock.settings,
     updateSettings: settingsMock.updateSettings,
   }),
+}));
+
+vi.mock("../revenue/api", () => ({
+  validateLightningAddress: revenueMock.validateLightningAddress,
 }));
 
 describe("SettingsPage", () => {
@@ -42,6 +51,13 @@ describe("SettingsPage", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     settingsMock.updateSettings.mockClear();
+    revenueMock.validateLightningAddress.mockReset();
+    revenueMock.validateLightningAddress.mockImplementation(async (address: string) => ({
+      ok: true,
+      address: address.trim().toLowerCase(),
+      minSendableMsat: 1_000,
+      maxSendableMsat: 1_000_000,
+    }));
   });
 
   afterEach(() => {
@@ -75,15 +91,16 @@ describe("SettingsPage", () => {
     });
   }
 
-  function submitSettings() {
+  async function submitSettings() {
     const form = container.querySelector("form");
 
     if (!form) {
       throw new Error("Missing settings form");
     }
 
-    act(() => {
+    await act(async () => {
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
     });
   }
 
@@ -95,30 +112,55 @@ describe("SettingsPage", () => {
     expect(container.textContent).toContain("Feed lookback");
   });
 
-  it("blocks invalid settings without persisting them", () => {
+  it("blocks invalid settings without persisting them", async () => {
     renderPage();
 
     changeInput("filterDifficulty", "15");
-    submitSettings();
+    await submitSettings();
 
     expect(container.textContent).toContain("use 16 or higher");
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
     expect(settingsMock.updateSettings).not.toHaveBeenCalled();
   });
 
-  it("persists valid settings and confirms the save", () => {
+  it("persists valid settings and confirms the save", async () => {
     renderPage();
 
     changeInput("filterDifficulty", "18");
     changeInput("difficulty", "21");
     changeInput("age", "48");
-    submitSettings();
+    await submitSettings();
 
     expect(settingsMock.updateSettings).toHaveBeenCalledWith({
       filterDifficulty: 18,
       difficulty: 21,
       ageHours: 48,
+      lightningAddress: "",
     });
     expect(container.textContent).toContain("settings saved");
+  });
+
+  it("validates and saves a normalized Lightning address privately", async () => {
+    renderPage();
+
+    changeInput("lightningAddress", "Creator@Wallet.Example");
+    await submitSettings();
+
+    expect(revenueMock.validateLightningAddress).toHaveBeenCalledWith("Creator@Wallet.Example");
+    expect(settingsMock.updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      lightningAddress: "creator@wallet.example",
+    }));
+    expect(container.textContent).toContain("settings saved");
+  });
+
+  it("does not replace the saved address when validation fails", async () => {
+    revenueMock.validateLightningAddress.mockRejectedValue(new Error("address unavailable"));
+    renderPage();
+
+    changeInput("lightningAddress", "creator@wallet.example");
+    await submitSettings();
+
+    expect(settingsMock.updateSettings).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("address unavailable");
   });
 });

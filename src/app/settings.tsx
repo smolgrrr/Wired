@@ -13,6 +13,7 @@ export type Settings = {
   filterDifficulty: number;
   ageHours: number;
   sortByPow: boolean;
+  lightningAddress: string;
 };
 
 type SettingsContextValue = {
@@ -37,6 +38,7 @@ const loadSettings = (): Settings => ({
   filterDifficulty: loadFilterDifficulty(),
   ageHours: Number(localStorage.getItem("age")) || 24,
   sortByPow: localStorage.getItem("sortBy") !== "false",
+  lightningAddress: localStorage.getItem("wired:lightning-address") || "",
 });
 
 const persistSettings = (settings: Settings) => {
@@ -44,6 +46,11 @@ const persistSettings = (settings: Settings) => {
   localStorage.setItem("filterDifficulty", String(settings.filterDifficulty));
   localStorage.setItem("age", String(settings.ageHours));
   localStorage.setItem("sortBy", String(settings.sortByPow));
+  if (settings.lightningAddress) {
+    localStorage.setItem("wired:lightning-address", settings.lightningAddress);
+  } else {
+    localStorage.removeItem("wired:lightning-address");
+  }
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

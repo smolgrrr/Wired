@@ -78,10 +78,13 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     signedPoWEvent,
     powEta,
     willUseWiredAccount,
+    revenueFallbackAvailable,
+    handleSubmitWithoutRevenue,
   } =
     useSubmitForm(unsigned, difficulty, {
       secretKey: composeSecretKey,
       onRotateSecretKey: setComposeSecretKey,
+      ...(settings.lightningAddress ? { payoutAddress: settings.lightningAddress } : {}),
     });
   const showPowEta = !doingWorkProp && submitStatus !== "published";
 
@@ -212,6 +215,18 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           className="text-right"
         />
         {submitError && <p className="text-danger text-meta text-right">{submitError}</p>}
+        {revenueFallbackAvailable && (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleSubmitWithoutRevenue()}
+            >
+              transmit without payout
+            </Button>
+          </div>
+        )}
         {signedPoWEvent && (
           <PostCard
             event={signedPoWEvent}

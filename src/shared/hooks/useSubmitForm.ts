@@ -16,12 +16,20 @@ import {
   type WiredAccountStatus,
 } from "../../features/wiredAccount/api";
 import { timeToGoEst } from "@lib/timeEstimate";
+import {
+  activateRevenueEnrollment,
+  enrollBrowserEvent,
+  failRevenueEnrollment,
+  fetchRevenueConfig,
+  withRevenueZapTag,
+} from "../../features/revenue/api";
 
 export type SubmitStatus = "idle" | "mining" | "publishing" | "published" | "failed";
 
 type SubmitFormOptions = {
   secretKey?: Uint8Array;
   onRotateSecretKey?: (secretKey: Uint8Array) => void;
+  payoutAddress?: string;
 };
 
 const POW_HASHRATE_STORAGE_KEY = "wired:last-pow-hashrate";
@@ -70,7 +78,9 @@ export const useSubmitForm = (
   const [signedPoWEvent, setSignedPoWEvent] = useState<Event>();
   const [wiredAccountStatus, setWiredAccountStatus] = useState<WiredAccountStatus | null>(null);
   const [estimatedHashrate, setEstimatedHashrate] = useState(readStoredHashrate);
+  const [revenueFallbackAvailable, setRevenueFallbackAvailable] = useState(false);
   const activeSubmitId = useRef(0);
+  const skipRevenueNext = useRef(false);
 
   const numCores = navigator.hardwareConcurrency || 4;
   const { startWork, hashrate, bestPow } = usePowMining(numCores, unsignedWithPubkey, difficulty);
@@ -98,10 +108,14 @@ export const useSubmitForm = (
     const submitId = activeSubmitId.current + 1;
     activeSubmitId.current = submitId;
     const submitDifficulty = difficulty;
+    const skipRevenue = skipRevenueNext.current;
+    skipRevenueNext.current = false;
+    const payoutAddress = skipRevenue ? undefined : options.payoutAddress;
     setSubmitStatus("mining");
     setSubmitError(null);
     setAcceptedRelays([]);
     setSignedPoWEvent(undefined);
+    setRevenueFallbackAvailable(false);
 
     const status = await fetchWiredAccountStatus({ force: true }).catch(() => wiredAccountStatus);
     if (activeSubmitId.current !== submitId) return;
@@ -110,9 +124,25 @@ export const useSubmitForm = (
     }
 
     const shouldUseWiredAccount = willUseWiredAccount(submitDifficulty, status);
-    const submitUnsigned = shouldUseWiredAccount && status?.pubkey
+    let revenueConfig = null;
+    if (payoutAddress) {
+      try {
+        revenueConfig = await fetchRevenueConfig({ force: true });
+        if (!revenueConfig.enabled) throw new Error("revenue routing is unavailable");
+      } catch {
+        if (activeSubmitId.current !== submitId) return;
+        setSubmitStatus("failed");
+        setSubmitError("Revenue enrollment is unavailable. Your draft was not posted.");
+        setRevenueFallbackAvailable(true);
+        return;
+      }
+    }
+    const baseUnsigned = shouldUseWiredAccount && status?.pubkey
       ? { ...unsigned, pubkey: status.pubkey }
       : unsignedWithPubkey;
+    const submitUnsigned = revenueConfig
+      ? withRevenueZapTag(baseUnsigned, revenueConfig)
+      : baseUnsigned;
 
     startWork({
       unsigned: submitUnsigned,
@@ -126,10 +156,13 @@ export const useSubmitForm = (
 
         setSubmitStatus("publishing");
         setSubmitError(null);
+        let browserEnrollmentId: string | null = null;
 
         try {
           if (shouldUseWiredAccount) {
-            const result = await submitWiredAccountPost(minedEvent);
+            const result = payoutAddress
+              ? await submitWiredAccountPost(minedEvent, payoutAddress)
+              : await submitWiredAccountPost(minedEvent);
             if (activeSubmitId.current !== submitId) return;
 
             if (result.acceptedRelays.length === 0) {
@@ -148,10 +181,21 @@ export const useSubmitForm = (
           }
 
           const signedEvent = finalizeEvent(minedEvent, sk);
+          const enrollment = payoutAddress
+            ? await enrollBrowserEvent(signedEvent, payoutAddress)
+            : null;
+          if (enrollment) {
+            browserEnrollmentId = enrollment.enrollmentId;
+            await activateRevenueEnrollment(enrollment.enrollmentId);
+          }
           const accepted = await publish(signedEvent);
           if (activeSubmitId.current !== submitId) return;
 
           if (accepted.size === 0) {
+            if (enrollment) {
+              await failRevenueEnrollment(enrollment.enrollmentId).catch(() => {});
+              browserEnrollmentId = null;
+            }
             setSubmitStatus("failed");
             setSubmitError("No relay accepted the event. Your draft was not posted.");
             setSignedPoWEvent(undefined);
@@ -164,6 +208,7 @@ export const useSubmitForm = (
           appendKey(bytesToHex(sk), getPublicKey(sk));
           rotateSecretKey(generateSecretKey());
           setSubmitStatus("published");
+          browserEnrollmentId = null;
         } catch {
           if (activeSubmitId.current !== submitId) return;
 
@@ -171,6 +216,10 @@ export const useSubmitForm = (
           setSubmitError("Publishing failed. Your draft was not posted.");
           setSignedPoWEvent(undefined);
           setAcceptedRelays([]);
+          if (browserEnrollmentId) {
+            await failRevenueEnrollment(browserEnrollmentId).catch(() => {});
+          }
+          if (payoutAddress) setRevenueFallbackAvailable(true);
         }
       },
       onError: () => {
@@ -184,6 +233,11 @@ export const useSubmitForm = (
     });
   };
 
+  const handleSubmitWithoutRevenue = async () => {
+    skipRevenueNext.current = true;
+    await handleSubmit({ preventDefault() {} } as FormEvent);
+  };
+
   return {
     handleSubmit,
     doingWorkProp,
@@ -195,5 +249,7 @@ export const useSubmitForm = (
     signedPoWEvent,
     powEta: timeToGoEst(difficulty, hashrate || estimatedHashrate),
     willUseWiredAccount: willUseWiredAccount(difficulty, wiredAccountStatus),
+    revenueFallbackAvailable,
+    handleSubmitWithoutRevenue,
   };
 };

@@ -4,6 +4,7 @@ import { useSettings } from "../../app/settings";
 import { Button } from "../../shared/ui/Button";
 import { Input } from "../../shared/ui/Input";
 import { PageShell } from "../../shared/ui/PageShell";
+import { validateLightningAddress } from "../revenue/api";
 
 const MIN_SIGNAL = 16;
 const MIN_THREAD_AGE_HOURS = 1;
@@ -39,7 +40,10 @@ export default function SettingsPage() {
   const [difficulty, setDifficulty] = useState(String(settings.difficulty));
   const [age, setAge] = useState(String(settings.ageHours));
   const [threadRef, setThreadRef] = useState("");
+  const [lightningAddress, setLightningAddress] = useState(settings.lightningAddress);
+  const [lightningAddressError, setLightningAddressError] = useState<string>();
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const filterDifficultyError = integerError(filterDifficulty, MIN_SIGNAL);
   const difficultyError = integerError(difficulty, MIN_SIGNAL);
@@ -54,7 +58,7 @@ export default function SettingsPage() {
     setter(value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (hasSettingsError) {
@@ -62,12 +66,28 @@ export default function SettingsPage() {
       return;
     }
 
-    updateSettings({
-      filterDifficulty: Number(filterDifficulty),
-      difficulty: Number(difficulty),
-      ageHours: Number(age),
-    });
-    setSaveStatus("saved");
+    setSaving(true);
+    setLightningAddressError(undefined);
+    try {
+      const normalizedAddress = lightningAddress.trim()
+        ? (await validateLightningAddress(lightningAddress)).address
+        : "";
+      updateSettings({
+        filterDifficulty: Number(filterDifficulty),
+        difficulty: Number(difficulty),
+        ageHours: Number(age),
+        lightningAddress: normalizedAddress,
+      });
+      setLightningAddress(normalizedAddress);
+      setSaveStatus("saved");
+    } catch (error) {
+      setSaveStatus("idle");
+      setLightningAddressError(
+        error instanceof Error ? error.message : "Lightning address validation failed",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -113,9 +133,26 @@ export default function SettingsPage() {
             error={ageError}
           />
         </div>
+        <div className="max-w-md">
+          <Input
+            id="lightningAddress"
+            label="creator payout"
+            type="text"
+            value={lightningAddress}
+            onChange={(e) => {
+              setLightningAddressError(undefined);
+              handleSettingsChange(setLightningAddress, e.target.value);
+            }}
+            placeholder="you@wallet.example"
+            autoComplete="off"
+            spellCheck={false}
+            hint="Optional. Validated when saved, kept out of public Nostr events, and used only for future posts."
+            error={lightningAddressError}
+          />
+        </div>
         <div className="flex items-center gap-3">
-          <Button type="submit" variant="primary" disabled={hasSettingsError}>
-            {saveStatus === "saved" ? "saved" : "save"}
+          <Button type="submit" variant="primary" disabled={hasSettingsError || saving}>
+            {saving ? "validating…" : saveStatus === "saved" ? "saved" : "save"}
           </Button>
           {saveStatus === "saved" && (
             <p role="status" className="text-meta text-secondary">

@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   publish: vi.fn(),
   fetchWiredAccountStatus: vi.fn(),
   submitWiredAccountPost: vi.fn(),
+  fetchRevenueConfig: vi.fn(),
+  enrollBrowserEvent: vi.fn(),
+  activateRevenueEnrollment: vi.fn(),
+  failRevenueEnrollment: vi.fn(),
 }));
 let mockWorkers: MockWorker[] = [];
 
@@ -43,6 +47,17 @@ vi.mock("../../features/wiredAccount/api", () => ({
   fetchWiredAccountStatus: mocks.fetchWiredAccountStatus,
   submitWiredAccountPost: mocks.submitWiredAccountPost,
 }));
+
+vi.mock("../../features/revenue/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../features/revenue/api")>();
+  return {
+    ...actual,
+    fetchRevenueConfig: mocks.fetchRevenueConfig,
+    enrollBrowserEvent: mocks.enrollBrowserEvent,
+    activateRevenueEnrollment: mocks.activateRevenueEnrollment,
+    failRevenueEnrollment: mocks.failRevenueEnrollment,
+  };
+});
 
 class MockWorker {
   onmessage: ((event: MessageEvent) => void) | null = null;
@@ -93,12 +108,14 @@ const configuredWiredAccountStatus = {
 
 function Probe({
   difficulty = "1",
+  payoutAddress,
   onState,
 }: {
   difficulty?: string;
+  payoutAddress?: string;
   onState: (state: ReturnType<typeof useSubmitForm>) => void;
 }) {
-  const state = useSubmitForm(unsigned, difficulty);
+  const state = useSubmitForm(unsigned, difficulty, { payoutAddress });
   onState(state);
 
   return (
@@ -130,7 +147,26 @@ describe("useSubmitForm", () => {
     mocks.publish.mockReset();
     mocks.fetchWiredAccountStatus.mockReset();
     mocks.submitWiredAccountPost.mockReset();
+    mocks.fetchRevenueConfig.mockReset();
+    mocks.enrollBrowserEvent.mockReset();
+    mocks.activateRevenueEnrollment.mockReset();
+    mocks.failRevenueEnrollment.mockReset();
     mocks.fetchWiredAccountStatus.mockResolvedValue(disabledWiredAccountStatus);
+    mocks.fetchRevenueConfig.mockResolvedValue({
+      enabled: true,
+      recipientPubkey: "a".repeat(64),
+      relayUrl: "wss://wired.example",
+      callbackUrl: "https://wired.example/api/revenue/zap",
+      walletBackend: "fake",
+    });
+    mocks.enrollBrowserEvent.mockResolvedValue({
+      ok: true,
+      enrollmentId: "enrollment-1",
+      eventId: "1".repeat(64),
+      state: "pending",
+    });
+    mocks.activateRevenueEnrollment.mockResolvedValue(undefined);
+    mocks.failRevenueEnrollment.mockResolvedValue(undefined);
     window.localStorage.clear();
     vi.stubGlobal("Worker", MockWorker);
     Object.defineProperty(window.navigator, "hardwareConcurrency", {
@@ -260,6 +296,41 @@ describe("useSubmitForm", () => {
     expect(mocks.appendKey).toHaveBeenCalledTimes(1);
   });
 
+  it("enrolls a revenue-tagged browser event before relay publication", async () => {
+    mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
+
+    act(() => {
+      root.render(
+        <Probe payoutAddress="creator@wallet.example" onState={(nextState) => (state = nextState)} />,
+      );
+    });
+
+    await submitForm();
+    expect(mockWorkers[0].postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      unsigned: expect.objectContaining({
+        tags: expect.arrayContaining([["zap", "a".repeat(64), "wss://wired.example"]]),
+      }),
+    }));
+
+    const revenueMinedEvent = {
+      ...minedEvent,
+      tags: [...minedEvent.tags, ["zap", "a".repeat(64), "wss://wired.example"]],
+    };
+    await act(async () => {
+      mockWorkers[0].emit({ type: "found", event: revenueMinedEvent });
+    });
+
+    expect(mocks.enrollBrowserEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: expect.arrayContaining([["zap", "a".repeat(64), "wss://wired.example"]]) }),
+      "creator@wallet.example",
+    );
+    expect(mocks.enrollBrowserEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.publish.mock.invocationCallOrder[0],
+    );
+    expect(mocks.activateRevenueEnrollment).toHaveBeenCalledWith("enrollment-1");
+    expect(state.submitStatus).toBe("published");
+  });
+
   it("mines high-PoW posts with the Wired account pubkey and submits them to wired-admin", async () => {
     const wiredMinedEvent = {
       ...unsigned,
@@ -300,6 +371,43 @@ describe("useSubmitForm", () => {
     expect(mocks.appendKey).not.toHaveBeenCalled();
     expect(state.signedPoWEvent).toEqual(wiredSignedEvent);
     expect(state.acceptedRelays).toEqual(["wss://wired.example"]);
+    expect(state.submitStatus).toBe("published");
+  });
+
+  it("sends the private payout snapshot with a revenue-tagged Wired-account submission", async () => {
+    const wiredRevenueMinedEvent = {
+      ...unsigned,
+      id: "3".repeat(64),
+      pubkey: wiredPubkey,
+      tags: [
+        ...unsigned.tags,
+        ["zap", "a".repeat(64), "wss://wired.example"],
+        ["nonce", "2", "1"],
+      ],
+    };
+    const wiredSignedEvent = { ...wiredRevenueMinedEvent, sig: "4".repeat(128) };
+    mocks.fetchWiredAccountStatus.mockResolvedValue(configuredWiredAccountStatus);
+    mocks.submitWiredAccountPost.mockResolvedValue({
+      ok: true,
+      event: wiredSignedEvent,
+      acceptedRelays: ["wss://wired.example"],
+    });
+
+    act(() => {
+      root.render(
+        <Probe payoutAddress="creator@wallet.example" onState={(nextState) => (state = nextState)} />,
+      );
+    });
+    await submitForm();
+    await act(async () => {
+      mockWorkers[0].emit({ type: "found", event: wiredRevenueMinedEvent });
+    });
+
+    expect(mocks.submitWiredAccountPost).toHaveBeenCalledWith(
+      wiredRevenueMinedEvent,
+      "creator@wallet.example",
+    );
+    expect(mocks.enrollBrowserEvent).not.toHaveBeenCalled();
     expect(state.submitStatus).toBe("published");
   });
 
