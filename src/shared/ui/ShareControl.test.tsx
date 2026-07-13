@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { decodeThreadRef } from "@lib/threadRefs";
 import { ShareControl } from "./ShareControl";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
@@ -47,8 +48,7 @@ describe("ShareControl", () => {
     const menu = container.querySelector("[role='menu']");
     expect(menu).not.toBeNull();
     expect(menu?.textContent).toContain("Share to X");
-    expect(menu?.textContent).toContain("Share to Discord");
-    expect(menu?.textContent).toContain("Share to Instagram");
+    expect(menu?.textContent).toContain("Share to Nostr");
     expect(menu?.textContent).toContain("Copy link");
     expect(menu?.textContent).toContain("More options");
   });
@@ -56,22 +56,30 @@ describe("ShareControl", () => {
   it("builds an X intent with the canonical thread URL", () => {
     openMenu();
 
-    const xLink = container.querySelector<HTMLAnchorElement>("a[href^='https://x.com/intent/post']");
+    const xLink = container.querySelector<HTMLAnchorElement>("a[href^='https://twitter.com/intent/tweet']");
     expect(xLink).not.toBeNull();
     expect(decodeURIComponent(xLink?.href ?? "")).toContain("/thread/nevent1");
   });
 
-  it("copies the canonical URL for platforms without a web composer", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { clipboard: { writeText } });
-    openMenu();
-    const discordButton = [...container.querySelectorAll<HTMLButtonElement>("[role='menuitem']")]
-      .find((button) => button.textContent?.includes("Discord"));
+  it("opens a NIP-21 nevent URI with relay hints", () => {
+    act(() => {
+      root.render(
+        <ShareControl
+          eventId={"1".repeat(64)}
+          relayHints={["wss://relay.wiredsignal.online"]}
+        />,
+      );
+    });
+    act(() => {
+      container.querySelector<HTMLButtonElement>("button[aria-label='Share this thread']")?.click();
+    });
 
-    await act(async () => discordButton?.click());
-
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/thread/nevent1"));
-    expect(container.textContent).toContain("link copied for Discord");
+    const nostrLink = container.querySelector<HTMLAnchorElement>("a[href^='nostr:nevent1']");
+    expect(nostrLink).not.toBeNull();
+    expect(decodeThreadRef(nostrLink?.getAttribute("href")?.slice(6))).toEqual({
+      id: "1".repeat(64),
+      relays: ["wss://relay.wiredsignal.online"],
+    });
   });
 
   it("opens the native share sheet from More options", async () => {

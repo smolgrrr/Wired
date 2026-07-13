@@ -1,13 +1,12 @@
 import {
-  Camera,
   Check,
   Copy,
-  MessageCircle,
+  Radio,
   Share2,
   X as CloseIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildThreadPath } from "@lib/threadRefs";
+import { buildThreadPath, encodeThreadRef } from "@lib/threadRefs";
 
 type ShareControlProps = {
   eventId: string;
@@ -116,7 +115,7 @@ export function ShareControl({
   );
 
   const url = canonicalThreadUrl(eventId, relayHints);
-  const xIntentUrl = new URL("https://x.com/intent/post");
+  const xIntentUrl = new URL("https://twitter.com/intent/tweet");
   xIntentUrl.searchParams.set(
     "text",
     `${excerpt?.trim().slice(0, 180) || "Wired signal"}\n${url}`,
@@ -209,24 +208,15 @@ export function ShareControl({
               <span aria-hidden="true" className="w-4 text-center text-body">X</span>
               <span>Share to X</span>
             </a>
-            <button
-              type="button"
+            <a
+              href={`nostr:${encodeThreadRef(eventId, relayHints)}`}
               role="menuitem"
               className={menuItemClass}
-              onClick={() => void copyFor("Discord")}
+              onClick={closeMenu}
             >
-              <MessageCircle aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
-              <span>Share to Discord</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={menuItemClass}
-              onClick={() => void copyFor("Instagram")}
-            >
-              <Camera aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
-              <span>Share to Instagram</span>
-            </button>
+              <Radio aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+              <span>Share to Nostr</span>
+            </a>
             <button
               type="button"
               role="menuitem"
