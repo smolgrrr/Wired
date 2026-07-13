@@ -28,7 +28,7 @@ vi.mock("../thread/useThreadNavigation", () => ({
 vi.mock("./buildUnsignedEvent", () => ({
   buildUnsignedEvent: () => ({
     kind: 1,
-    tags: [["client", "getwired.app"]],
+    tags: [["client", "wiredsignal.online"]],
     content: "test",
     created_at: 1,
     pubkey: "",

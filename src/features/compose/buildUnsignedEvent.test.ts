@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { buildUnsignedEvent } from "./buildUnsignedEvent";
 
 describe("buildUnsignedEvent", () => {
+  it("identifies published notes as coming from wiredsignal.online", () => {
+    const unsigned = buildUnsignedEvent({ comment: "hello" });
+
+    expect(unsigned.tags).toContainEqual(["client", "wiredsignal.online"]);
+    expect(unsigned.tags).not.toContainEqual(["client", "getwired.app"]);
+  });
+
   it("adds Nostr custom emoji tags for selected shortcodes still present in the comment", () => {
     const unsigned = buildUnsignedEvent({
       comment: "ship it :wired:",
