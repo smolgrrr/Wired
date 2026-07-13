@@ -372,6 +372,45 @@ describe("useSubmitForm", () => {
     }));
   });
 
+  it("does not publish on enrollment failure and can retry the same event idempotently", async () => {
+    mocks.enrollBrowserEvent
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({
+        ok: true,
+        enrollmentId: "enrollment-1",
+        eventId: "1".repeat(64),
+        state: "pending",
+      });
+    mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
+    act(() => {
+      root.render(
+        <Probe payoutAddress="creator@wallet.example" onState={(nextState) => (state = nextState)} />,
+      );
+    });
+
+    const revenueMinedEvent = {
+      ...minedEvent,
+      tags: [...minedEvent.tags, ["zap", "a".repeat(64), "wss://wired.example"]],
+    };
+    await submitForm();
+    await act(async () => {
+      mockWorkers[0].emit({ type: "found", event: revenueMinedEvent });
+    });
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(state.revenueFallbackAvailable).toBe(true);
+
+    await submitForm();
+    await act(async () => {
+      mockWorkers[1].emit({ type: "found", event: revenueMinedEvent });
+    });
+    expect(mocks.enrollBrowserEvent).toHaveBeenCalledTimes(2);
+    expect(mocks.enrollBrowserEvent.mock.calls[1]?.[0]).toEqual(
+      mocks.enrollBrowserEvent.mock.calls[0]?.[0],
+    );
+    expect(mocks.publish).toHaveBeenCalledTimes(1);
+    expect(state.submitStatus).toBe("published");
+  });
+
   it("keeps a published enrollment queued when revenue activation is ambiguous", async () => {
     mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
     mocks.activateRevenueEnrollment.mockRejectedValue(new Error("activation unavailable"));
