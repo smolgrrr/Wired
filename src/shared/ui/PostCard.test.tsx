@@ -208,4 +208,20 @@ describe("PostCard thread opening", () => {
 
     expect(onOpenThread).not.toHaveBeenCalled();
   });
+
+  it("shows sharing and Wired identity only on the thread root", () => {
+    act(() => {
+      root.render(<PostCard event={event()} replies={[]} role="threadOp" totalWork={16} />);
+    });
+
+    expect(container.querySelector("button[aria-label='Share this thread']")).not.toBeNull();
+    expect(container.textContent).toContain("wiredsignal.online");
+
+    act(() => {
+      root.render(<PostCard event={event()} replies={[]} role="feed" totalWork={16} />);
+    });
+
+    expect(container.querySelector("button[aria-label='Share this thread']")).toBeNull();
+    expect(container.textContent).not.toContain("wiredsignal.online");
+  });
 });

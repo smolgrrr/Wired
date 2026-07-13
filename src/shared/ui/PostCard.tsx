@@ -11,6 +11,7 @@ import { SignalAvatar } from "./SignalAvatar";
 import { useProfile } from "../hooks/useProfiles";
 import { useMemo, useCallback, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { ShareControl } from "./ShareControl";
 
 interface PostCardProps {
   event: Event;
@@ -182,6 +183,11 @@ export function PostCard({
           priority={avatarPriority}
         />
         <span className="min-w-0 truncate">{authorLabel}</span>
+        {role === "threadOp" && (
+          <span className="ml-auto shrink-0 text-muted" aria-label="Wired website">
+            wiredsignal.online
+          </span>
+        )}
       </header>
 
       <div className="post-content flex flex-col gap-2 break-words">
@@ -196,6 +202,15 @@ export function PostCard({
         replyCount={displayedReplyCount}
         timestamp={timestamp}
         forceSecondary={role === "threadOp"}
+        trailing={
+          role === "threadOp" ? (
+            <ShareControl
+              eventId={event.id}
+              relayHints={relayHints}
+              excerpt={event.content}
+            />
+          ) : undefined
+        }
       />
     </article>
   );

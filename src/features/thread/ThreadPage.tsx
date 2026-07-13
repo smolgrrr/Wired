@@ -58,6 +58,7 @@ function ThreadView({ hexID, relayHints }: { hexID: string; relayHints: string[]
             role="threadOp"
             totalWork={opScore?.totalWork}
             replyCount={opScore?.threadReplyCount}
+            relayHints={relayHints}
           />
         </ContentColumn>
         <ThreadComposer OPEvent={opEvent} />
