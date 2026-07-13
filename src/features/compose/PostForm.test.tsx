@@ -11,10 +11,11 @@ const mocks = vi.hoisted(() => ({
   handleSubmit: vi.fn(),
   useSubmitForm: vi.fn(),
   useMediaUploads: vi.fn(),
+  settings: { difficulty: 21, lightningAddress: "" },
 }));
 
 vi.mock("../../app/settings", () => ({
-  useSettings: () => ({ settings: { difficulty: 21 } }),
+  useSettings: () => ({ settings: mocks.settings }),
 }));
 
 vi.mock("../../shared/hooks/useSubmitForm", () => ({
@@ -63,6 +64,8 @@ describe("PostForm", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
+    mocks.settings.difficulty = 21;
+    mocks.settings.lightningAddress = "";
     mocks.handleSubmit.mockReset();
     mocks.handleSubmit.mockResolvedValue(undefined);
     mocks.useMediaUploads.mockReturnValue({
@@ -119,6 +122,24 @@ describe("PostForm", () => {
     );
 
     expect(emojiButton?.parentElement).toBe(mediaButton?.parentElement);
+  });
+
+  it("shows payout readiness immediately left of transmit only for a saved Lightning address", () => {
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    expect(container.querySelector("[aria-label='Lightning payout ready']")).toBeNull();
+
+    mocks.settings.lightningAddress = "creator@wallet.example";
+    act(() => {
+      root.render(<PostForm />);
+    });
+
+    const payoutReady = container.querySelector("[aria-label='Lightning payout ready']");
+    expect(payoutReady).not.toBeNull();
+    expect(payoutReady?.getAttribute("role")).toBe("img");
+    expect(payoutReady?.nextElementSibling?.textContent).toBe("transmit");
   });
 
   it("does not duplicate the PoW ETA while mining", () => {

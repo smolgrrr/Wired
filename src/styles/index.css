@@ -40,6 +40,8 @@
   /* Semantic */
   --danger: #f87171;
   --danger-dim: rgba(248, 113, 113, 0.6);
+  --lightning: #facc15;
+  --lightning-glow: rgba(250, 204, 21, 0.65);
 
   /* Typography */
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -104,6 +106,11 @@ body {
 
 .wired-pressable:active:not(:disabled) {
   transform: translateY(1px) scale(0.98);
+}
+
+.payout-ready-indicator {
+  color: var(--lightning);
+  filter: drop-shadow(0 0 4px var(--lightning-glow));
 }
 
 .post-card--openable {
