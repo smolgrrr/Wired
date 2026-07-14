@@ -6,6 +6,7 @@ export const subNotifications = (
   pubkeys: string[],
   onEvent: SubCallback,
   onEose?: () => void,
+  options: { relayUrls?: readonly string[] } = {},
 ): SubHandle => {
   if (pubkeys.length === 0) {
     return emptySubHandle("notifications:empty");
@@ -29,6 +30,7 @@ export const subNotifications = (
       cb: onEvent,
       closeOnEose: true,
       onEose: handleEose,
+      relayUrls: options.relayUrls,
     },
     {
       filter: {
@@ -39,6 +41,7 @@ export const subNotifications = (
       cb: onEvent,
       closeOnEose: true,
       onEose: handleEose,
+      relayUrls: options.relayUrls,
     },
   ]);
 };
