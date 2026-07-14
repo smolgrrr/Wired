@@ -98,3 +98,9 @@ export const WIRED_ACCOUNT_API_BASE = (
 )
   .trim()
   .replace(/\/+$/, "");
+
+export const REVENUE_API_BASE = (
+  configuredEnv("VITE_REVENUE_API_BASE") || WIRED_ACCOUNT_API_BASE
+)
+  .trim()
+  .replace(/\/+$/, "");

@@ -77,13 +77,14 @@ export function clearWiredAccountStatusCache(): void {
 
 export async function submitWiredAccountPost(
   event: WiredAccountAdmissionEvent,
+  payoutAddress?: string,
 ): Promise<WiredAccountPostResponse> {
   const response = await fetch(wiredAccountUrl("/api/wired-account/posts"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ event }),
+    body: JSON.stringify({ event, ...(payoutAddress ? { payoutAddress } : {}) }),
   });
   const result = await readJson<WiredAccountPostResponse>(response);
   cachedStatus = {

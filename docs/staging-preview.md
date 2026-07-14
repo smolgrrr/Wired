@@ -22,8 +22,14 @@ The client uses it for:
 - moderation manifests
 - PoW relay writes and reads
 - Wired account status and high-PoW post submission
+- private Lightning-address validation and revenue enrollment
+- Wired NIP-57 routing configuration
 
 Production uses `https://relay.wiredsignal.online` for the Wired account API
 via `VITE_WIRED_ACCOUNT_API_BASE`.
+
+Revenue requests use `VITE_REVENUE_API_BASE`. The staging backend begins with
+FakeWallet, so `creator@fake.invalid` can exercise the complete simulated flow
+without creating or spending real Lightning funds.
 
 Do not commit local `.env*` files.

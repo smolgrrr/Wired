@@ -1,4 +1,5 @@
 import { useState, useEffect, useId, useMemo, useRef, useCallback } from "react";
+import { Zap } from "lucide-react";
 import { Event as NostrEvent, finalizeEvent, generateSecretKey, type EventTemplate } from "nostr-tools";
 import { useSubmitForm } from "../../shared/hooks/useSubmitForm";
 import { buildUnsignedEvent, type CustomEmojiTag } from "./buildUnsignedEvent";
@@ -78,10 +79,13 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
     signedPoWEvent,
     powEta,
     willUseWiredAccount,
+    revenueFallbackAvailable,
+    handleSubmitWithoutRevenue,
   } =
     useSubmitForm(unsigned, difficulty, {
       secretKey: composeSecretKey,
       onRotateSecretKey: setComposeSecretKey,
+      ...(settings.lightningAddress ? { payoutAddress: settings.lightningAddress } : {}),
     });
   const showPowEta = !doingWorkProp && submitStatus !== "published";
 
@@ -192,9 +196,21 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
                 onRetry={retryUpload}
               />
             </div>
-            <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp || hasUploading} loading={doingWorkProp}>
-              transmit
-            </Button>
+            <div className="flex items-center gap-2">
+              {settings.lightningAddress && (
+                <span
+                  className="payout-ready-indicator inline-flex items-center justify-center"
+                  role="img"
+                  aria-label="Lightning payout ready"
+                  title="Lightning payout ready"
+                >
+                  <Zap aria-hidden="true" className="h-4 w-4 fill-current" strokeWidth={2.25} />
+                </span>
+              )}
+              <Button type="submit" variant="primary" size="sm" disabled={doingWorkProp || hasUploading} loading={doingWorkProp}>
+                transmit
+              </Button>
+            </div>
           </div>
         </div>
         {emptySubmitMessage && (
@@ -212,6 +228,18 @@ export function PostForm({ refEvent, tagType }: PostFormProps) {
           className="text-right"
         />
         {submitError && <p className="text-danger text-meta text-right">{submitError}</p>}
+        {revenueFallbackAvailable && (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleSubmitWithoutRevenue()}
+            >
+              transmit without payout
+            </Button>
+          </div>
+        )}
         {signedPoWEvent && (
           <PostCard
             event={signedPoWEvent}
