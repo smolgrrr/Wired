@@ -1,4 +1,9 @@
-import { Relay, type Event, useWebSocketImplementation } from "nostr-tools";
+import {
+  Relay,
+  type Event,
+  type Subscription,
+  useWebSocketImplementation,
+} from "nostr-tools";
 import { WebSocket } from "ws";
 import { THREAD_RELAYS } from "../src/config.js";
 import {
@@ -137,8 +142,10 @@ export async function fetchThreadEventsFromRelays(
       settledRelays.add(index);
       if (settledRelays.size >= relays.length) finish();
     };
-    const subscriptions = relays.map((relay, index) =>
-      relay.subscribe(
+    const subscriptions: Subscription[] = [];
+    relays.forEach((relay, index) => {
+      let subscription: Subscription;
+      subscription = relay.subscribe(
         [
           { ids: [eventId], kinds: [1], limit: 1 },
           { "#e": [eventId], kinds: [1], limit: 500 },
@@ -146,10 +153,14 @@ export async function fetchThreadEventsFromRelays(
         {
           onevent: (event) => events.set(event.id, event),
           oneose: () => settleRelay(index),
-          onclose: () => settleRelay(index),
+          onclose: () => {
+            subscription.receivedEose();
+            settleRelay(index);
+          },
         },
-      ),
-    );
+      );
+      subscriptions.push(subscription);
+    });
   });
 
   relays.forEach((relay) => relay.close());
