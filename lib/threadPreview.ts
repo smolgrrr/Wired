@@ -26,6 +26,10 @@ export type ResolveThreadPreviewOptions = {
   relayFallback?: (eventId: string, relayHints: readonly string[]) => Promise<Event[]>;
 };
 
+export type FetchThreadEventsOptions = {
+  relayUrls?: readonly string[];
+};
+
 function replyCountFromEvents(events: readonly Event[], eventId: string): number {
   return new Set(
     events
@@ -78,8 +82,11 @@ async function fetchSnapshot(
 export async function fetchThreadEventsFromRelays(
   eventId: string,
   relayHints: readonly string[],
+  options: FetchThreadEventsOptions = {},
 ): Promise<Event[]> {
-  const relayUrls = uniqueRelays([...relayHints, ...THREAD_RELAYS]);
+  const relayUrls = options.relayUrls
+    ? uniqueRelays(options.relayUrls)
+    : uniqueRelays([...relayHints, ...THREAD_RELAYS]);
   const relays: Relay[] = [];
   const events = new Map<string, Event>();
 
