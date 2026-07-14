@@ -59,6 +59,7 @@ export type { FeedBootstrapSnapshot };
 export type FeedSnapshotOptions = {
   ageHours?: number;
   filterDifficulty?: number;
+  relayUrls?: readonly string[];
   timeoutMs?: number;
 };
 
@@ -208,6 +209,7 @@ async function fetchRootEvents(
   rootRefs: FeedRootRef[],
   knownEvents: Event[],
   timeoutMs: number,
+  snapshotRelayUrls: readonly string[],
 ): Promise<EventBatch> {
   if (rootRefs.length === 0) {
     return { events: [], relayHintsByEventId: new Map() };
@@ -234,7 +236,7 @@ async function fetchRootEvents(
     pendingRefs.forEach((ref) => requestedIds.add(ref.id));
 
     const relayUrls = uniqueRelays([
-      ...FEED_SNAPSHOT_RELAYS,
+      ...snapshotRelayUrls,
       ...pendingRefs.flatMap((ref) => ref.relays),
     ]);
     const relays = await connectRelays(relayUrls, timeoutMs);
@@ -280,8 +282,13 @@ async function fetchGlobalFeedEvents(
   ageHours: number,
   filterDifficulty: number,
   timeoutMs: number,
+  relayUrls: {
+    pow: readonly string[];
+    replies: readonly string[];
+    snapshot: readonly string[];
+  },
 ): Promise<FeedEventBatch> {
-  const relays = await connectRelays(FEED_SNAPSHOT_RELAYS, timeoutMs);
+  const relays = await connectRelays(relayUrls.snapshot, timeoutMs);
 
   try {
     const since = sinceFromAgeHours(ageHours);
@@ -290,7 +297,7 @@ async function fetchGlobalFeedEvents(
       relays,
       { kinds: [1], since, limit: 500 },
       timeoutMs,
-      [...POW_RELAYS],
+      [...relayUrls.pow],
     );
     const activityEvents = activityBatch.events;
     const activityRootRefs = feedRootRefsFromQualifyingActivity(
@@ -306,6 +313,7 @@ async function fetchGlobalFeedEvents(
       activityRootRefs,
       activityEvents,
       timeoutMs,
+      relayUrls.snapshot,
     );
     const seedEvents = mergeEvents(activityEvents, resolvedRootBatch.events);
     const seedEventsById = buildFeedEventMap(seedEvents);
@@ -332,7 +340,7 @@ async function fetchGlobalFeedEvents(
         relays,
         replyFilter,
         timeoutMs,
-        REPLY_RELAYS,
+        [...relayUrls.replies],
       );
       const nextReplies = replyBatch.events;
       const nextParentIds: string[] = [];
@@ -388,6 +396,7 @@ async function fetchReferencedEvents(
   knownEventIds: Set<string>,
   ageHours: number,
   timeoutMs: number,
+  snapshotRelayUrls: readonly string[],
 ): Promise<EventBatch> {
   const missingRefs = refs.filter((ref) => !knownEventIds.has(ref.id));
   if (missingRefs.length === 0) {
@@ -395,7 +404,7 @@ async function fetchReferencedEvents(
   }
 
   const relayUrls = uniqueRelays([
-    ...FEED_SNAPSHOT_RELAYS,
+    ...snapshotRelayUrls,
     ...missingRefs.flatMap((ref) => ref.relays),
   ]);
   const relays = await connectRelays(relayUrls, timeoutMs);
@@ -461,12 +470,13 @@ async function fetchReferencedEvents(
 async function fetchProfileMetadata(
   pubkeys: string[],
   timeoutMs: number,
+  profileRelayUrls: readonly string[],
 ): Promise<Record<string, ProfileMetadata>> {
   if (pubkeys.length === 0) {
     return {};
   }
 
-  const relays = await connectRelays(PROFILE_RELAYS, timeoutMs);
+  const relays = await connectRelays(profileRelayUrls, timeoutMs);
 
   try {
     const { events } = await subscribeOnce(
@@ -477,7 +487,7 @@ async function fetchProfileMetadata(
         limit: profileQueryLimit(pubkeys.length),
       },
       timeoutMs,
-      PROFILE_RELAYS,
+      [...profileRelayUrls],
     );
 
     const profiles: Record<string, { profile: ProfileMetadata; createdAt: number }> =
@@ -551,11 +561,20 @@ export async function fetchFeedSnapshot(
   const ageHours = options.ageHours ?? BOOTSTRAP_AGE_HOURS;
   const filterDifficulty = options.filterDifficulty ?? BOOTSTRAP_FILTER_DIFFICULTY;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const snapshotRelayUrls = options.relayUrls ?? FEED_SNAPSHOT_RELAYS;
+  const powRelayUrls = options.relayUrls ?? POW_RELAYS;
+  const replyRelayUrls = options.relayUrls ?? REPLY_RELAYS;
+  const profileRelayUrls = options.relayUrls ?? PROFILE_RELAYS;
 
   const feedBatch = await fetchGlobalFeedEvents(
     ageHours,
     filterDifficulty,
     timeoutMs,
+    {
+      pow: powRelayUrls,
+      replies: replyRelayUrls,
+      snapshot: snapshotRelayUrls,
+    },
   );
   const processedEvents = processFeedEvents(
     feedBatch.events,
@@ -569,6 +588,7 @@ export async function fetchFeedSnapshot(
     knownEventIds,
     ageHours,
     timeoutMs,
+    snapshotRelayUrls,
   );
   const events = mergeEvents(feedBatch.events, referencedBatch.events);
   const relayHintsByEventId = mergeRelayHints(
@@ -581,6 +601,7 @@ export async function fetchFeedSnapshot(
       ...pubkeysFromEvents(referencedBatch.events),
     ])],
     timeoutMs,
+    profileRelayUrls,
   );
 
   return {
