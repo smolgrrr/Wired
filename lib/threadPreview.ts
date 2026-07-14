@@ -27,7 +27,8 @@ export type ResolveThreadPreviewOptions = {
 };
 
 export type FetchThreadEventsOptions = {
-  relayUrls?: readonly string[];
+  configuredRelayUrls?: readonly string[];
+  timeoutMs?: number;
 };
 
 function replyCountFromEvents(events: readonly Event[], eventId: string): number {
@@ -84,9 +85,11 @@ export async function fetchThreadEventsFromRelays(
   relayHints: readonly string[],
   options: FetchThreadEventsOptions = {},
 ): Promise<Event[]> {
-  const relayUrls = options.relayUrls
-    ? uniqueRelays(options.relayUrls)
-    : uniqueRelays([...relayHints, ...THREAD_RELAYS]);
+  const relayUrls = uniqueRelays([
+    ...relayHints,
+    ...(options.configuredRelayUrls ?? THREAD_RELAYS),
+  ]);
+  const timeoutMs = options.timeoutMs ?? RELAY_TIMEOUT_MS;
   const relays: Relay[] = [];
   const events = new Map<string, Event>();
 
@@ -101,7 +104,7 @@ export async function fetchThreadEventsFromRelays(
         }
       }),
     ),
-    new Promise<void>((resolve) => setTimeout(resolve, RELAY_TIMEOUT_MS)),
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 
   if (relays.length === 0) return [];
@@ -116,7 +119,7 @@ export async function fetchThreadEventsFromRelays(
       subscriptions.forEach((subscription) => subscription.close());
       resolve();
     };
-    const timer = setTimeout(finish, RELAY_TIMEOUT_MS);
+    const timer = setTimeout(finish, timeoutMs);
     const subscriptions = relays.map((relay) =>
       relay.subscribe(
         [

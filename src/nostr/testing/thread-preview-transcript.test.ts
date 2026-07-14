@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   finalizeEvent,
+  matchFilters,
+  nip19,
   useWebSocketImplementation as configureWebSocketImplementation,
 } from "nostr-tools";
 import { WebSocket } from "ws";
@@ -9,9 +11,15 @@ import {
   resolveThreadPreview,
 } from "../../../lib/threadPreview";
 import {
+  auditSampleCount,
+  emitAuditMeasurement,
+  summarizeSamples,
+} from "./audit-metrics";
+import {
   RelayTranscriptHarness,
   RelayTranscriptSession,
   type RelayRequestController,
+  type RelayTranscriptEntry,
 } from "./relay-transcript";
 
 configureWebSocketImplementation(WebSocket);
@@ -40,10 +48,33 @@ const nestedReply = finalizeEvent({
 }, secretKey);
 
 function returnCompleteThread(request: RelayRequestController, delayMs = 0): void {
+  expect(request.filters).toEqual([
+    { ids: [root.id], kinds: [1], limit: 1 },
+    { "#e": [root.id], kinds: [1], limit: 500 },
+  ]);
   request.sendEvent(root, delayMs);
   request.sendEvent(reply, delayMs);
   request.sendEvent(nestedReply, delayMs);
   request.sendEose(delayMs);
+}
+
+function expectMatchingCompletion(entries: readonly RelayTranscriptEntry[]): void {
+  const requestIds = entries
+    .filter((entry) => entry.type === "request")
+    .map((entry) => entry.subscriptionId)
+    .sort();
+  expect(
+    entries
+      .filter((entry) => entry.type === "eose")
+      .map((entry) => entry.subscriptionId)
+      .sort(),
+  ).toEqual(requestIds);
+  expect(
+    entries
+      .filter((entry) => entry.type === "close")
+      .map((entry) => entry.subscriptionId)
+      .sort(),
+  ).toEqual(requestIds);
 }
 
 describe("thread preview relay transcript", () => {
@@ -53,28 +84,32 @@ describe("thread preview relay transcript", () => {
     await Promise.all(harnesses.splice(0).map((harness) => harness.close()));
   });
 
-  it("deduplicates complete preview results across hinted relays", async () => {
+  it("unions an encoded event hint with configured coverage and deduplicates results", async () => {
     const session = new RelayTranscriptSession();
-    harnesses.push(
-      await RelayTranscriptHarness.listen({
-        session,
-        onRequest: returnCompleteThread,
-      }),
-      await RelayTranscriptHarness.listen({
-        session,
-        onRequest: returnCompleteThread,
-      }),
-    );
-    const relayUrls = harnesses.map((harness) => harness.url);
+    const configuredHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest: returnCompleteThread,
+    });
+    const hintedHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest: returnCompleteThread,
+    });
+    harnesses.push(configuredHarness, hintedHarness);
+    const ref = nip19.neventEncode({ id: root.id, relays: [hintedHarness.url] });
     const completionLatencies: number[] = [];
+    let evidenceEntries: readonly RelayTranscriptEntry[] = [];
 
-    for (let run = 0; run < 20; run += 1) {
+    for (let run = 0; run < auditSampleCount(); run += 1) {
       const workflow = session.beginWorkflow(`thread-preview-${run + 1}`);
-      const preview = await resolveThreadPreview(root.id, {
+      const preview = await resolveThreadPreview(ref, {
         origin: "https://wiredsignal.online",
         fetchImpl: async () => new Response(null, { status: 404 }),
-        relayFallback: (eventId, relayHints) =>
-          fetchThreadEventsFromRelays(eventId, relayHints, { relayUrls }),
+        relayFallback: (eventId, relayHints) => {
+          expect(relayHints).toEqual([hintedHarness.url]);
+          return fetchThreadEventsFromRelays(eventId, relayHints, {
+            configuredRelayUrls: [configuredHarness.url],
+          });
+        },
       });
       await session.waitFor(
         (entries) =>
@@ -99,26 +134,75 @@ describe("thread preview relay transcript", () => {
         repeatedOperations: 1,
         relayFanout: 2,
       });
+      const entries = session.entries.slice(
+        workflow.startIndex,
+        workflow.completedIndex,
+      );
+      expectMatchingCompletion(entries);
+      expect(
+        entries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => entry.relayUrl)
+          .sort(),
+      ).toEqual([configuredHarness.url, hintedHarness.url].sort());
       completionLatencies.push(summary.completionLatencyMs);
+      evidenceEntries = entries;
     }
 
-    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
-      const sorted = [...completionLatencies].sort((a, b) => a - b);
-      const percentile = (value: number) =>
-        sorted[Math.ceil((value / 100) * sorted.length) - 1] ?? 0;
-      console.info(JSON.stringify({
-        scenario: "thread-preview-local-fixture",
-        samples: sorted.length,
-        completionLatencyMs: {
-          p50: percentile(50),
-          p95: percentile(95),
-          samples: completionLatencies,
-        },
-      }));
-    }
+    emitAuditMeasurement({
+      scenario: "thread-preview-local-fixture",
+      samples: completionLatencies.length,
+      completionLatencyMs: summarizeSamples(completionLatencies),
+      evidence: {
+        filters: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => entry.filters),
+        requestBytes: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => entry.bytes),
+        returnedEventBytes: evidenceEntries
+          .filter((entry) => entry.type === "event-returned")
+          .map((entry) => entry.bytes),
+        subscriptionLifetimesMs: evidenceEntries
+          .filter((entry) => entry.type === "close")
+          .map((entry) => entry.lifetimeMs),
+      },
+    });
   });
 
-  it("completes from one delayed relay when another relay disconnects", async () => {
+  it("records the legacy descendant that root-only preview filters cannot reach", async () => {
+    const session = new RelayTranscriptSession();
+    const legacyNestedReply = finalizeEvent({
+      created_at: reply.created_at + 1,
+      kind: 1,
+      tags: [["e", reply.id, "", "reply"]],
+      content: "legacy nested reply",
+    }, secretKey);
+    harnesses.push(await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        [root, reply, legacyNestedReply]
+          .filter((event) => matchFilters(request.filters, event))
+          .forEach((event) => request.sendEvent(event));
+        request.sendEose();
+      },
+    }));
+    const workflow = session.beginWorkflow("thread-preview-legacy-descendant");
+    const events = await fetchThreadEventsFromRelays(root.id, [], {
+      configuredRelayUrls: [harnesses[0]!.url],
+    });
+    workflow.complete();
+
+    expect(events.map((event) => event.id)).toEqual([root.id, reply.id]);
+    expect(events).not.toContainEqual(legacyNestedReply);
+    expect(session.summary(workflow)).toMatchObject({
+      requests: 1,
+      returnedEvents: 2,
+      relayFanout: 1,
+    });
+  });
+
+  it("retains complete output but reaches the deadline after a relay disconnects", async () => {
     const session = new RelayTranscriptSession();
     harnesses.push(
       await RelayTranscriptHarness.listen({
@@ -140,7 +224,8 @@ describe("thread preview relay transcript", () => {
       fetchImpl: async () => new Response(null, { status: 404 }),
       relayFallback: (eventId, relayHints) =>
         fetchThreadEventsFromRelays(eventId, relayHints, {
-          relayUrls: harnesses.map((harness) => harness.url),
+          configuredRelayUrls: harnesses.map((harness) => harness.url),
+          timeoutMs: process.env.RELAY_AUDIT_OUTPUT === "1" ? 2_500 : 50,
         }),
     });
     workflow.complete();
@@ -153,12 +238,10 @@ describe("thread preview relay transcript", () => {
       eose: 1,
       relayFanout: 2,
     });
-    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
-      console.info(JSON.stringify({
-        scenario: "thread-preview-degraded-relay-local-fixture",
-        samples: 1,
-        completionLatencyMs: summary.completionLatencyMs,
-      }));
-    }
+    emitAuditMeasurement({
+      scenario: "thread-preview-degraded-relay-local-fixture",
+      samples: 1,
+      completionLatencyMs: summary.completionLatencyMs,
+    });
   });
 });
