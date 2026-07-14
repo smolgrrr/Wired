@@ -15,7 +15,7 @@ configureWebSocketImplementation(WebSocket);
 
 const secretKey = new Uint8Array(32).fill(1);
 const rootEvent = finalizeEvent({
-  created_at: Math.floor(Date.now() / 1000),
+  created_at: 2_000_000_000,
   kind: 1,
   tags: [],
   content: "root",
@@ -80,9 +80,57 @@ describe("global feed relay transcript", () => {
       acknowledgements: 0,
       rejections: 0,
       retries: 0,
+      repeatedOperations: 0,
       relayFanout: 1,
     });
-    expect(harness.summary(workflow).returnedEventBytes).toBeGreaterThan(0);
-    expect(harness.summary(workflow).completionLatencyMs).toBeGreaterThanOrEqual(0);
+    const summary = harness.summary(workflow);
+    expect(summary.returnedEventBytes).toBeGreaterThan(0);
+    expect(summary.subscriptionLifetimesMs).toHaveLength(2);
+    expect(summary.completionLatencyMs).toBeGreaterThanOrEqual(0);
+
+    const entries = harness.entries.slice(
+      workflow.startIndex,
+      workflow.completedIndex,
+    );
+    const requests = entries.filter((entry) => entry.type === "request");
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.filters).toEqual([
+      { kinds: [1], since: expect.any(Number), limit: 500 },
+    ]);
+    expect(requests[1]?.filters).toEqual([
+      {
+        "#e": [rootEvent.id],
+        kinds: [1],
+        since: expect.any(Number),
+        limit: 100,
+      },
+    ]);
+    expect(requests[1]?.filters[0]?.since).toBe(
+      requests[0]?.filters[0]?.since,
+    );
+    expect(requests.every((request) => request.bytes > 0)).toBe(true);
+
+    const returnedEvents = entries.filter(
+      (entry) => entry.type === "event-returned",
+    );
+    expect(returnedEvents.map((entry) => entry.eventId)).toEqual([
+      rootEvent.id,
+      replyEvent.id,
+    ]);
+    expect(returnedEvents.every((entry) => entry.bytes > 0)).toBe(true);
+
+    const requestIds = requests.map((request) => request.subscriptionId).sort();
+    expect(
+      entries
+        .filter((entry) => entry.type === "eose")
+        .map((entry) => entry.subscriptionId)
+        .sort(),
+    ).toEqual(requestIds);
+    expect(
+      entries
+        .filter((entry) => entry.type === "close")
+        .map((entry) => entry.subscriptionId)
+        .sort(),
+    ).toEqual(requestIds);
   });
 });
