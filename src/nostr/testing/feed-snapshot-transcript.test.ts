@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   finalizeEvent,
+  nip19,
   useWebSocketImplementation as configureWebSocketImplementation,
 } from "nostr-tools";
 import { WebSocket } from "ws";
 import { fetchFeedSnapshot } from "../../../lib/feedSnapshot";
+import { handleFeedRefreshApi } from "../../../api/_shared/handlers";
 import type { FeedBootstrapSnapshot } from "../../shared/lib/feedBootstrapTypes";
 import {
   FeedBootstrapCacheService,
@@ -91,9 +93,16 @@ describe("server feed snapshot relay transcript", () => {
 
     for (let run = 0; run < auditSampleCount(); run += 1) {
       const workflow = session.beginWorkflow(`wired-server-feed-snapshot-${run + 1}`);
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const response = await handleFeedRefreshApi(
+        { method: "GET" },
+        { service, waitUntil },
+      );
+      const backgroundRefresh = waitUntil.mock.calls[0]?.[0];
+      expect(backgroundRefresh).toBeDefined();
       const [snapshot, coalescedSnapshot] = await Promise.all([
         service.refresh(),
-        service.refresh(),
+        backgroundRefresh as Promise<FeedBootstrapSnapshot>,
       ]);
       await session.waitFor(
         (entries) =>
@@ -102,6 +111,10 @@ describe("server feed snapshot relay transcript", () => {
       );
       workflow.complete();
       expect(coalescedSnapshot).toBe(snapshot);
+      expect(response).toMatchObject({
+        status: 202,
+        body: { ok: true, refresh: "started" },
+      });
       lastSnapshot = snapshot;
 
       expect(Object.keys(snapshot.eventsById).sort()).toEqual(
@@ -130,13 +143,29 @@ describe("server feed snapshot relay transcript", () => {
       const requestIds = requests.map((entry) => entry.subscriptionId).sort();
       expect(completionIds(entries, "eose")).toEqual(requestIds);
       expect(completionIds(entries, "close")).toEqual(requestIds);
+      const since = requests.find((request) =>
+        request.filters.some((filter) => filter.kinds?.includes(1))
+      )?.filters[0]?.since;
+      expect(typeof since).toBe("number");
+      expect(requests.every((request) => request.filters.every((filter) =>
+        filter.kinds?.includes(1) ? filter.since === since : filter.since === undefined
+      ))).toBe(true);
       const filterCounts = new Map<string, number>();
       requests.forEach((request) => {
-        const filters = request.filters.map(({ since: _since, ...filter }) => filter);
+        const filters = request.filters.map((filter) => {
+          const withoutSince = { ...filter };
+          delete withoutSince.since;
+          return withoutSince;
+        });
         const key = JSON.stringify(filters);
         filterCounts.set(key, (filterCounts.get(key) ?? 0) + 1);
       });
-      expect([...filterCounts.values()]).toEqual([2, 2, 2, 2]);
+      expect(filterCounts).toEqual(new Map([
+        [JSON.stringify([{ kinds: [1], limit: 500 }]), 2],
+        [JSON.stringify([{ "#e": [root.id], kinds: [1], limit: 100 }]), 2],
+        [JSON.stringify([{ "#e": [reply.id], kinds: [1], limit: 100 }]), 2],
+        [JSON.stringify([{ authors: [root.pubkey], kinds: [0], limit: 1 }]), 2],
+      ]));
 
       completionLatencies.push(summary.completionLatencyMs);
       evidenceEntries = entries;
@@ -219,6 +248,90 @@ describe("server feed snapshot relay transcript", () => {
       scenario: "wired-server-feed-no-eose-relay-local-fixture",
       samples: 1,
       completionLatencyMs: summary.completionLatencyMs,
+    });
+  });
+
+  it("resolves referenced context and deterministically selects newest metadata", async () => {
+    const session = new RelayTranscriptSession();
+    const rootKey = new Uint8Array(32).fill(70);
+    const referenceKey = new Uint8Array(32).fill(71);
+    const referenced = finalizeEvent({
+      created_at: 2_000_000_010,
+      kind: 1,
+      tags: [],
+      content: "referenced context",
+    }, referenceKey);
+    let relayUrls: string[] = [];
+    const makeRoot = () => finalizeEvent({
+      created_at: 2_000_000_020,
+      kind: 1,
+      tags: [],
+      content: `nostr:${nip19.neventEncode({ id: referenced.id, relays: [relayUrls[1]!] })}`,
+    }, rootKey);
+    const listen = async (profileName: string, profileCreatedAt: number) =>
+      RelayTranscriptHarness.listen({
+        session,
+        onRequest(request) {
+          const [filter] = request.filters;
+          if (filter?.authors && filter.kinds?.includes(0)) {
+            [rootKey, referenceKey].forEach((key, index) => request.sendEvent(finalizeEvent({
+              created_at: profileCreatedAt,
+              kind: 0,
+              tags: [],
+              content: JSON.stringify({ name: `${profileName}-${index}` }),
+            }, key)));
+          } else if (filter?.ids?.includes(referenced.id)) {
+            request.sendEvent(referenced);
+          } else if (filter?.kinds?.includes(1) && !filter["#e"]) {
+            request.sendEvent(enrichedRoot);
+          }
+          request.sendEose();
+        },
+      });
+
+    const olderRelay = await listen("older", 2_000_000_030);
+    const newerRelay = await listen("newer", 2_000_000_040);
+    harnesses.push(olderRelay, newerRelay);
+    relayUrls = [olderRelay.url, newerRelay.url];
+    const enrichedRoot = makeRoot();
+
+    const workflow = session.beginWorkflow("wired-server-feed-reference-metadata");
+    const snapshot = await fetchFeedSnapshot({
+      ageHours: 24,
+      filterDifficulty: 0,
+      relayUrls,
+      timeoutMs: 1_000,
+    });
+    await session.waitFor((entries) =>
+      entries.filter((entry) => entry.type === "connection-closed").length === 6 &&
+      entries.filter((entry) => entry.type === "close").length === 10
+    );
+    workflow.complete();
+
+    expect(Object.keys(snapshot.eventsById).sort()).toEqual(
+      [enrichedRoot.id, referenced.id].sort(),
+    );
+    expect(snapshot.profiles[enrichedRoot.pubkey]).toEqual({ name: "newer-0" });
+    expect(snapshot.profiles[referenced.pubkey]).toEqual({ name: "newer-1" });
+    const requests = session.entries
+      .slice(workflow.startIndex, workflow.completedIndex)
+      .filter((entry) => entry.type === "request");
+    const referenceRequests = requests.filter((request) =>
+      request.filters[0]?.ids?.includes(referenced.id)
+    );
+    expect(referenceRequests).toHaveLength(2);
+    expect(referenceRequests.every((request) =>
+      request.filters[0]?.kinds?.join(",") === "1,1068" &&
+      request.filters[0]?.limit === 1
+    )).toBe(true);
+    expect(session.summary(workflow)).toMatchObject({
+      openedConnections: 6,
+      closedConnections: 6,
+      requests: 10,
+      closes: 10,
+      eose: 10,
+      returnedEvents: 8,
+      relayFanout: 2,
     });
   });
 });

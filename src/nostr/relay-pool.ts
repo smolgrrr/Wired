@@ -45,6 +45,16 @@ export class RelayPool {
         }),
       ]);
       this.relays.set(url, relay);
+      relay.onclose = () => {
+        if (this.relays.get(url) !== relay) return;
+        this.relays.delete(url);
+        // A terminal relay cannot deliver more events. Count its open subscriptions
+        // as EOSE before nostr-tools closes them so aggregate traversals can continue
+        // immediately and their library EOSE timers are cleared.
+        [...relay.openSubs.values()].forEach((subscription) => {
+          subscription.receivedEose();
+        });
+      };
     } catch {
       // Relay unavailable; other relays may still connect.
     } finally {
@@ -56,7 +66,7 @@ export class RelayPool {
     const { closeOnEose = false, relayUrls, onEose } = options;
     const targetUrls = relayUrls ?? [...this.defaultRelayUrls];
     const subscriptions: Subscription[] = [];
-    const connectedUrls = targetUrls.filter((url) => this.relays.has(url));
+    const connectedUrls = targetUrls.filter((url) => this.relays.get(url)?.connected);
     let eoseCount = 0;
 
     const handleEose = (sub: Subscription) => {
