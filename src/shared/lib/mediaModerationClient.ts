@@ -250,6 +250,22 @@ export function createMediaModerationClient({
     };
   }
 
+  function initialVerdict(item: MediaItem): MediaPresentationVerdict {
+    if (
+      item.type === "audio" ||
+      !enabledMediaTypes.has(item.type) ||
+      mode === "off" ||
+      !normalizedBaseUrl
+    ) {
+      return disabledVerdict();
+    }
+    return {
+      status: "pending",
+      reason: "verdict_requested",
+      enforced: mode === "enforce",
+    };
+  }
+
   async function waitForIdle(timeoutMs = 2_000): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
     while (flushTimer || queued.size > 0 || activeRequests.size > 0) {
@@ -270,5 +286,5 @@ export function createMediaModerationClient({
     queued.clear();
   }
 
-  return { close, waitForIdle, watch };
+  return { close, initialVerdict, waitForIdle, watch };
 }

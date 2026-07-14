@@ -82,35 +82,46 @@ export function useMediaModeration(event: Event, items: MediaItem[]) {
   const itemKey = moderatedItems
     .map((item) => `${item.type}:${item.url}:${item.sha256 || ""}`)
     .join("|");
-  const [verdicts, setVerdicts] = useState<Map<string, MediaPresentationVerdict>>(
-    () =>
-      new Map(
-        moderatedItems.map((item) => [item.url, ALLOWED_MEDIA_VERDICT] as const),
-      ),
+  const moderationKey = `${event.id}|${itemKey}`;
+  const initialVerdicts = useMemo(
+    () => new Map(
+      moderatedItems.map((item) => [
+        item.url,
+        client?.initialVerdict(item) ?? ALLOWED_MEDIA_VERDICT,
+      ] as const),
+    ),
+    // itemKey represents every moderation-relevant item field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [client, moderationKey],
   );
+  const [verdictState, setVerdictState] = useState<{
+    key: string;
+    verdicts: Map<string, MediaPresentationVerdict>;
+  }>(() => ({ key: moderationKey, verdicts: initialVerdicts }));
+  const verdicts = verdictState.key === moderationKey
+    ? verdictState.verdicts
+    : initialVerdicts;
 
   useEffect(() => {
+    setVerdictState({ key: moderationKey, verdicts: initialVerdicts });
     if (!client) {
-      setVerdicts(
-        new Map(
-          moderatedItems.map((item) => [item.url, ALLOWED_MEDIA_VERDICT] as const),
-        ),
-      );
       return;
     }
     const stops = moderatedItems.map((item) =>
       client.watch(event, item, (verdict) => {
-        setVerdicts((current) => {
-          const next = new Map(current);
+        setVerdictState((current) => {
+          const next = new Map(
+            current.key === moderationKey ? current.verdicts : initialVerdicts,
+          );
           next.set(item.url, verdict);
-          return next;
+          return { key: moderationKey, verdicts: next };
         });
       }),
     );
     return () => stops.forEach((stop) => stop());
     // itemKey represents every moderation-relevant item field.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, event.id, itemKey]);
+  }, [client, event.id, initialVerdicts, itemKey, moderationKey]);
 
   const blocked = [...verdicts.values()].some(
     (verdict) => verdict.enforced && verdict.status === "blocked",

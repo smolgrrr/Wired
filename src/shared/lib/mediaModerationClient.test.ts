@@ -13,6 +13,24 @@ const event = (id: string): Event => ({
 });
 
 describe("media moderation client", () => {
+  it("starts moderated video covered before any effect or request runs", () => {
+    const client = createMediaModerationClient({
+      baseUrl: "https://admin.example",
+      mode: "enforce",
+      fetcher: vi.fn(),
+    });
+
+    expect(client.initialVerdict({
+      url: "https://cdn.example/first-frame.mp4",
+      type: "video",
+    })).toEqual({
+      status: "pending",
+      reason: "verdict_requested",
+      enforced: true,
+    });
+    client.close();
+  });
+
   it("coalesces attachment watches into one bounded batch", async () => {
     const fetcher = vi.fn(async (
       _url: Parameters<typeof fetch>[0],
@@ -147,7 +165,7 @@ describe("media moderation client", () => {
             url: item.url,
             mediaType: "image",
             status: "blocked",
-            reason: "explicit_media_policy",
+            reason: "configured_hash_block",
             expiresAt: Date.now() + 60_000,
           })),
         }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -191,7 +209,7 @@ describe("media moderation client", () => {
             url: item.url,
             mediaType: "image",
             status: requests === 1 ? "blocked" : "allowed",
-            reason: requests === 1 ? "explicit_media_policy" : "admin_allow_override",
+            reason: requests === 1 ? "configured_hash_block" : "admin_allow_override",
             expiresAt: Date.now() + 60_000,
           })),
         }), { status: 200, headers: { "Content-Type": "application/json" } });
