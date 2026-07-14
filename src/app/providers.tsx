@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { closeAllSubscriptions, initNostr, isNostrReady } from "../nostr/client";
 import { FeedStatusIndicatorProvider } from "./FeedStatusIndicatorProvider";
 import { SettingsProvider } from "./settings";
+import { MediaModerationProvider } from "../shared/hooks/useMediaModeration";
 
 type NostrContextValue = {
   ready: boolean;
@@ -42,7 +43,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SettingsProvider>
       <FeedStatusIndicatorProvider>
-        <NostrProvider>{children}</NostrProvider>
+        <MediaModerationProvider>
+          <NostrProvider>{children}</NostrProvider>
+        </MediaModerationProvider>
       </FeedStatusIndicatorProvider>
     </SettingsProvider>
   );

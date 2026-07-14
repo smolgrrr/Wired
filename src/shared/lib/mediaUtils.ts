@@ -11,6 +11,7 @@ export type MediaItem = {
   width?: number;
   height?: number;
   posterUrl?: string;
+  sha256?: string;
 };
 
 const MEDIA_URL_PATTERN =
@@ -66,6 +67,7 @@ function parseImetaFields(tag: string[]): {
   width?: number;
   height?: number;
   posterUrl?: string;
+  sha256?: string;
 } {
   const fields: Record<string, string> = {};
 
@@ -84,6 +86,7 @@ function parseImetaFields(tag: string[]): {
     width: dim ? Number(dim[1]) : undefined,
     height: dim ? Number(dim[2]) : undefined,
     posterUrl: fields.image ?? fields.thumb,
+    sha256: fields.x,
   };
 }
 
@@ -93,7 +96,7 @@ export function parseImetaTags(tags: string[][]): MediaItem[] {
   for (const tag of tags) {
     if (tag[0] !== "imeta") continue;
 
-    const { url, mime, width, height, posterUrl } = parseImetaFields(tag);
+    const { url, mime, width, height, posterUrl, sha256 } = parseImetaFields(tag);
     if (!url) continue;
 
     const normalized = normalizeUrl(url);
@@ -110,6 +113,9 @@ export function parseImetaTags(tags: string[][]): MediaItem[] {
       ...(width ? { width } : {}),
       ...(height ? { height } : {}),
       ...(normalizedPosterUrl ? { posterUrl: normalizedPosterUrl } : {}),
+      ...(sha256 && /^[0-9a-f]{64}$/i.test(sha256)
+        ? { sha256: sha256.toLowerCase() }
+        : {}),
     });
   }
 

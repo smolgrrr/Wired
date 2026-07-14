@@ -5,6 +5,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "nostr-tools";
 import { PostCard } from "./PostCard";
+import { MediaModerationProvider } from "../hooks/useMediaModeration";
+import { createMediaModerationClient } from "../lib/mediaModerationClient";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -223,5 +225,54 @@ describe("PostCard thread opening", () => {
 
     expect(container.querySelector("button[aria-label='Share this thread']")).toBeNull();
     expect(container.textContent).not.toContain("wiredsignal.online");
+  });
+
+  it("hides the entire note when one attachment receives a blocked verdict", async () => {
+    const blockedEvent = event({
+      content: "photo https://example.com/blocked.jpg",
+    });
+    const client = createMediaModerationClient({
+      baseUrl: "https://admin.example",
+      mode: "enforce",
+      batchDelayMs: 0,
+      fetcher: vi.fn(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          items: Array<{ requestId: string; url: string }>;
+        };
+        return new Response(
+          JSON.stringify({
+            mode: "enforce",
+            policyVersion: "wired-media-v1",
+            verdicts: request.items.map((item) => ({
+              requestId: item.requestId,
+              eventId: blockedEvent.id,
+              url: item.url,
+              mediaType: "image",
+              status: "blocked",
+              reason: "exact_hash_block",
+              expiresAt: Date.now() + 60_000,
+            })),
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    act(() => {
+      root.render(
+        <MediaModerationProvider client={client}>
+          <PostCard event={blockedEvent} replies={[]} totalWork={16} />
+        </MediaModerationProvider>,
+      );
+    });
+    expect(container.querySelector("article")).not.toBeNull();
+    expect(container.querySelector("[data-media-cover='true']")).not.toBeNull();
+
+    await act(async () => {
+      await client.waitForIdle();
+    });
+
+    expect(container.querySelector("article")).toBeNull();
+    client.close();
   });
 });
