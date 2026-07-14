@@ -28,6 +28,7 @@ export type ResolveThreadPreviewOptions = {
 
 export type FetchThreadEventsOptions = {
   configuredRelayUrls?: readonly string[];
+  connectRelay?: typeof Relay.connect;
   timeoutMs?: number;
 };
 
@@ -90,27 +91,39 @@ export async function fetchThreadEventsFromRelays(
     ...(options.configuredRelayUrls ?? THREAD_RELAYS),
   ]);
   const timeoutMs = options.timeoutMs ?? RELAY_TIMEOUT_MS;
+  const connectRelay = options.connectRelay ?? Relay.connect;
   const relays: Relay[] = [];
   const events = new Map<string, Event>();
+  let acceptingConnections = true;
+  let connectionTimer: ReturnType<typeof setTimeout> | undefined;
 
-  await Promise.race([
-    Promise.all(
-      relayUrls.map(async (url) => {
-        try {
-          const relay = await Relay.connect(url);
-          relays.push(relay);
-        } catch {
-          // A preview can succeed from any available relay.
+  const connectionAttempts = Promise.all(
+    relayUrls.map(async (url) => {
+      try {
+        const relay = await connectRelay(url);
+        if (!acceptingConnections) {
+          relay.close();
+          return;
         }
-      }),
-    ),
-    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+        relays.push(relay);
+      } catch {
+        // A preview can succeed from any available relay.
+      }
+    }),
+  );
+  await Promise.race([
+    connectionAttempts,
+    new Promise<void>((resolve) => {
+      connectionTimer = setTimeout(resolve, timeoutMs);
+    }),
   ]);
+  acceptingConnections = false;
+  if (connectionTimer) clearTimeout(connectionTimer);
 
   if (relays.length === 0) return [];
 
   await new Promise<void>((resolve) => {
-    let eoseCount = 0;
+    const settledRelays = new Set<number>();
     let settled = false;
     const finish = () => {
       if (settled) return;
@@ -120,7 +133,11 @@ export async function fetchThreadEventsFromRelays(
       resolve();
     };
     const timer = setTimeout(finish, timeoutMs);
-    const subscriptions = relays.map((relay) =>
+    const settleRelay = (index: number) => {
+      settledRelays.add(index);
+      if (settledRelays.size >= relays.length) finish();
+    };
+    const subscriptions = relays.map((relay, index) =>
       relay.subscribe(
         [
           { ids: [eventId], kinds: [1], limit: 1 },
@@ -128,10 +145,8 @@ export async function fetchThreadEventsFromRelays(
         ],
         {
           onevent: (event) => events.set(event.id, event),
-          oneose: () => {
-            eoseCount += 1;
-            if (eoseCount >= relays.length) finish();
-          },
+          oneose: () => settleRelay(index),
+          onclose: () => settleRelay(index),
         },
       ),
     );

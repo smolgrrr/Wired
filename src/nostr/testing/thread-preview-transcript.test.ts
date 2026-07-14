@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   finalizeEvent,
   matchFilters,
   nip19,
+  Relay,
   useWebSocketImplementation as configureWebSocketImplementation,
 } from "nostr-tools";
 import { WebSocket } from "ws";
@@ -238,10 +239,28 @@ describe("thread preview relay transcript", () => {
       eose: 1,
       relayFanout: 2,
     });
+    expect(summary.completionLatencyMs).toBeLessThan(40);
     emitAuditMeasurement({
       scenario: "thread-preview-degraded-relay-local-fixture",
       samples: 1,
       completionLatencyMs: summary.completionLatencyMs,
     });
+  });
+
+  it("closes a connection that arrives after the connection deadline", async () => {
+    const lateRelay = new Relay("ws://late-relay.invalid");
+    const close = vi.spyOn(lateRelay, "close");
+
+    expect(await fetchThreadEventsFromRelays(root.id, [], {
+      configuredRelayUrls: [lateRelay.url],
+      connectRelay: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return lateRelay;
+      },
+      timeoutMs: 5,
+    })).toEqual([]);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    expect(close).toHaveBeenCalledOnce();
   });
 });
