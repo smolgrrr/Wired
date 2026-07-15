@@ -69,6 +69,32 @@ function workflowEntries(
   return session.entries.slice(workflow.startIndex, workflow.completedIndex);
 }
 
+function expectExactFiniteCompletion(entries: readonly RelayTranscriptEntry[]): void {
+  const requestIds = entries
+    .flatMap((entry) => entry.type === "request" ? [entry.subscriptionId] : [])
+    .sort();
+  const idsFor = (type: "eose" | "close") => entries
+    .flatMap((entry) => entry.type === type ? [entry.subscriptionId] : [])
+    .sort();
+
+  expect(idsFor("eose")).toEqual(requestIds);
+  expect(idsFor("close")).toEqual(requestIds);
+}
+
+function expectExactQuoteFilters(entries: readonly RelayTranscriptEntry[]): void {
+  entries
+    .filter((entry) => entry.type === "request")
+    .forEach((request) => {
+      const ids = request.filters[0]?.ids;
+      expect(ids).toHaveLength(1);
+      expect(request.filters).toEqual([{
+        ids,
+        kinds: [1, 1068],
+        limit: 1,
+      }]);
+    });
+}
+
 describe("notification and enrichment relay transcripts", () => {
   const harnesses: RelayTranscriptHarness[] = [];
 
@@ -146,6 +172,7 @@ describe("notification and enrichment relay transcripts", () => {
           limit: 50,
         }]), 2],
       ]));
+      expectExactFiniteCompletion(workflowEntries(session, workflow));
       completionLatencies.push(summary.completionLatencyMs);
       evidenceEntries = workflowEntries(session, workflow);
     }
@@ -229,49 +256,74 @@ describe("notification and enrichment relay transcripts", () => {
     const newerRelay = await listen("newer", 2_000_000_020);
     harnesses.push(olderRelay, newerRelay);
     const relayUrls = [olderRelay.url, newerRelay.url];
-    const workflow = session.beginWorkflow("profiles-batched-newest-inputs");
-    const profiles = new Map<string, { name: string; createdAt: number }>();
-    let completed = false;
-    const handle = await subProfilesOnce(
-      [localAuthored.pubkey, taggedMention.pubkey],
-      (event) => {
-        const name = (JSON.parse(event.content) as { name: string }).name;
-        const existing = profiles.get(event.pubkey);
-        if (!existing || existing.createdAt < event.created_at) {
-          profiles.set(event.pubkey, { name, createdAt: event.created_at });
-        }
-      },
-      () => {
-        completed = true;
-      },
-      { relayUrls },
-    );
-    await session.waitFor(() => completed);
-    await session.waitFor((entries) =>
-      entries.filter((entry) => entry.type === "close").length === 2
-    );
-    handle.close();
-    workflow.complete();
+    const completionLatencies: number[] = [];
+    let evidenceEntries: readonly RelayTranscriptEntry[] = [];
+    for (let run = 0; run < auditSampleCount(); run += 1) {
+      const workflow = session.beginWorkflow(`profiles-batched-${run + 1}`);
+      const profiles = new Map<string, { name: string; createdAt: number }>();
+      let completed = false;
+      const handle = await subProfilesOnce(
+        [localAuthored.pubkey, taggedMention.pubkey],
+        (event) => {
+          const name = (JSON.parse(event.content) as { name: string }).name;
+          const existing = profiles.get(event.pubkey);
+          if (!existing || existing.createdAt < event.created_at) {
+            profiles.set(event.pubkey, { name, createdAt: event.created_at });
+          }
+        },
+        () => {
+          completed = true;
+        },
+        { relayUrls },
+      );
+      await session.waitFor(() => completed);
+      await session.waitFor((entries) =>
+        entries.filter((entry) => entry.type === "close").length === (run + 1) * 2
+      );
+      handle.close();
+      workflow.complete();
 
-    expect([...profiles.values()].map((profile) => profile.name).sort()).toEqual([
-      "newer-0",
-      "newer-1",
-    ]);
-    expect(session.summary(workflow)).toMatchObject({
-      openedConnections: 2,
-      requests: 2,
-      closes: 2,
-      eose: 2,
-      returnedEvents: 4,
-      relayFanout: 2,
+      expect([...profiles.values()].map((profile) => profile.name).sort()).toEqual([
+        "newer-0",
+        "newer-1",
+      ]);
+      expect(session.summary(workflow)).toMatchObject({
+        requests: 2,
+        closes: 2,
+        eose: 2,
+        returnedEvents: 4,
+        relayFanout: 2,
+      });
+      const entries = workflowEntries(session, workflow);
+      const requests = entries.filter((entry) => entry.type === "request");
+      expect(requests.every((request) =>
+        JSON.stringify(request.filters) === JSON.stringify([{
+          authors: [localAuthored.pubkey, taggedMention.pubkey],
+          kinds: [0],
+          limit: 2,
+        }])
+      )).toBe(true);
+      expectExactFiniteCompletion(entries);
+      completionLatencies.push(session.summary(workflow).completionLatencyMs);
+      evidenceEntries = entries;
+    }
+
+    emitAuditMeasurement({
+      scenario: "wired-browser-profiles-local-fixture",
+      samples: completionLatencies.length,
+      completionLatencyMs: summarizeSamples(completionLatencies),
+      evidence: {
+        requestBytes: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => entry.bytes),
+        returnedEventBytes: evidenceEntries
+          .filter((entry) => entry.type === "event-returned")
+          .map((entry) => entry.bytes),
+        subscriptionLifetimesMs: evidenceEntries
+          .filter((entry) => entry.type === "close")
+          .map((entry) => entry.lifetimeMs),
+      },
     });
-    const requests = workflowEntries(session, workflow)
-      .filter((entry) => entry.type === "request");
-    expect(requests.every((request) =>
-      request.filters[0]?.authors?.length === 2 &&
-      request.filters[0]?.kinds?.[0] === 0 &&
-      request.filters[0]?.limit === 2
-    )).toBe(true);
   });
 
   it("captures fallback quotes, a delayed extra hint, stale hints, and missing results", async () => {
@@ -343,6 +395,8 @@ describe("notification and enrichment relay transcripts", () => {
     });
     const requests = workflowEntries(session, workflow)
       .filter((entry) => entry.type === "request");
+    expectExactQuoteFilters(workflowEntries(session, workflow));
+    expectExactFiniteCompletion(workflowEntries(session, workflow));
     expect(requests.filter((request) =>
       request.filters[0]?.ids?.includes(hintedQuote.id)
     )).toHaveLength(3);
@@ -350,60 +404,103 @@ describe("notification and enrichment relay transcripts", () => {
       .toBe(false);
   });
 
-  it("records duplicate quote lookup when an extra hint is already connected", async () => {
+  it("measures fallback and preconnected-hint quote enrichment", async () => {
     const session = new RelayTranscriptSession();
-    const quoted = finalizeEvent({
+    const fallbackQuote = finalizeEvent({
       created_at: 2_000_000_040,
       kind: 1,
       tags: [],
-      content: "already-connected hint",
+      content: "normal fallback quote",
     }, new Uint8Array(32).fill(84));
-    const fallbackRelay = await RelayTranscriptHarness.listen({
-      session,
-      onRequest(request) {
-        request.sendEose();
-      },
-    });
+    const hintedQuote = finalizeEvent({
+      created_at: 2_000_000_041,
+      kind: 1068,
+      tags: [],
+      content: "already-connected hint",
+    }, new Uint8Array(32).fill(85));
+    const fallbackDriver = (request: RelayRequestController) => {
+      if (request.filters[0]?.ids?.includes(fallbackQuote.id)) {
+        request.sendEvent(fallbackQuote, 5);
+      }
+      request.sendEose(10);
+    };
+    const fallbackRelays = [
+      await RelayTranscriptHarness.listen({ session, onRequest: fallbackDriver }),
+      await RelayTranscriptHarness.listen({ session, onRequest: fallbackDriver }),
+    ];
     const hintedRelay = await RelayTranscriptHarness.listen({
       session,
       onRequest(request) {
-        request.sendEvent(quoted);
-        request.sendEose();
+        if (request.filters[0]?.ids?.includes(hintedQuote.id)) {
+          request.sendEvent(hintedQuote, 15);
+        }
+        request.sendEose(20);
       },
     });
-    harnesses.push(fallbackRelay, hintedRelay);
-    await ensureRelaysConnected([fallbackRelay.url, hintedRelay.url]);
-    const workflow = session.beginWorkflow("quote-preconnected-hint-duplicate");
-    const receivedIds = new Set<string>();
-    let completed = false;
-    const handle = await subQuotedEventsOnce(
-      [{ id: quoted.id, relays: [hintedRelay.url] }],
-      (event) => receivedIds.add(event.id),
-      () => {
-        completed = true;
-      },
-      { fallbackRelayUrls: [fallbackRelay.url] },
-    );
-    await session.waitFor(() => completed);
-    await session.waitFor((entries) =>
-      entries.filter((entry) => entry.type === "close").length === 3
-    );
-    handle.close();
-    workflow.complete();
+    harnesses.push(...fallbackRelays, hintedRelay);
+    await ensureRelaysConnected([
+      ...fallbackRelays.map((relay) => relay.url),
+      hintedRelay.url,
+    ]);
+    const completionLatencies: number[] = [];
+    let evidenceEntries: readonly RelayTranscriptEntry[] = [];
 
-    expect(receivedIds).toEqual(new Set([quoted.id]));
-    expect(session.summary(workflow)).toMatchObject({
-      requests: 3,
-      closes: 3,
-      eose: 3,
-      returnedEvents: 2,
-      repeatedOperations: 2,
-      relayFanout: 2,
+    for (let run = 0; run < auditSampleCount(); run += 1) {
+      const workflow = session.beginWorkflow(`quotes-normal-${run + 1}`);
+      const receivedIds = new Set<string>();
+      const completedIds = new Set<string>();
+      const handle = await subQuotedEventsOnce(
+        [
+          { id: fallbackQuote.id, relays: [] },
+          { id: hintedQuote.id, relays: [hintedRelay.url] },
+        ],
+        (event) => receivedIds.add(event.id),
+        (id) => completedIds.add(id),
+        { fallbackRelayUrls: fallbackRelays.map((relay) => relay.url) },
+      );
+      await session.waitFor(() => completedIds.size === 2);
+      await session.waitFor((entries) =>
+        entries.filter((entry) => entry.type === "close").length === (run + 1) * 6
+      );
+      handle.close();
+      workflow.complete();
+
+      expect(receivedIds).toEqual(new Set([fallbackQuote.id, hintedQuote.id]));
+      expect(session.summary(workflow)).toMatchObject({
+        requests: 6,
+        closes: 6,
+        eose: 6,
+        returnedEvents: 4,
+        repeatedOperations: 4,
+        relayFanout: 3,
+      });
+      const entries = workflowEntries(session, workflow);
+      const hintedRequests = entries
+        .filter((entry) => entry.type === "request")
+        .filter((entry) => entry.relayUrl === hintedRelay.url);
+      expect(hintedRequests).toHaveLength(2);
+      expect(hintedRequests[0]?.filters).toEqual(hintedRequests[1]?.filters);
+      expectExactQuoteFilters(entries);
+      expectExactFiniteCompletion(entries);
+      completionLatencies.push(session.summary(workflow).completionLatencyMs);
+      evidenceEntries = entries;
+    }
+
+    emitAuditMeasurement({
+      scenario: "wired-browser-quotes-local-fixture",
+      samples: completionLatencies.length,
+      completionLatencyMs: summarizeSamples(completionLatencies),
+      evidence: {
+        requestBytes: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => entry.bytes),
+        returnedEventBytes: evidenceEntries
+          .filter((entry) => entry.type === "event-returned")
+          .map((entry) => entry.bytes),
+        subscriptionLifetimesMs: evidenceEntries
+          .filter((entry) => entry.type === "close")
+          .map((entry) => entry.lifetimeMs),
+      },
     });
-    const hintedRequests = workflowEntries(session, workflow)
-      .filter((entry) => entry.type === "request")
-      .filter((entry) => entry.relayUrl === hintedRelay.url);
-    expect(hintedRequests).toHaveLength(2);
-    expect(hintedRequests[0]?.filters).toEqual(hintedRequests[1]?.filters);
   });
 });
