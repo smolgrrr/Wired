@@ -12,6 +12,7 @@ export type SubscribeOptions = {
 export class RelayPool {
   private readonly relays = new Map<string, Relay>();
   private defaultRelayUrls = new Set<string>();
+  private readonly inFlightPublishes = new Map<string, Promise<Set<string>>>();
 
   get connectedUrls(): string[] {
     return [...this.relays.keys()];
@@ -103,7 +104,20 @@ export class RelayPool {
     return subscriptions;
   }
 
-  async publish(event: Event): Promise<Set<string>> {
+  publish(event: Event): Promise<Set<string>> {
+    const existing = this.inFlightPublishes.get(event.id);
+    if (existing) return existing;
+
+    const publish = this.publishToRelays(event).finally(() => {
+      if (this.inFlightPublishes.get(event.id) === publish) {
+        this.inFlightPublishes.delete(event.id);
+      }
+    });
+    this.inFlightPublishes.set(event.id, publish);
+    return publish;
+  }
+
+  private async publishToRelays(event: Event): Promise<Set<string>> {
     const accepted = new Set<string>();
 
     await Promise.allSettled(
