@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MediaAttachment, MediaGrid, NoteMedia } from "./NoteMedia";
+import type { MediaPresentationVerdict } from "../lib/mediaModeration";
 
 (
   globalThis as typeof globalThis & {
@@ -349,5 +350,58 @@ describe("NoteMedia video previews", () => {
 
     expect(container.querySelector("video")).toBeNull();
     expect(container.textContent).toContain("signal lost");
+  });
+
+  it("preloads a pending image only behind an opaque moderation cover", () => {
+    const verdict: MediaPresentationVerdict = {
+      status: "pending",
+      reason: "analysis_queued",
+      enforced: true,
+    };
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{ url: "https://example.com/pending.jpg", type: "image" }}
+          verdict={verdict}
+        />,
+      );
+    });
+
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/pending.jpg",
+    );
+    const cover = container.querySelector("[data-media-cover='true']");
+    expect(cover).not.toBeNull();
+    expect(cover?.className).toContain("bg-surface");
+    expect(container.textContent).toContain("checking media");
+  });
+
+  it("does not assign a video source before an allowed verdict", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{ url: "https://example.com/pending.mp4", type: "video" }}
+          verdict={{ status: "pending", reason: "analysis_queued", enforced: true }}
+        />,
+      );
+    });
+
+    expect(container.querySelector("video")).toBeNull();
+    expect(container.innerHTML).not.toContain("https://example.com/pending.mp4");
+    expect(container.textContent).toContain("checking media");
+  });
+
+  it("reveals media when enforcement is shadow-only", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{ url: "https://example.com/shadow.jpg", type: "image" }}
+          verdict={{ status: "blocked", reason: "model", enforced: false }}
+        />,
+      );
+    });
+
+    expect(container.querySelector("img")).not.toBeNull();
+    expect(container.querySelector("[data-media-cover='true']")).toBeNull();
   });
 });

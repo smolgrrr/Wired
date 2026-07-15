@@ -8,15 +8,18 @@ import { QuotePreview } from "./QuotePreview";
 import { QuotePreviewPlaceholder } from "./QuotePreviewPlaceholder";
 import { Button } from "./Button";
 import { LinkedBodyText } from "./LinkedBodyText";
+import type { MediaPresentationVerdict } from "../lib/mediaModeration";
 
 const COLLAPSED_LENGTH = 750;
 
 export function TextContent({
   eventdata,
   imagePriority = false,
+  mediaVerdicts,
 }: {
   eventdata: Event;
   imagePriority?: boolean;
+  mediaVerdicts?: ReadonlyMap<string, MediaPresentationVerdict>;
 }) {
   const { comment, attachments } = parseContent(eventdata);
   const emojis = getBodyEmojis(eventdata.tags);
@@ -42,7 +45,11 @@ export function TextContent({
         </Button>
       )}
       {attachments.length > 0 && (
-        <AttachmentStack attachments={attachments} imagePriority={imagePriority} />
+        <AttachmentStack
+          attachments={attachments}
+          imagePriority={imagePriority}
+          mediaVerdicts={mediaVerdicts}
+        />
       )}
       {quotedEvents.map((quoted) => (
         <QuotePreview key={quoted.id} event={quoted} />

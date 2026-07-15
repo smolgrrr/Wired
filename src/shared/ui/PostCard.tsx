@@ -12,6 +12,8 @@ import { useProfile } from "../hooks/useProfiles";
 import { useMemo, useCallback, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShareControl } from "./ShareControl";
+import { extractMedia } from "../lib/mediaUtils";
+import { useMediaModeration } from "../hooks/useMediaModeration";
 
 interface PostCardProps {
   event: Event;
@@ -106,6 +108,8 @@ export function PostCard({
   onOpenThread,
 }: PostCardProps) {
   const navigate = useNavigate();
+  const mediaItems = useMemo(() => extractMedia(event), [event]);
+  const mediaModeration = useMediaModeration(event, mediaItems);
 
   const relatedEvents = useMemo(() => [event, ...(replies || [])], [event, replies]);
   const profile = useProfile(event.pubkey);
@@ -155,6 +159,8 @@ export function PostCard({
     ? `Open thread by ${authorLabel}, signal ${signal}, ${timestamp}`
     : `Post by ${authorLabel}, signal ${signal}, ${timestamp}`;
 
+  if (mediaModeration.blocked) return null;
+
   return (
     <article
       role={isNavigable ? "link" : "group"}
@@ -191,7 +197,11 @@ export function PostCard({
       </header>
 
       <div className="post-content flex flex-col gap-2 break-words">
-        <TextContent eventdata={event} imagePriority={imagePriority} />
+        <TextContent
+          eventdata={event}
+          imagePriority={imagePriority}
+          mediaVerdicts={mediaModeration.verdicts}
+        />
         {repliedTo && repliedTo.length > 0 && (
           <ReplyContext events={uniqBy(repliedTo, "pubkey")} />
         )}

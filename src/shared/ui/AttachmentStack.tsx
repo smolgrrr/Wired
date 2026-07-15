@@ -2,15 +2,18 @@ import type { Attachment } from "@lib/content";
 import { segmentAttachments } from "@lib/attachmentSegments";
 import { LinkPreview } from "./LinkPreview";
 import { MediaAttachment, MediaGrid } from "./NoteMedia";
+import type { MediaPresentationVerdict } from "../lib/mediaModeration";
 
 export function AttachmentStack({
   attachments,
   compact,
   imagePriority = false,
+  mediaVerdicts,
 }: {
   attachments: Attachment[];
   compact?: boolean;
   imagePriority?: boolean;
+  mediaVerdicts?: ReadonlyMap<string, MediaPresentationVerdict>;
 }) {
   if (attachments.length === 0) return null;
 
@@ -32,6 +35,7 @@ export function AttachmentStack({
               hiddenCount={segment.hiddenCount}
               compact={compact}
               priority={imagePriority}
+              verdicts={mediaVerdicts}
             />
           );
         }
@@ -44,6 +48,7 @@ export function AttachmentStack({
               item={attachment.item}
               compact={compact}
               priority={imagePriority}
+              verdict={mediaVerdicts?.get(attachment.item.url)}
             />
           );
         }
