@@ -54,7 +54,9 @@ function driveNotifications(request: RelayRequestController, delayMs = 0): void 
   const [filter] = request.filters;
   if (filter?.authors) {
     request.sendEvent(localAuthored, delayMs);
-    request.sendEvent(authoredReaction, delayMs);
+    if (filter.kinds?.includes(7)) {
+      request.sendEvent(authoredReaction, delayMs);
+    }
   } else if (filter?.["#p"]) {
     request.sendEvent(localAuthored, delayMs);
     request.sendEvent(taggedMention, delayMs);
@@ -141,7 +143,7 @@ describe("notification and enrichment relay transcripts", () => {
       workflow.complete();
 
       expect([...receivedIds].sort()).toEqual(
-        [localAuthored.id, authoredReaction.id, taggedMention.id].sort(),
+        [localAuthored.id, taggedMention.id].sort(),
       );
       const summary = session.summary(workflow);
       expect(summary).toMatchObject({
@@ -149,7 +151,7 @@ describe("notification and enrichment relay transcripts", () => {
         requests: 4,
         closes: 4,
         eose: 4,
-        returnedEvents: 8,
+        returnedEvents: 6,
         repeatedOperations: 2,
         relayFanout: 2,
       });
@@ -163,7 +165,7 @@ describe("notification and enrichment relay transcripts", () => {
       ]))).toEqual(new Map([
         [JSON.stringify([{
           authors: [localAuthored.pubkey],
-          kinds: [1, 7],
+          kinds: [1],
           limit: 25,
         }]), 2],
         [JSON.stringify([{
@@ -226,11 +228,11 @@ describe("notification and enrichment relay transcripts", () => {
     handle.close();
     workflow.complete();
     expect([...receivedIds].sort()).toEqual(
-      [localAuthored.id, authoredReaction.id, taggedMention.id].sort(),
+      [localAuthored.id, taggedMention.id].sort(),
     );
     expect(session.summary(workflow)).toMatchObject({
       requests: 4,
-      returnedEvents: 4,
+      returnedEvents: 3,
       eose: 2,
       relayFanout: 2,
     });
@@ -460,26 +462,25 @@ describe("notification and enrichment relay transcripts", () => {
       );
       await session.waitFor(() => completedIds.size === 2);
       await session.waitFor((entries) =>
-        entries.filter((entry) => entry.type === "close").length === (run + 1) * 6
+        entries.filter((entry) => entry.type === "close").length === (run + 1) * 5
       );
       handle.close();
       workflow.complete();
 
       expect(receivedIds).toEqual(new Set([fallbackQuote.id, hintedQuote.id]));
       expect(session.summary(workflow)).toMatchObject({
-        requests: 6,
-        closes: 6,
-        eose: 6,
-        returnedEvents: 4,
-        repeatedOperations: 4,
+        requests: 5,
+        closes: 5,
+        eose: 5,
+        returnedEvents: 3,
+        repeatedOperations: 3,
         relayFanout: 3,
       });
       const entries = workflowEntries(session, workflow);
       const hintedRequests = entries
         .filter((entry) => entry.type === "request")
         .filter((entry) => entry.relayUrl === hintedRelay.url);
-      expect(hintedRequests).toHaveLength(2);
-      expect(hintedRequests[0]?.filters).toEqual(hintedRequests[1]?.filters);
+      expect(hintedRequests).toHaveLength(1);
       expectExactQuoteFilters(entries);
       expectExactFiniteCompletion(entries);
       completionLatencies.push(session.summary(workflow).completionLatencyMs);

@@ -24,7 +24,7 @@ export const subNotifications = (
     {
       filter: {
         authors: pubkeys,
-        kinds: [1, 7],
+        kinds: [1],
         limit: 25,
       },
       cb: onEvent,

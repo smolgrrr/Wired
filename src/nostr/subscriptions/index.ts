@@ -76,10 +76,9 @@ function uniqueRelayUrls(relays: readonly string[]): string[] {
 }
 
 function fallbackRelayUrlsForQuote(
-  ref: QuotedRef,
   fallbackRelayUrls: readonly string[] = [...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS],
 ): string[] {
-  return uniqueRelayUrls([...fallbackRelayUrls, ...ref.relays]);
+  return uniqueRelayUrls(fallbackRelayUrls);
 }
 
 function extraRelayHintsForQuote(
@@ -148,7 +147,7 @@ export async function subQuotedEventsOnce(
         refs,
         onEvent,
         onEose,
-        (ref) => fallbackRelayUrlsForQuote(ref, fallbackRelayUrls),
+        () => fallbackRelayUrlsForQuote(fallbackRelayUrls),
         (ref) => !hasExtraRelayHints(ref, fallbackRelayUrls),
       ),
     ),
