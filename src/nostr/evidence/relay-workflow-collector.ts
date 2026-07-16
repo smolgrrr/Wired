@@ -5,6 +5,7 @@ import {
   type RelayWorkflowEvidence,
 } from "../../contracts/relay-workflow-evidence";
 import type { RelayWorkflowAggregate } from "../../contracts/relay-workflow-status";
+import { RELAY_WORKFLOW_TOTAL_KEYS } from "../../contracts/relay-workflow-status";
 
 export type { RelayWorkflowAggregate } from "../../contracts/relay-workflow-status";
 
@@ -18,6 +19,11 @@ type MutableAggregate = RelayWorkflowAggregate;
 
 export type RelayWorkflowEvidenceRecorder = {
   record(evidence: unknown): void;
+  recordLateConnectionClosed?(delta: {
+    workflowOwner: RelayWorkflowEvidence["workflowOwner"];
+    operation: RelayWorkflowEvidence["operation"];
+    outcome: RelayWorkflowEvidence["outcome"];
+  }): void;
 };
 
 export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
@@ -102,6 +108,29 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
     this.notifyChange();
   }
 
+  recordLateConnectionClosed(delta: {
+    workflowOwner: RelayWorkflowEvidence["workflowOwner"];
+    operation: RelayWorkflowEvidence["operation"];
+    outcome: RelayWorkflowEvidence["outcome"];
+  }): void {
+    const key = [delta.workflowOwner, delta.operation, delta.outcome].join("|");
+    const aggregate = this.aggregates.get(key) ?? this.createAggregate(delta);
+    aggregate.totals.connectionsOpened = this.add(
+      aggregate.totals.connectionsOpened ?? 0,
+      1,
+    );
+    aggregate.totals.connectionsClosed = this.add(
+      aggregate.totals.connectionsClosed ?? 0,
+      1,
+    );
+    aggregate.totals.lateConnectionsClosed = this.add(
+      aggregate.totals.lateConnectionsClosed ?? 0,
+      1,
+    );
+    this.aggregates.set(key, aggregate);
+    this.notifyChange();
+  }
+
   snapshot(): RelayWorkflowAggregate[] {
     return [...this.aggregates.values()]
       .sort((left, right) =>
@@ -117,9 +146,10 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
     return aggregates;
   }
 
-  private createAggregate(
-    evidence: RelayWorkflowEvidence,
-  ): MutableAggregate {
+  private createAggregate(evidence: Pick<
+    RelayWorkflowEvidence,
+    "workflowOwner" | "operation" | "outcome"
+  >): MutableAggregate {
     return {
       schemaVersion: 1,
       workflowOwner: evidence.workflowOwner,
@@ -127,7 +157,7 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
       outcome: evidence.outcome,
       samples: 0,
       overflowed: 0,
-      totals: {},
+      totals: Object.fromEntries(RELAY_WORKFLOW_TOTAL_KEYS.map((key) => [key, 0])),
       acceptedCountBuckets: Object.fromEntries(
         RELAY_ACCEPTED_COUNT_BUCKETS.map((bucket) => [bucket, 0]),
       ),
