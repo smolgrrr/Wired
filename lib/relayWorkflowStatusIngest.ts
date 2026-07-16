@@ -19,11 +19,12 @@ export type WorkflowStatusIngestResult =
   | "stale"
   | "rate-limited"
   | "daily-limit"
-  | "preview-key-limit";
+  | "preview-sampled-out";
 
 type IngestOptions = {
   enabled?: () => boolean;
   now?: () => number;
+  random?: () => number;
   limits?: Partial<WorkflowStatusStoreLimits>;
 };
 
@@ -38,8 +39,10 @@ function utcMinute(now: number): string {
 export class RelayWorkflowStatusIngestService {
   private stored = 0;
   private rejected = 0;
+  private previewOverflow = 0;
   private readonly enabled: () => boolean;
   private readonly now: () => number;
+  private readonly random: () => number;
   private readonly limits: WorkflowStatusStoreLimits;
 
   constructor(
@@ -47,11 +50,13 @@ export class RelayWorkflowStatusIngestService {
     {
       enabled = () => true,
       now = Date.now,
+      random = Math.random,
       limits = {},
     }: IngestOptions = {},
   ) {
     this.enabled = enabled;
     this.now = now;
+    this.random = random;
     this.limits = {
       requestsPerSourcePerMinute:
         limits.requestsPerSourcePerMinute ??
@@ -63,8 +68,12 @@ export class RelayWorkflowStatusIngestService {
     };
   }
 
-  get status(): { stored: number; rejected: number } {
-    return { stored: this.stored, rejected: this.rejected };
+  get status(): { stored: number; rejected: number; previewOverflow: number } {
+    return {
+      stored: this.stored,
+      rejected: this.rejected,
+      previewOverflow: this.previewOverflow,
+    };
   }
 
   async ingest(value: unknown, rawBytes?: number): Promise<WorkflowStatusIngestResult> {
@@ -92,8 +101,18 @@ export class RelayWorkflowStatusIngestService {
       source: value.source,
       day,
       minute: utcMinute(now),
-      previewTokens: value.correlations.map((entry) => entry.dailyToken),
+      previewCandidates: value.correlations.map((entry) => ({
+        token: entry.dailyToken,
+        sample: this.random(),
+      })),
     }, this.limits);
+    if (reservation === "preview-sampled-out") {
+      this.previewOverflow = Math.min(
+        RELAY_EVIDENCE_LIMITS.count,
+        this.previewOverflow + 1,
+      );
+      return this.reject(reservation);
+    }
     if (reservation !== "accepted") return this.reject(reservation);
 
     await this.store.append(value, day);

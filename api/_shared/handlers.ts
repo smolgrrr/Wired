@@ -227,8 +227,9 @@ export async function handleWorkflowStatusIngestApi(
       case "stale": return json(422, { error: "envelope outside retention window" }, headers);
       case "rate-limited":
       case "daily-limit":
-      case "preview-key-limit":
         return json(429, { error: result }, { ...headers, "Retry-After": "60" });
+      case "preview-sampled-out":
+        return json(202, { ok: true, stored: false }, headers);
       default: return json(400, { error: "invalid envelope" }, headers);
     }
   } catch {

@@ -12,6 +12,7 @@ export type WorkflowStatusSink = (
 type ExporterOptions = {
   enabled?: boolean;
   schedule?: (task: () => void) => void;
+  sinkTimeoutMs?: number;
 };
 
 export class RelayWorkflowStatusExporter {
@@ -19,6 +20,7 @@ export class RelayWorkflowStatusExporter {
   private scheduled = false;
   private flushing = false;
   private dropped = 0;
+  private readonly sinkTimeoutMs: number;
   readonly enabled: boolean;
 
   constructor(
@@ -26,10 +28,12 @@ export class RelayWorkflowStatusExporter {
     {
       enabled = true,
       schedule = (task) => { queueMicrotask(task); },
+      sinkTimeoutMs = 5_000,
     }: ExporterOptions = {},
   ) {
     this.enabled = enabled;
     this.schedule = schedule;
+    this.sinkTimeoutMs = Math.max(1, sinkTimeoutMs);
   }
 
   private readonly schedule: (task: () => void) => void;
@@ -46,6 +50,10 @@ export class RelayWorkflowStatusExporter {
     }
     this.queue.push(structuredClone(envelope));
     this.scheduleFlush();
+  }
+
+  recordDrop(count = 1): void {
+    this.incrementDropped(count);
   }
 
   private scheduleFlush(): void {
@@ -65,16 +73,31 @@ export class RelayWorkflowStatusExporter {
   private async flush(): Promise<void> {
     if (this.flushing) return;
     this.flushing = true;
-    while (this.queue.length > 0) {
-      const envelope = this.queue.shift();
-      if (!envelope) continue;
-      try {
-        await this.sink(envelope);
-      } catch {
-        this.incrementDropped();
+    try {
+      while (this.queue.length > 0) {
+        const envelope = this.queue.shift();
+        if (!envelope) continue;
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            this.sink(envelope),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(
+                () => { reject(new Error("workflow status sink timed out")); },
+                this.sinkTimeoutMs,
+              );
+            }),
+          ]);
+        } catch {
+          this.incrementDropped();
+        } finally {
+          if (timeout) clearTimeout(timeout);
+        }
       }
+    } finally {
+      this.flushing = false;
+      if (this.queue.length > 0) this.scheduleFlush();
     }
-    this.flushing = false;
   }
 
   private incrementDropped(count = 1): void {
@@ -132,13 +155,44 @@ export class BrowserRelayWorkflowStatusAdapter {
     }
     const aggregates = this.collector.drain();
     if (aggregates.length === 0) return;
-    this.exporter.enqueue({
-      schemaVersion: 1,
-      source: "wired-browser",
-      collectedAt: this.now(),
-      aggregates,
-      correlations: [],
-    });
+    const collectedAt = this.now();
+    let chunk: typeof aggregates = [];
+    for (const aggregate of aggregates) {
+      const candidate = [...chunk, aggregate];
+      const envelope: RelayWorkflowStatusEnvelope = {
+        schemaVersion: 1,
+        source: "wired-browser",
+        collectedAt,
+        aggregates: candidate,
+        correlations: [],
+      };
+      const bytes = new TextEncoder().encode(JSON.stringify(envelope)).byteLength;
+      if (candidate.length <= RELAY_WORKFLOW_STATUS_LIMITS.aggregatesPerEnvelope &&
+        bytes <= RELAY_WORKFLOW_STATUS_LIMITS.envelopeBytes) {
+        chunk = candidate;
+        continue;
+      }
+      if (chunk.length > 0) {
+        this.exporter.enqueue({ ...envelope, aggregates: chunk });
+        chunk = [];
+      }
+      const single = { ...envelope, aggregates: [aggregate] };
+      if (new TextEncoder().encode(JSON.stringify(single)).byteLength <=
+        RELAY_WORKFLOW_STATUS_LIMITS.envelopeBytes) {
+        chunk = [aggregate];
+      } else {
+        this.exporter.recordDrop();
+      }
+    }
+    if (chunk.length > 0) {
+      this.exporter.enqueue({
+        schemaVersion: 1,
+        source: "wired-browser",
+        collectedAt,
+        aggregates: chunk,
+        correlations: [],
+      });
+    }
   }
 }
 
@@ -146,12 +200,14 @@ type SameOriginSinkOptions = {
   endpoint?: string;
   fetchImpl?: typeof fetch;
   isOnline?: () => boolean;
+  timeoutMs?: number;
 };
 
 export function createSameOriginWorkflowStatusSink({
   endpoint = "/api/workflow-status",
   fetchImpl = fetch,
   isOnline = () => typeof navigator === "undefined" || navigator.onLine,
+  timeoutMs = 5_000,
 }: SameOriginSinkOptions = {}): WorkflowStatusSink {
   return async (envelope) => {
     if (!isOnline()) throw new Error("offline");
@@ -161,8 +217,33 @@ export function createSameOriginWorkflowStatusSink({
       body: JSON.stringify(envelope),
       credentials: "same-origin",
       keepalive: true,
+      signal: AbortSignal.timeout(Math.max(1, timeoutMs)),
     });
     if (!response.ok) throw new Error(`workflow status ingest failed: ${response.status}`);
+  };
+}
+
+type WorkflowStatusLifecycleOptions = {
+  windowTarget?: EventTarget;
+  documentTarget?: EventTarget & { visibilityState?: string };
+};
+
+export function registerBrowserWorkflowStatusLifecycle(
+  adapter: Pick<BrowserRelayWorkflowStatusAdapter, "flushNow">,
+  {
+    windowTarget = window,
+    documentTarget = document,
+  }: WorkflowStatusLifecycleOptions = {},
+): () => void {
+  const flush = () => { adapter.flushNow(); };
+  const flushWhenHidden = () => {
+    if (documentTarget.visibilityState === "hidden") adapter.flushNow();
+  };
+  windowTarget.addEventListener("pagehide", flush);
+  documentTarget.addEventListener("visibilitychange", flushWhenHidden);
+  return () => {
+    windowTarget.removeEventListener("pagehide", flush);
+    documentTarget.removeEventListener("visibilitychange", flushWhenHidden);
   };
 }
 

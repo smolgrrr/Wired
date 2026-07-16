@@ -30,7 +30,7 @@ describe("RelayWorkflowStatusIngestService", () => {
     await expect(service.ingest(envelope(NOW - 15 * 24 * 60 * 60 * 1_000))).resolves.toBe("stale");
 
     expect(store.rows).toHaveLength(1);
-    expect(service.status).toEqual({ stored: 1, rejected: 3 });
+    expect(service.status).toEqual({ stored: 1, rejected: 3, previewOverflow: 0 });
   });
 
   it("enforces atomic per-source minute, day, and preview-key caps", async () => {
@@ -65,11 +65,20 @@ describe("RelayWorkflowStatusIngestService", () => {
     const keyStore = new MemoryRelayWorkflowStatusStore(() => NOW);
     const keys = new RelayWorkflowStatusIngestService(keyStore, {
       now: () => NOW,
+      random: () => 0.99,
       limits: { previewKeysPerDay: 1 },
     });
     await expect(keys.ingest(correlation("aaaaaaaaaaaaaaaa"))).resolves.toBe("stored");
     await expect(keys.ingest(correlation("aaaaaaaaaaaaaaaa"))).resolves.toBe("stored");
-    await expect(keys.ingest(correlation("bbbbbbbbbbbbbbbb"))).resolves.toBe("preview-key-limit");
+    await expect(keys.ingest(correlation("bbbbbbbbbbbbbbbb"))).resolves.toBe("preview-sampled-out");
+    expect(keys.status.previewOverflow).toBe(1);
+
+    const replacement = new RelayWorkflowStatusIngestService(
+      new MemoryRelayWorkflowStatusStore(() => NOW),
+      { now: () => NOW, random: () => 0, limits: { previewKeysPerDay: 1 } },
+    );
+    await expect(replacement.ingest(correlation("aaaaaaaaaaaaaaaa"))).resolves.toBe("stored");
+    await expect(replacement.ingest(correlation("bbbbbbbbbbbbbbbb"))).resolves.toBe("stored");
   });
 
   it("deletes rows at the 14-day retention boundary", async () => {

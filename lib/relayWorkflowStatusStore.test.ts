@@ -41,7 +41,7 @@ describe("VercelBlobRelayWorkflowStatusStore", () => {
       source: "wired-server",
       day: "2026-07-16",
       minute: "2026-07-16T10:00",
-      previewTokens: ["abcdefghijklmnop"],
+      previewCandidates: [{ token: "abcdefghijklmnop", sample: 0.5 }],
     }, {
       requestsPerSourcePerMinute: 60,
       rowsPerSourcePerDay: 1_000,

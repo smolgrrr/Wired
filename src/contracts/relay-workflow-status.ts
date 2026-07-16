@@ -22,7 +22,7 @@ export const RELAY_PREVIEW_OUTCOMES = [
 
 export const RELAY_WORKFLOW_STATUS_LIMITS = {
   aggregatesPerEnvelope: 100,
-  correlationsPerEnvelope: 100,
+  correlationsPerEnvelope: 1,
   envelopeBytes: 32_768,
   queuedEnvelopes: 100,
   rowsPerSourcePerDay: 1_000,
@@ -190,7 +190,8 @@ export function isRelayWorkflowStatusEnvelope(
     value.aggregates.length > RELAY_WORKFLOW_STATUS_LIMITS.aggregatesPerEnvelope ||
     !Array.isArray(value.correlations) ||
     value.correlations.length > RELAY_WORKFLOW_STATUS_LIMITS.correlationsPerEnvelope ||
-    value.aggregates.length + value.correlations.length === 0) return false;
+    value.aggregates.length + value.correlations.length === 0 ||
+    (value.aggregates.length > 0 && value.correlations.length > 0)) return false;
 
   return value.aggregates.every((aggregate) =>
     isRelayWorkflowAggregate(aggregate) &&

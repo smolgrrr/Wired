@@ -9,19 +9,20 @@ import {
   RELAY_WORKFLOW_STATUS_LIMITS,
   type RelayWorkflowStatusEnvelope,
 } from "../src/contracts/relay-workflow-status.js";
+import { RELAY_EVIDENCE_LIMITS } from "../src/contracts/relay-workflow-evidence.js";
 
 export type WorkflowStatusReservation = {
   source: RelayWorkflowStatusEnvelope["source"];
   day: string;
   minute: string;
-  previewTokens: string[];
+  previewCandidates: Array<{ token: string; sample: number }>;
 };
 
 export type WorkflowStatusReservationResult =
   | "accepted"
   | "rate-limited"
   | "daily-limit"
-  | "preview-key-limit";
+  | "preview-sampled-out";
 
 export type WorkflowStatusStoreLimits = {
   requestsPerSourcePerMinute: number;
@@ -44,6 +45,7 @@ type ControlState = {
   minute: string;
   minuteRequests: number;
   previewTokens: string[];
+  previewKeysSeen: number;
 };
 
 function nextControlState(
@@ -60,20 +62,34 @@ function nextControlState(
   if (current.rows >= limits.rowsPerSourcePerDay) {
     return { result: "daily-limit", state: current };
   }
-  const previewTokens = new Set(current.previewTokens);
-  for (const token of reservation.previewTokens) {
-    if (!previewTokens.has(token) && previewTokens.size >= limits.previewKeysPerDay) {
-      return { result: "preview-key-limit", state: current };
+  const previewTokens = [...current.previewTokens];
+  let previewKeysSeen = current.previewKeysSeen;
+  let sampledOut = false;
+  for (const candidate of reservation.previewCandidates) {
+    if (previewTokens.includes(candidate.token)) continue;
+    previewKeysSeen = Math.min(RELAY_EVIDENCE_LIMITS.count, previewKeysSeen + 1);
+    if (previewTokens.length < limits.previewKeysPerDay) {
+      previewTokens.push(candidate.token);
+      continue;
     }
-    previewTokens.add(token);
+    const sample = Number.isFinite(candidate.sample)
+      ? Math.max(0, Math.min(0.9999999999999999, candidate.sample))
+      : 0.9999999999999999;
+    const replacement = Math.floor(sample * previewKeysSeen);
+    if (replacement < limits.previewKeysPerDay) {
+      previewTokens[replacement] = candidate.token;
+    } else {
+      sampledOut = true;
+    }
   }
   return {
-    result: "accepted",
+    result: sampledOut ? "preview-sampled-out" : "accepted",
     state: {
-      rows: current.rows + 1,
+      rows: current.rows + (sampledOut ? 0 : 1),
       minute: reservation.minute,
       minuteRequests: minuteRequests + 1,
-      previewTokens: [...previewTokens],
+      previewTokens,
+      previewKeysSeen,
     },
   };
 }
@@ -83,6 +99,7 @@ const EMPTY_CONTROL: ControlState = {
   minute: "",
   minuteRequests: 0,
   previewTokens: [],
+  previewKeysSeen: 0,
 };
 
 export class MemoryRelayWorkflowStatusStore implements RelayWorkflowStatusStore {
@@ -101,7 +118,9 @@ export class MemoryRelayWorkflowStatusStore implements RelayWorkflowStatusStore 
       reservation,
       limits,
     );
-    if (next.result === "accepted") this.controls.set(key, next.state);
+    if (next.result === "accepted" || next.result === "preview-sampled-out") {
+      this.controls.set(key, next.state);
+    }
     return next.result;
   }
 
@@ -130,6 +149,8 @@ function isControlState(value: unknown): value is ControlState {
   return Number.isInteger(state.rows) && Number(state.rows) >= 0 &&
     typeof state.minute === "string" && /^$|^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(state.minute) &&
     Number.isInteger(state.minuteRequests) && Number(state.minuteRequests) >= 0 &&
+    Number.isInteger(state.previewKeysSeen) && Number(state.previewKeysSeen) >= 0 &&
+    Number(state.previewKeysSeen) <= RELAY_EVIDENCE_LIMITS.count &&
     Array.isArray(state.previewTokens) &&
     state.previewTokens.length <= RELAY_WORKFLOW_STATUS_LIMITS.previewKeysPerDay &&
     state.previewTokens.every((token) =>
@@ -154,7 +175,9 @@ export class VercelBlobRelayWorkflowStatusStore implements RelayWorkflowStatusSt
         : null;
       const current = isControlState(parsed) ? parsed : EMPTY_CONTROL;
       const next = nextControlState(current, reservation, limits);
-      if (next.result !== "accepted") return next.result;
+      if (next.result !== "accepted" && next.result !== "preview-sampled-out") {
+        return next.result;
+      }
       try {
         await put(pathname, JSON.stringify(next.state), {
           access: "private",
@@ -163,7 +186,7 @@ export class VercelBlobRelayWorkflowStatusStore implements RelayWorkflowStatusSt
           contentType: "application/json",
           ...(existing ? { ifMatch: existing.blob.etag } : {}),
         });
-        return "accepted";
+        return next.result;
       } catch (error) {
         if (error instanceof BlobPreconditionFailedError) continue;
         const appeared = !existing && await get(pathname, {

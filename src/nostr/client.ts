@@ -14,6 +14,7 @@ import {
   BrowserRelayWorkflowStatusAdapter,
   RelayWorkflowStatusExporter,
   createSameOriginWorkflowStatusSink,
+  registerBrowserWorkflowStatusLifecycle,
   workflowStatusRolloutEnabled,
 } from "./evidence/relay-workflow-exporter";
 
@@ -43,10 +44,7 @@ const workflowStatusAdapter = new BrowserRelayWorkflowStatusAdapter(
 scheduleWorkflowEvidenceExport = () => { workflowStatusAdapter.schedule(); };
 
 if (workflowExportEnabled && typeof window !== "undefined") {
-  window.addEventListener("pagehide", () => { workflowStatusAdapter.flushNow(); });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") workflowStatusAdapter.flushNow();
-  });
+  registerBrowserWorkflowStatusLifecycle(workflowStatusAdapter);
 }
 
 export const PROFILE_RELAYS = [...CONFIG_THREAD_RELAYS];
