@@ -3,12 +3,18 @@ import {
   handleFeedBootstrapApi,
   handleFeedRefreshApi,
   handleUnfurlApi,
+  handleWorkflowStatusIngestApi,
+  handleWorkflowStatusPurgeApi,
 } from "./handlers";
 import {
   FeedBootstrapCacheService,
   MemoryFeedBootstrapStore,
 } from "../../lib/feedBootstrapCache";
 import type { FeedBootstrapSnapshot } from "../../lib/feedSnapshot";
+import { RelayWorkflowStatusIngestService } from "../../lib/relayWorkflowStatusIngest";
+import { MemoryRelayWorkflowStatusStore } from "../../lib/relayWorkflowStatusStore";
+import { RelayWorkflowCollector } from "../../src/nostr/evidence/relay-workflow-collector";
+import { validRelayWorkflowEvidence } from "../../src/contracts/relay-workflow-evidence.test-fixtures";
 
 const postEvent = {
   id: "note-1",
@@ -45,6 +51,8 @@ const snapshot: FeedBootstrapSnapshot = {
 describe("shared API handlers", () => {
   const originalCronSecret = process.env.CRON_SECRET;
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalAdminToken = process.env.WORKFLOW_STATUS_ADMIN_TOKEN;
+  const originalAllowedOrigin = process.env.WORKFLOW_STATUS_ALLOWED_ORIGIN;
 
   afterEach(() => {
     if (originalCronSecret === undefined) {
@@ -57,6 +65,18 @@ describe("shared API handlers", () => {
       delete process.env.NODE_ENV;
     } else {
       process.env.NODE_ENV = originalNodeEnv;
+    }
+
+    if (originalAdminToken === undefined) {
+      delete process.env.WORKFLOW_STATUS_ADMIN_TOKEN;
+    } else {
+      process.env.WORKFLOW_STATUS_ADMIN_TOKEN = originalAdminToken;
+    }
+
+    if (originalAllowedOrigin === undefined) {
+      delete process.env.WORKFLOW_STATUS_ALLOWED_ORIGIN;
+    } else {
+      process.env.WORKFLOW_STATUS_ALLOWED_ORIGIN = originalAllowedOrigin;
     }
   });
 
@@ -181,5 +201,122 @@ describe("shared API handlers", () => {
     expect(waitUntil).toHaveBeenCalledTimes(1);
     await expect(waitUntil.mock.calls[0][0]).resolves.toEqual(snapshot);
     await expect(service.read()).resolves.toEqual(snapshot);
+  });
+
+  it("accepts only same-origin browser workflow status", async () => {
+    const now = Date.parse("2026-07-16T10:00:00.000Z");
+    const store = new MemoryRelayWorkflowStatusStore(() => now);
+    const service = new RelayWorkflowStatusIngestService(store, { now: () => now });
+    const collector = new RelayWorkflowCollector();
+    collector.record(validRelayWorkflowEvidence.query);
+    const body = {
+      schemaVersion: 1,
+      source: "wired-browser",
+      collectedAt: now,
+      aggregates: collector.snapshot(),
+      correlations: [],
+    };
+    process.env.NODE_ENV = "production";
+    process.env.WORKFLOW_STATUS_ALLOWED_ORIGIN = "https://wired.test";
+
+    await expect(handleWorkflowStatusIngestApi({
+      method: "POST",
+      headers: {
+        host: "wired.test",
+        origin: "https://wired.test",
+        "x-forwarded-proto": "https",
+      },
+      body,
+    }, { service })).resolves.toMatchObject({ status: 202, body: { ok: true } });
+    await expect(handleWorkflowStatusIngestApi({
+      method: "POST",
+      headers: {
+        host: "wired.test",
+        origin: "https://attacker.test",
+        "x-forwarded-proto": "https",
+      },
+      body,
+    }, { service })).resolves.toMatchObject({ status: 401 });
+    expect(store.rows).toHaveLength(1);
+  });
+
+  it("reserves wired-admin ingest for the configured operator token", async () => {
+    const now = Date.parse("2026-07-16T10:00:00.000Z");
+    const store = new MemoryRelayWorkflowStatusStore(() => now);
+    const service = new RelayWorkflowStatusIngestService(store, { now: () => now });
+    const collector = new RelayWorkflowCollector();
+    collector.record({
+      ...validRelayWorkflowEvidence.query,
+      workflowOwner: "wired-admin.server.feed-snapshot",
+    });
+    const body = {
+      schemaVersion: 1,
+      source: "wired-admin",
+      collectedAt: now,
+      aggregates: collector.snapshot(),
+      correlations: [],
+    };
+    process.env.WORKFLOW_STATUS_ADMIN_TOKEN = "operator-secret";
+
+    await expect(handleWorkflowStatusIngestApi({
+      method: "POST",
+      headers: { authorization: "Bearer wrong" },
+      body,
+    }, { service })).resolves.toMatchObject({ status: 401 });
+    await expect(handleWorkflowStatusIngestApi({
+      method: "POST",
+      headers: { authorization: "Bearer operator-secret" },
+      body,
+    }, { service })).resolves.toMatchObject({ status: 202 });
+  });
+
+  it("maps ingest limits, outages, and authorized retention purge", async () => {
+    const now = Date.parse("2026-07-16T10:00:00.000Z");
+    const store = new MemoryRelayWorkflowStatusStore(() => now);
+    const service = new RelayWorkflowStatusIngestService(store, {
+      now: () => now,
+      limits: { requestsPerSourcePerMinute: 0 },
+    });
+    const collector = new RelayWorkflowCollector();
+    collector.record(validRelayWorkflowEvidence.query);
+    const request = {
+      method: "POST",
+      headers: {
+        host: "wired.test",
+        origin: "https://wired.test",
+        "x-forwarded-proto": "https",
+      },
+      body: {
+        schemaVersion: 1,
+        source: "wired-browser",
+        collectedAt: now,
+        aggregates: collector.snapshot(),
+        correlations: [],
+      },
+    };
+    await expect(handleWorkflowStatusIngestApi(request, { service })).resolves.toMatchObject({
+      status: 429,
+      headers: { "Retry-After": "60" },
+    });
+
+    process.env.NODE_ENV = "production";
+    process.env.CRON_SECRET = "cron-secret";
+    await expect(handleWorkflowStatusPurgeApi({
+      method: "GET",
+      headers: { authorization: "Bearer wrong" },
+    }, { service })).resolves.toMatchObject({ status: 401 });
+    await expect(handleWorkflowStatusPurgeApi({
+      method: "GET",
+      headers: { authorization: "Bearer cron-secret" },
+    }, { service })).resolves.toMatchObject({ status: 200 });
+
+    const outage = new RelayWorkflowStatusIngestService({
+      async reserve() { throw new Error("store unavailable"); },
+      async append() {},
+      async purgeBefore() { return 0; },
+    }, { now: () => now });
+    process.env.WORKFLOW_STATUS_ALLOWED_ORIGIN = "https://wired.test";
+    await expect(handleWorkflowStatusIngestApi(request, { service: outage }))
+      .resolves.toMatchObject({ status: 503 });
   });
 });

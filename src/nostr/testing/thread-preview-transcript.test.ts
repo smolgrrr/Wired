@@ -23,6 +23,9 @@ import {
   type RelayRequestController,
   type RelayTranscriptEntry,
 } from "./relay-transcript";
+import { RelayWorkflowStatusIngestService } from "../../../lib/relayWorkflowStatusIngest";
+import { MemoryRelayWorkflowStatusStore } from "../../../lib/relayWorkflowStatusStore";
+import { createPreviewResolutionObserver } from "../../../lib/relayWorkflowPreviewCorrelation";
 
 configureWebSocketImplementation(WebSocket);
 
@@ -202,6 +205,64 @@ describe("thread preview relay transcript", () => {
       returnedEvents: 2,
       relayFanout: 1,
     });
+  });
+
+  it("keeps preview identity and p95 stable with correlation disabled or enabled", async () => {
+    const session = new RelayTranscriptSession();
+    const harness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest: returnCompleteThread,
+    });
+    harnesses.push(harness);
+    const store = new MemoryRelayWorkflowStatusStore();
+    const service = new RelayWorkflowStatusIngestService(store);
+    const deferred: Promise<unknown>[] = [];
+    const variants = [
+      { name: "disabled", onResolution: undefined },
+      {
+        name: "enabled",
+        onResolution: createPreviewResolutionObserver({
+          endpoint: "thread-html",
+          enabled: true,
+          service,
+          secret: "controlled-preview-correlation-secret-32-bytes",
+          defer: (promise) => { deferred.push(promise); },
+        }),
+      },
+    ];
+    const latencies = new Map(variants.map((variant) => [variant.name, [] as number[]]));
+
+    for (let run = 0; run < 20; run += 1) {
+      for (const variant of variants) {
+        const workflow = session.beginWorkflow(`preview-correlation-${variant.name}-${run}`);
+        const preview = await resolveThreadPreview(root.id, {
+          origin: "https://wiredsignal.online",
+          fetchImpl: async () => new Response(null, { status: 404 }),
+          relayFallback: (eventId, relayHints) =>
+            fetchThreadEventsFromRelays(eventId, relayHints, {
+              configuredRelayUrls: [harness.url],
+            }),
+          ...(variant.onResolution ? { onResolution: variant.onResolution } : {}),
+        });
+        workflow.complete();
+        expect(preview).toMatchObject({ eventId: root.id, replyCount: 2 });
+        latencies.get(variant.name)!.push(session.summary(workflow).completionLatencyMs);
+      }
+    }
+    await Promise.all(deferred);
+
+    const p95 = Object.fromEntries(
+      [...latencies].map(([name, samples]) => [name, summarizeSamples(samples).p95]),
+    );
+    expect(p95.enabled).toBeLessThanOrEqual(p95.disabled + 3);
+    expect(store.rows).toHaveLength(20);
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      console.info(JSON.stringify({
+        scenario: "thread-preview-correlation-local-fixture",
+        samplesPerVariant: 20,
+        completionP95Ms: p95,
+      }));
+    }
   });
 
   it("retains complete output but reaches the deadline after a relay disconnects", async () => {

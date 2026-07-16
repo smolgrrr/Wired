@@ -4,6 +4,11 @@ import {
   type FeedBootstrapCacheService,
 } from "../../lib/feedBootstrapCache.js";
 import { unfurlUrl } from "../../lib/unfurl.js";
+import {
+  getDefaultRelayWorkflowStatusIngestService,
+  type RelayWorkflowStatusIngestService,
+} from "../../lib/relayWorkflowStatusIngest.js";
+import { RELAY_WORKFLOW_STATUS_LIMITS } from "../../src/contracts/relay-workflow-status.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const UNFURL_CACHE_HEADER =
@@ -12,6 +17,7 @@ export const FEED_BOOTSTRAP_CACHE_HEADER =
   "public, s-maxage=120, stale-while-revalidate=300";
 
 export type ApiRequest = {
+  body?: unknown;
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
   query?: Record<string, string | string[] | undefined>;
@@ -29,6 +35,10 @@ export type FeedApiOptions = {
   waitUntil?: (promise: Promise<unknown>) => void;
 };
 
+export type WorkflowStatusApiOptions = {
+  service?: RelayWorkflowStatusIngestService;
+};
+
 function json(status: number, body: unknown, headers: Record<string, string> = {}): ApiResult {
   return {
     status,
@@ -37,8 +47,8 @@ function json(status: number, body: unknown, headers: Record<string, string> = {
   };
 }
 
-function methodNotAllowed(): ApiResult {
-  return json(405, { error: "method not allowed" }, { Allow: "GET" });
+function methodNotAllowed(allow = "GET"): ApiResult {
+  return json(405, { error: "method not allowed" }, { Allow: allow });
 }
 
 function firstQueryValue(value: string | string[] | undefined): string {
@@ -79,6 +89,33 @@ function isAuthorized(req: ApiRequest): boolean {
 
   const authorization = getHeaderValue(req, "authorization");
   return authorization === `Bearer ${cronSecret}`;
+}
+
+function requestOrigin(req: ApiRequest): string {
+  const protocol = getHeaderValue(req, "x-forwarded-proto") || "https";
+  const host = getHeaderValue(req, "x-forwarded-host") || getHeaderValue(req, "host");
+  return host ? `${protocol}://${host}` : "";
+}
+
+function isWorkflowStatusAuthorized(req: ApiRequest): boolean {
+  const body = req.body;
+  if (!body || typeof body !== "object" || Array.isArray(body) || !("source" in body)) {
+    return true;
+  }
+  const source = (body as { source?: unknown }).source;
+  if (source === "wired-browser") {
+    const origin = getHeaderValue(req, "origin");
+    const configuredOrigin = String(process.env.WORKFLOW_STATUS_ALLOWED_ORIGIN ?? "")
+      .trim().replace(/\/$/, "");
+    const allowedOrigin = configuredOrigin ||
+      (process.env.NODE_ENV === "production" ? "" : requestOrigin(req));
+    return Boolean(origin && allowedOrigin && origin === allowedOrigin);
+  }
+  if (source === "wired-admin") {
+    const token = String(process.env.WORKFLOW_STATUS_ADMIN_TOKEN ?? "");
+    return Boolean(token && getHeaderValue(req, "authorization") === `Bearer ${token}`);
+  }
+  return false;
 }
 
 function refreshSummary(snapshot: Awaited<ReturnType<FeedBootstrapCacheService["refresh"]>>) {
@@ -157,5 +194,64 @@ export async function handleFeedRefreshApi(
     return json(200, refreshSummary(await service.refresh()));
   } catch {
     return json(500, { error: service.getLastRefreshError() ?? "refresh failed" });
+  }
+}
+
+export async function handleWorkflowStatusIngestApi(
+  req: ApiRequest,
+  { service = getDefaultRelayWorkflowStatusIngestService() }: WorkflowStatusApiOptions = {},
+): Promise<ApiResult> {
+  if (req.method !== "POST") return methodNotAllowed("POST");
+  const contentType = getHeaderValue(req, "content-type").toLowerCase();
+  if (contentType && !contentType.startsWith("application/json")) {
+    return json(415, { error: "content type must be application/json" }, {
+      "Cache-Control": "no-store",
+    });
+  }
+  if (!isWorkflowStatusAuthorized(req)) {
+    return json(401, { error: "unauthorized" }, { "Cache-Control": "no-store" });
+  }
+  const contentLength = Number(getHeaderValue(req, "content-length") || 0);
+  if (Number.isFinite(contentLength) &&
+    contentLength > RELAY_WORKFLOW_STATUS_LIMITS.envelopeBytes) {
+    return json(413, { error: "envelope too large" }, { "Cache-Control": "no-store" });
+  }
+
+  try {
+    const result = await service.ingest(req.body);
+    const headers = { "Cache-Control": "no-store" };
+    switch (result) {
+      case "stored": return json(202, { ok: true }, headers);
+      case "disabled": return { status: 204, headers, body: null };
+      case "oversized": return json(413, { error: "envelope too large" }, headers);
+      case "stale": return json(422, { error: "envelope outside retention window" }, headers);
+      case "rate-limited":
+      case "daily-limit":
+      case "preview-key-limit":
+        return json(429, { error: result }, { ...headers, "Retry-After": "60" });
+      default: return json(400, { error: "invalid envelope" }, headers);
+    }
+  } catch {
+    return json(503, { error: "workflow status unavailable" }, {
+      "Cache-Control": "no-store",
+      "Retry-After": "60",
+    });
+  }
+}
+
+export async function handleWorkflowStatusPurgeApi(
+  req: ApiRequest,
+  { service = getDefaultRelayWorkflowStatusIngestService() }: WorkflowStatusApiOptions = {},
+): Promise<ApiResult> {
+  if (req.method !== "GET") return methodNotAllowed();
+  if (!isAuthorized(req)) return json(401, { error: "unauthorized" });
+  try {
+    return json(200, { ok: true, deleted: await service.purgeExpired() }, {
+      "Cache-Control": "no-store",
+    });
+  } catch {
+    return json(503, { error: "workflow status purge unavailable" }, {
+      "Cache-Control": "no-store",
+    });
   }
 }

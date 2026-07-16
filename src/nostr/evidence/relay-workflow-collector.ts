@@ -4,25 +4,15 @@ import {
   isRelayWorkflowEvidence,
   type RelayWorkflowEvidence,
 } from "../../contracts/relay-workflow-evidence";
+import type { RelayWorkflowAggregate } from "../../contracts/relay-workflow-status";
+
+export type { RelayWorkflowAggregate } from "../../contracts/relay-workflow-status";
 
 const DURATION_BUCKETS_MS = [
   10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 60_000, 3_600_000,
 ] as const;
 
 type CounterGroup = Record<string, number>;
-
-export type RelayWorkflowAggregate = {
-  schemaVersion: 1;
-  workflowOwner: RelayWorkflowEvidence["workflowOwner"];
-  operation: RelayWorkflowEvidence["operation"];
-  outcome: RelayWorkflowEvidence["outcome"];
-  samples: number;
-  overflowed: number;
-  totals: CounterGroup;
-  acceptedCountBuckets: CounterGroup;
-  firstResultMs: CounterGroup;
-  completionMs: CounterGroup;
-};
 
 type MutableAggregate = RelayWorkflowAggregate;
 
@@ -33,15 +23,17 @@ export type RelayWorkflowEvidenceRecorder = {
 export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
   private readonly aggregates = new Map<string, MutableAggregate>();
   private readonly counterLimit: number;
+  private readonly onChange: () => void;
   private invalid = 0;
 
-  constructor(options: { counterLimit?: number } = {}) {
+  constructor(options: { counterLimit?: number; onChange?: () => void } = {}) {
     const requestedLimit = options.counterLimit;
     this.counterLimit = typeof requestedLimit === "number" &&
       Number.isFinite(requestedLimit) && Number.isInteger(requestedLimit) &&
       requestedLimit > 0
       ? Math.min(requestedLimit, RELAY_EVIDENCE_LIMITS.count)
       : RELAY_EVIDENCE_LIMITS.count;
+    this.onChange = options.onChange ?? (() => {});
   }
 
   get invalidCount(): number {
@@ -63,6 +55,7 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
     if (aggregate.samples >= this.counterLimit) {
       aggregate.overflowed = this.add(aggregate.overflowed, 1);
       this.aggregates.set(key, aggregate);
+      this.notifyChange();
       return;
     }
 
@@ -106,6 +99,7 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
     }
     this.addDuration(aggregate.completionMs, evidence.timingMs.completion);
     this.aggregates.set(key, aggregate);
+    this.notifyChange();
   }
 
   snapshot(): RelayWorkflowAggregate[] {
@@ -115,6 +109,12 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
           .localeCompare([right.workflowOwner, right.operation, right.outcome].join("|"))
       )
       .map((aggregate) => structuredClone(aggregate));
+  }
+
+  drain(): RelayWorkflowAggregate[] {
+    const aggregates = this.snapshot();
+    this.aggregates.clear();
+    return aggregates;
   }
 
   private createAggregate(
@@ -145,5 +145,13 @@ export class RelayWorkflowCollector implements RelayWorkflowEvidenceRecorder {
 
   private add(current: number, increment: number): number {
     return Math.min(this.counterLimit, current + increment);
+  }
+
+  private notifyChange(): void {
+    try {
+      this.onChange();
+    } catch {
+      // Evidence scheduling never affects relay work.
+    }
   }
 }

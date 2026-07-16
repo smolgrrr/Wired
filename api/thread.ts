@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { buildThreadMetadata, injectThreadMetadata } from "../lib/threadMetadata.js";
 import { resolveThreadPreview } from "../lib/threadPreview.js";
+import { waitUntil } from "@vercel/functions";
+import { createPreviewResolutionObserver } from "../lib/relayWorkflowPreviewCorrelation.js";
 
 const CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
 
@@ -43,7 +45,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const [shell, preview] = await Promise.all([
     loadHtmlShell(origin),
-    resolveThreadPreview(ref, { origin }),
+    resolveThreadPreview(ref, {
+      origin,
+      onResolution: createPreviewResolutionObserver({
+        endpoint: "thread-html",
+        defer: waitUntil,
+      }),
+    }),
   ]);
 
   if (!shell) {

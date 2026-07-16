@@ -7,6 +7,10 @@ import { WebSocket } from "ws";
 import { RelayPool } from "../relay-pool";
 import { RelayWorkflowCollector } from "../evidence/relay-workflow-collector";
 import {
+  BrowserRelayWorkflowStatusAdapter,
+  RelayWorkflowStatusExporter,
+} from "../evidence/relay-workflow-exporter";
+import {
   auditSampleCount,
   emitAuditMeasurement,
   summarizeSamples,
@@ -215,7 +219,7 @@ describe("browser publish relay transcript", () => {
     });
   });
 
-  it("keeps disabled, enabled, full, and failing collection timing-equivalent", async () => {
+  it("keeps collection and export scheduling timing-equivalent", async () => {
     const session = new RelayTranscriptSession();
     const runHarnesses = [
       await RelayTranscriptHarness.listen({
@@ -228,9 +232,23 @@ describe("browser publish relay transcript", () => {
       }),
     ];
     harnesses.push(...runHarnesses);
+    let scheduleExport = () => {};
+    const exportCollector = new RelayWorkflowCollector({
+      onChange: () => { scheduleExport(); },
+    });
+    const exportAdapter = new BrowserRelayWorkflowStatusAdapter(
+      exportCollector,
+      new RelayWorkflowStatusExporter(async () => {}),
+      {
+        setTimer: () => 1 as unknown as ReturnType<typeof setTimeout>,
+        clearTimer: () => {},
+      },
+    );
+    scheduleExport = () => { exportAdapter.schedule(); };
     const variants = [
       { name: "disabled", recorder: undefined },
       { name: "enabled", recorder: new RelayWorkflowCollector() },
+      { name: "export-scheduled", recorder: exportCollector },
       { name: "full", recorder: new RelayWorkflowCollector({ counterLimit: 1 }) },
       {
         name: "failing",
@@ -238,20 +256,24 @@ describe("browser publish relay transcript", () => {
       },
     ];
     const p95ByVariant = new Map<string, number>();
-
-    for (const variant of variants) {
+    const measured = await Promise.all(variants.map(async (variant) => {
       const pool = new RelayPool({ workflowEvidence: variant.recorder });
       await pool.connect(runHarnesses.map((harness) => harness.url));
-      const latencies: number[] = [];
-      for (let run = 0; run < 20; run += 1) {
+      return { ...variant, pool, latencies: [] as number[] };
+    }));
+
+    for (let run = 0; run < 20; run += 1) {
+      for (const variant of measured) {
         const workflow = session.beginWorkflow(`${variant.name}-${run}`);
-        expect(await pool.publish(event)).toEqual(new Set([runHarnesses[0].url]));
+        expect(await variant.pool.publish(event)).toEqual(new Set([runHarnesses[0].url]));
         workflow.complete();
-        latencies.push(session.summary(workflow).completionLatencyMs);
+        variant.latencies.push(session.summary(workflow).completionLatencyMs);
       }
+    }
+    for (const variant of measured) {
       p95ByVariant.set(
         variant.name,
-        summarizeSamples(latencies).p95,
+        summarizeSamples(variant.latencies).p95,
       );
     }
 
