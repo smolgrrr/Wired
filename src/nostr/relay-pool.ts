@@ -1,7 +1,15 @@
 import { Event, Filter, Relay, Subscription } from "nostr-tools";
 import type { SubCallback } from "./types";
+import {
+  RELAY_EVIDENCE_LIMITS,
+  relayAcceptedCountBucket,
+  relayWorkflowOutcome,
+  type RelayWorkflowEvidence,
+} from "../contracts/relay-workflow-evidence";
+import type { RelayWorkflowEvidenceRecorder } from "./evidence/relay-workflow-collector";
 
 const RELAY_CONNECT_TIMEOUT_MS = 4_000;
+const MAX_PENDING_EVIDENCE_TASKS = 100;
 
 export type SubscribeOptions = {
   closeOnEose?: boolean;
@@ -9,11 +17,35 @@ export type SubscribeOptions = {
   onEose?: () => void;
 };
 
+type RelayPoolOptions = {
+  workflowEvidence?: RelayWorkflowEvidenceRecorder;
+  scheduleEvidence?: (task: () => void) => void;
+};
+
+type InFlightPublish = {
+  promise: Promise<Set<string>>;
+  coalescedOperations: number;
+};
+
+type PublishSettlement = "accepted" | "rejected" | "closed";
+
 export class RelayPool {
   private readonly relays = new Map<string, Relay>();
   private readonly subscriptionsByRelay = new Map<string, Set<Subscription>>();
   private defaultRelayUrls = new Set<string>();
-  private readonly inFlightPublishes = new Map<string, Promise<Set<string>>>();
+  private readonly inFlightPublishes = new Map<string, InFlightPublish>();
+  private readonly workflowEvidence?: RelayWorkflowEvidenceRecorder;
+  private readonly scheduleEvidence: (task: () => void) => void;
+  private readonly evidenceTasks: Array<() => void> = [];
+  private evidenceFlushScheduled = false;
+  private droppedEvidenceTasks = 0;
+
+  constructor(options: RelayPoolOptions = {}) {
+    this.workflowEvidence = options.workflowEvidence;
+    this.scheduleEvidence = options.scheduleEvidence ?? ((task) => {
+      setTimeout(task, 0);
+    });
+  }
 
   get connectedUrls(): string[] {
     return [...this.relays.keys()];
@@ -21,6 +53,13 @@ export class RelayPool {
 
   get isConnected(): boolean {
     return this.defaultRelayUrls.size > 0;
+  }
+
+  get workflowEvidenceStatus(): { pending: number; dropped: number } {
+    return {
+      pending: this.evidenceTasks.length,
+      dropped: this.droppedEvidenceTasks,
+    };
   }
 
   async connect(urls: readonly string[]): Promise<void> {
@@ -120,33 +159,188 @@ export class RelayPool {
 
   publish(event: Event): Promise<Set<string>> {
     const existing = this.inFlightPublishes.get(event.id);
-    if (existing) return existing;
+    if (existing) {
+      existing.coalescedOperations += 1;
+      return existing.promise;
+    }
 
-    const publish = this.publishToRelays(event).finally(() => {
-      if (this.inFlightPublishes.get(event.id) === publish) {
+    const operation: InFlightPublish = {
+      promise: Promise.resolve(new Set()),
+      coalescedOperations: 0,
+    };
+    const publish = this.publishToRelays(event, operation).finally(() => {
+      if (this.inFlightPublishes.get(event.id) === operation) {
         this.inFlightPublishes.delete(event.id);
       }
     });
-    this.inFlightPublishes.set(event.id, publish);
+    operation.promise = publish;
+    this.inFlightPublishes.set(event.id, operation);
     return publish;
   }
 
-  private async publishToRelays(event: Event): Promise<Set<string>> {
+  private async publishToRelays(
+    event: Event,
+    operation: InFlightPublish,
+  ): Promise<Set<string>> {
+    const startedAt = this.workflowEvidence ? performance.now() : 0;
     const accepted = new Set<string>();
+    const targetUrls = [...this.defaultRelayUrls];
+    const connectedTargets = targetUrls.flatMap((url) => {
+      const relay = this.relays.get(url);
+      return relay ? [{ url, relay }] : [];
+    });
 
-    await Promise.allSettled(
-      [...this.defaultRelayUrls].map(async (url) => {
-        const relay = this.relays.get(url);
-        if (!relay) return;
+    const settlements: PublishSettlement[] = await Promise.all(
+      connectedTargets.map(async ({ url, relay }) => {
         try {
           await relay.publish(event);
           accepted.add(url);
+          return "accepted" as const;
         } catch {
-          // Relay rejected or failed the publish.
+          return relay.connected ? "rejected" as const : "closed" as const;
         }
       }),
     );
 
+    if (!this.workflowEvidence) return accepted;
+
+    const completion = performance.now();
+    const terminalClosed = settlements.filter((result) => result === "closed").length;
+    const explicitRejections = settlements.filter((result) =>
+      result === "rejected"
+    ).length;
+    let eventFrameBytes = 0;
+    try {
+      eventFrameBytes = new TextEncoder().encode(
+        JSON.stringify(["EVENT", event]),
+      ).byteLength;
+    } catch {
+      // Byte evidence is optional and cannot affect publication completion.
+    }
+    const primitives = {
+      acceptedCount: accepted.size,
+      coalescedOperations: operation.coalescedOperations,
+      completionMs: completion - startedAt,
+      connectedTargetCount: connectedTargets.length,
+      eventFrameBytes,
+      explicitRejections,
+      terminalClosed,
+      targetCount: targetUrls.length,
+    };
+    this.deferEvidence(() => this.recordPublishEvidence(primitives));
+
     return accepted;
+  }
+
+  private recordPublishEvidence(
+    primitives: {
+      acceptedCount: number;
+      coalescedOperations: number;
+      completionMs: number;
+      connectedTargetCount: number;
+      eventFrameBytes: number;
+      explicitRejections: number;
+      terminalClosed: number;
+      targetCount: number;
+    },
+  ): void {
+    // Only ACKed or explicitly rejected publishes confirm that the relay parsed
+    // the EVENT. A terminal close is retained separately and never treated as
+    // evidence of relay traffic.
+    const confirmedEventFrames =
+      primitives.acceptedCount + primitives.explicitRejections;
+    const evidence: RelayWorkflowEvidence = {
+      schemaVersion: 1,
+      workflowOwner: "wired.browser.publish",
+      operation: "publish",
+      outcome: relayWorkflowOutcome({
+        targets: primitives.targetCount,
+        successfulTargets: primitives.acceptedCount,
+        timedOut: 0,
+        cancelled: 0,
+      }),
+      work: { attempts: 1, targets: primitives.targetCount },
+      connections: {
+        opened: 0,
+        closed: primitives.terminalClosed,
+        reused: primitives.connectedTargetCount,
+        lateClosed: 0,
+      },
+      relay: {
+        requestsSent: 0,
+        eventsPublished: confirmedEventFrames,
+        eventsReceived: 0,
+        requestBytes: 0,
+        eventBytesSent: Math.min(
+          RELAY_EVIDENCE_LIMITS.bytes,
+          primitives.eventFrameBytes * confirmedEventFrames,
+        ),
+        eventBytesReceived: 0,
+      },
+      results: {
+        unique: 0,
+        duplicates: 0,
+        coalescedOperations: primitives.coalescedOperations,
+      },
+      terminal: {
+        eose: 0,
+        closed: primitives.terminalClosed,
+        connectFailed: primitives.targetCount - primitives.connectedTargetCount,
+        timedOut: 0,
+        cancelled: 0,
+      },
+      publishing: {
+        acceptedCountBucket: relayAcceptedCountBucket(
+          primitives.acceptedCount,
+          primitives.targetCount,
+        ),
+        rejected: primitives.explicitRejections,
+        ownerRetries: 0,
+      },
+      timingMs: {
+        firstResult: null,
+        completion: Math.min(
+          RELAY_EVIDENCE_LIMITS.durationMs,
+          Math.max(0, Math.round(primitives.completionMs)),
+        ),
+      },
+    };
+    this.workflowEvidence?.record(evidence);
+  }
+
+  private deferEvidence(task: () => void): void {
+    if (this.evidenceTasks.length >= MAX_PENDING_EVIDENCE_TASKS) {
+      this.evidenceTasks.shift();
+      this.incrementDroppedEvidence();
+    }
+    this.evidenceTasks.push(task);
+    if (this.evidenceFlushScheduled) return;
+
+    this.evidenceFlushScheduled = true;
+    try {
+      this.scheduleEvidence(() => {
+        this.evidenceFlushScheduled = false;
+        const pending = this.evidenceTasks.splice(0);
+        pending.forEach((pendingTask) => {
+          try {
+            pendingTask();
+          } catch {
+            // Evidence collection cannot affect publication completion.
+            this.incrementDroppedEvidence();
+          }
+        });
+      });
+    } catch {
+      this.evidenceFlushScheduled = false;
+      const dropped = this.evidenceTasks.splice(0).length;
+      this.incrementDroppedEvidence(dropped);
+    }
+  }
+
+  private incrementDroppedEvidence(count = 1): void {
+    this.droppedEvidenceTasks = Math.min(
+      RELAY_EVIDENCE_LIMITS.count,
+      this.droppedEvidenceTasks + count,
+    );
   }
 }
