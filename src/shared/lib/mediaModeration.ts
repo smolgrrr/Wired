@@ -22,5 +22,5 @@ export const ALLOWED_MEDIA_VERDICT: MediaPresentationVerdict = {
 };
 
 export function isMediaCovered(verdict?: MediaPresentationVerdict): boolean {
-  return Boolean(verdict?.enforced && verdict.status !== "allowed");
+  return Boolean(verdict?.enforced && verdict.status === "review-required");
 }

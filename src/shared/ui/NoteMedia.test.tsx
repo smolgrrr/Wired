@@ -352,7 +352,7 @@ describe("NoteMedia video previews", () => {
     expect(container.textContent).toContain("signal lost");
   });
 
-  it("preloads a pending image only behind an opaque moderation cover", () => {
+  it("shows a pending image without a moderation cover", () => {
     const verdict: MediaPresentationVerdict = {
       status: "pending",
       reason: "analysis_queued",
@@ -370,13 +370,10 @@ describe("NoteMedia video previews", () => {
     expect(container.querySelector("img")?.getAttribute("src")).toBe(
       "https://example.com/pending.jpg",
     );
-    const cover = container.querySelector("[data-media-cover='true']");
-    expect(cover).not.toBeNull();
-    expect(cover?.className).toContain("bg-surface");
-    expect(container.textContent).toContain("checking media");
+    expect(container.querySelector("[data-media-cover='true']")).toBeNull();
   });
 
-  it("lets a user reveal an image when the moderation service is unavailable", () => {
+  it("shows an image when the moderation service is unavailable", () => {
     act(() => {
       root.render(
         <MediaAttachment
@@ -390,20 +387,13 @@ describe("NoteMedia video previews", () => {
       );
     });
 
-    const reveal = container.querySelector<HTMLButtonElement>(
-      "[data-media-cover='true']",
-    );
-    expect(reveal).not.toBeNull();
-
-    act(() => reveal?.click());
-
     expect(container.querySelector("[data-media-cover='true']")).toBeNull();
     expect(container.querySelector("img")?.getAttribute("src")).toBe(
       "https://example.com/unavailable.jpg",
     );
   });
 
-  it("loads and reveals a pending video after the user clears its cover", () => {
+  it("loads a pending video without a moderation cover", () => {
     act(() => {
       root.render(
         <MediaAttachment
@@ -413,23 +403,16 @@ describe("NoteMedia video previews", () => {
       );
     });
 
-    const reveal = container.querySelector<HTMLButtonElement>(
-      "[data-media-cover='true']",
-    );
-    expect(container.querySelector("video")).toBeNull();
-
-    act(() => reveal?.click());
-
     expect(container.querySelector("[data-media-cover='true']")).toBeNull();
     expect(container.querySelector("video")?.getAttribute("src")).toBe(
       "https://example.com/pending.mp4",
     );
   });
 
-  it("reveals only the selected image in a moderated image grid", () => {
+  it("reveals only the selected risky image in a moderated image grid", () => {
     const verdict: MediaPresentationVerdict = {
-      status: "pending",
-      reason: "analysis_queued",
+      status: "review-required",
+      reason: "model_review_threshold",
       enforced: true,
     };
     act(() => {
@@ -457,19 +440,31 @@ describe("NoteMedia video previews", () => {
     expect(container.querySelectorAll("[data-media-cover='true']")).toHaveLength(1);
   });
 
-  it("does not assign a video source before an allowed verdict", () => {
+  it("does not assign a risky video source until the cover is cleared", () => {
     act(() => {
       root.render(
         <MediaAttachment
-          item={{ url: "https://example.com/pending.mp4", type: "video" }}
-          verdict={{ status: "pending", reason: "analysis_queued", enforced: true }}
+          item={{ url: "https://example.com/risky.mp4", type: "video" }}
+          verdict={{
+            status: "review-required",
+            reason: "model_review_threshold",
+            enforced: true,
+          }}
         />,
       );
     });
 
     expect(container.querySelector("video")).toBeNull();
-    expect(container.innerHTML).not.toContain("https://example.com/pending.mp4");
-    expect(container.textContent).toContain("checking media");
+    expect(container.innerHTML).not.toContain("https://example.com/risky.mp4");
+    expect(container.textContent).toContain("sensitive media");
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>("[data-media-cover='true']")?.click();
+    });
+
+    expect(container.querySelector("video")?.getAttribute("src")).toBe(
+      "https://example.com/risky.mp4",
+    );
   });
 
   it("reveals media when enforcement is shadow-only", () => {
