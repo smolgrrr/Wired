@@ -262,7 +262,10 @@ describe("thread preview relay transcript", () => {
     expect(p95.disabled).toBeLessThanOrEqual(31);
     expect(p95.enabled).toBeLessThanOrEqual(31);
     expect(p95.enabled).toBeLessThanOrEqual(p95.disabled + 3);
-    expect(store.rows).toHaveLength(1);
+    expect(store.previewSnapshot(
+      new Date().toISOString().slice(0, 10),
+      "wired-server",
+    )).toHaveLength(1);
     if (process.env.RELAY_AUDIT_OUTPUT === "1") {
       console.info(JSON.stringify({
         scenario: "thread-preview-correlation-local-fixture",

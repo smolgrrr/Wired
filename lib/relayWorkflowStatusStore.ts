@@ -6,7 +6,8 @@ import {
   put,
 } from "@vercel/blob";
 import {
-  isRelayWorkflowStatusEnvelope,
+  RELAY_PREVIEW_ENDPOINTS,
+  RELAY_PREVIEW_OUTCOMES,
   RELAY_WORKFLOW_STATUS_LIMITS,
   type RelayPreviewCorrelation,
   type RelayWorkflowStatusEnvelope,
@@ -47,8 +48,12 @@ export type RelayWorkflowStatusStore = {
 
 type StoredRow = { envelope: RelayWorkflowStatusEnvelope; uploadedAt: number };
 type PreviewSampleEntry = {
-  correlation: RelayPreviewCorrelation;
+  dailyToken: string;
   collectedAt: number;
+  observations: Record<
+    RelayPreviewCorrelation["endpoint"],
+    Record<RelayPreviewCorrelation["outcome"], number>
+  >;
 };
 type ControlState = {
   rows: number;
@@ -58,6 +63,27 @@ type ControlState = {
   previewKeysSeen: number;
   previewOverflow: number;
 };
+
+function emptyPreviewObservations(): PreviewSampleEntry["observations"] {
+  return Object.fromEntries(RELAY_PREVIEW_ENDPOINTS.map((endpoint) => [
+    endpoint,
+    Object.fromEntries(RELAY_PREVIEW_OUTCOMES.map((outcome) => [outcome, 0])),
+  ])) as PreviewSampleEntry["observations"];
+}
+
+function recordPreviewObservation(
+  entry: PreviewSampleEntry,
+  correlation: RelayPreviewCorrelation,
+  collectedAt: number,
+): PreviewSampleEntry {
+  const next = structuredClone(entry);
+  next.collectedAt = Math.max(next.collectedAt, collectedAt);
+  next.observations[correlation.endpoint][correlation.outcome] = Math.min(
+    RELAY_EVIDENCE_LIMITS.count,
+    next.observations[correlation.endpoint][correlation.outcome] + 1,
+  );
+  return next;
+}
 
 function nextControlState(
   current: ControlState,
@@ -80,16 +106,21 @@ function nextControlState(
   let sampledOut = false;
   for (const candidate of reservation.previewCandidates) {
     const existing = previewSample.findIndex((entry) =>
-      entry.correlation.dailyToken === candidate.correlation.dailyToken
+      entry.dailyToken === candidate.correlation.dailyToken
     );
-    const entry: PreviewSampleEntry = {
-      correlation: structuredClone(candidate.correlation),
-      collectedAt: candidate.collectedAt,
-    };
     if (existing >= 0) {
-      previewSample[existing] = entry;
+      previewSample[existing] = recordPreviewObservation(
+        previewSample[existing],
+        candidate.correlation,
+        candidate.collectedAt,
+      );
       continue;
     }
+    const entry = recordPreviewObservation({
+      dailyToken: candidate.correlation.dailyToken,
+      collectedAt: candidate.collectedAt,
+      observations: emptyPreviewObservations(),
+    }, candidate.correlation, candidate.collectedAt);
     previewKeysSeen = Math.min(RELAY_EVIDENCE_LIMITS.count, previewKeysSeen + 1);
     if (previewSample.length < limits.previewKeysPerDay) {
       previewSample.push(entry);
@@ -146,24 +177,6 @@ export class MemoryRelayWorkflowStatusStore implements RelayWorkflowStatusStore 
     );
     if (next.result === "accepted" || next.result === "preview-sampled-out") {
       this.controls.set(key, next.state);
-      if (reservation.previewCandidates.length > 0) {
-        const retained = this.rows.filter((row) =>
-          !(row.envelope.source === reservation.source &&
-            row.envelope.correlations.length > 0 &&
-            new Date(row.envelope.collectedAt).toISOString().slice(0, 10) === reservation.day)
-        );
-        const sampled = next.state.previewSample.map((entry) => ({
-          envelope: {
-            schemaVersion: 1 as const,
-            source: reservation.source,
-            collectedAt: entry.collectedAt,
-            aggregates: [],
-            correlations: [structuredClone(entry.correlation)],
-          },
-          uploadedAt: this.now(),
-        }));
-        this.rows.splice(0, this.rows.length, ...retained, ...sampled);
-      }
     }
     return next.result;
   }
@@ -175,6 +188,13 @@ export class MemoryRelayWorkflowStatusStore implements RelayWorkflowStatusStore 
 
   previewOverflow(day: string, source: WorkflowStatusReservation["source"]): number {
     return this.controls.get(`${day}|${source}`)?.previewOverflow ?? 0;
+  }
+
+  previewSnapshot(
+    day: string,
+    source: WorkflowStatusReservation["source"],
+  ): PreviewSampleEntry[] {
+    return structuredClone(this.controls.get(`${day}|${source}`)?.previewSample ?? []);
   }
 
   async purgeBefore(cutoff: number): Promise<number> {
@@ -204,16 +224,27 @@ function isControlState(value: unknown): value is ControlState {
     Number(state.previewOverflow) <= RELAY_EVIDENCE_LIMITS.count &&
     Array.isArray(state.previewSample) &&
     state.previewSample.length <= RELAY_WORKFLOW_STATUS_LIMITS.previewKeysPerDay &&
-    state.previewSample.every((entry) =>
-      Boolean(entry) && typeof entry === "object" && !Array.isArray(entry) &&
-      isRelayWorkflowStatusEnvelope({
-        schemaVersion: 1,
-        source: "wired-server",
-        collectedAt: (entry as PreviewSampleEntry).collectedAt,
-        aggregates: [],
-        correlations: [(entry as PreviewSampleEntry).correlation],
-      })
-    );
+    state.previewSample.every(isPreviewSampleEntry);
+}
+
+function isPreviewSampleEntry(value: unknown): value is PreviewSampleEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entry = value as Partial<PreviewSampleEntry>;
+  if (typeof entry.dailyToken !== "string" ||
+    !/^[A-Za-z0-9_-]{16}$/.test(entry.dailyToken) ||
+    !Number.isSafeInteger(entry.collectedAt) || Number(entry.collectedAt) < 0 ||
+    !entry.observations || typeof entry.observations !== "object" ||
+    Array.isArray(entry.observations) ||
+    Object.keys(entry.observations).length !== RELAY_PREVIEW_ENDPOINTS.length) return false;
+  return RELAY_PREVIEW_ENDPOINTS.every((endpoint) => {
+    const outcomes = entry.observations?.[endpoint];
+    return outcomes && typeof outcomes === "object" && !Array.isArray(outcomes) &&
+      Object.keys(outcomes).length === RELAY_PREVIEW_OUTCOMES.length &&
+      RELAY_PREVIEW_OUTCOMES.every((outcome) =>
+        Number.isInteger(outcomes[outcome]) && outcomes[outcome] >= 0 &&
+        outcomes[outcome] <= RELAY_EVIDENCE_LIMITS.count
+      );
+  });
 }
 
 async function streamJson(stream: ReadableStream<Uint8Array>): Promise<unknown> {

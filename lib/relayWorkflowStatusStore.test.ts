@@ -30,6 +30,25 @@ const envelope: RelayWorkflowStatusEnvelope = {
   }],
 };
 
+function previewEntry(dailyToken: string) {
+  return {
+    dailyToken,
+    collectedAt: envelope.collectedAt,
+    observations: {
+      "thread-html": { "snapshot-hit": 0, "relay-fallback": 0, missing: 0 },
+      "thread-card": { "snapshot-hit": 0, "relay-fallback": 0, missing: 0 },
+    },
+  };
+}
+
+function blobControl(state: unknown, etag = "etag") {
+  return {
+    statusCode: 200,
+    stream: new Response(JSON.stringify(state)).body,
+    blob: { etag },
+  };
+}
+
 describe("VercelBlobRelayWorkflowStatusStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,11 +80,81 @@ describe("VercelBlobRelayWorkflowStatusStore", () => {
       expect.any(String),
       expect.objectContaining({ access: "private", allowOverwrite: false }),
     );
-    expect(JSON.parse(blob.put.mock.calls[0][1])).toMatchObject({
-      previewSample: [{ correlation: envelope.correlations[0] }],
+    const firstControl = JSON.parse(blob.put.mock.calls[0][1]);
+    expect(firstControl).toMatchObject({
+      previewSample: [{
+        dailyToken: "abcdefghijklmnop",
+        observations: { "thread-html": { "snapshot-hit": 1 } },
+      }],
       previewOverflow: 0,
     });
     expect(blob.put).toHaveBeenCalledTimes(1);
+
+    blob.get.mockResolvedValue(blobControl(firstControl, "first"));
+    await expect(new VercelBlobRelayWorkflowStatusStore().reserve({
+      source: "wired-server",
+      day: "2026-07-16",
+      minute: "2026-07-16T10:00",
+      previewCandidates: [{
+        correlation: {
+          ...envelope.correlations[0],
+          endpoint: "thread-card",
+          outcome: "relay-fallback",
+        },
+        collectedAt: envelope.collectedAt + 1,
+        sample: 0.5,
+      }],
+    }, {
+      requestsPerSourcePerMinute: 60,
+      rowsPerSourcePerDay: 1_000,
+      previewKeysPerDay: 1_000,
+    })).resolves.toBe("accepted");
+    expect(JSON.parse(blob.put.mock.calls[1][1])).toMatchObject({
+      previewSample: [{
+        dailyToken: "abcdefghijklmnop",
+        observations: {
+          "thread-html": { "snapshot-hit": 1 },
+          "thread-card": { "relay-fallback": 1 },
+        },
+      }],
+    });
+  });
+
+  it("samples before the production aggregate-row cap and durably counts overflow", async () => {
+    const previewSample = Array.from({ length: 1_000 }, (_, index) => ({
+      ...previewEntry(index.toString(36).padStart(16, "0")),
+      observations: {
+        ...previewEntry("unused0000000000").observations,
+        "thread-html": { "snapshot-hit": 1, "relay-fallback": 0, missing: 0 },
+      },
+    }));
+    blob.get.mockResolvedValue(blobControl({
+      rows: 1_000,
+      minute: "2026-07-16T10:00",
+      minuteRequests: 0,
+      previewSample,
+      previewKeysSeen: 1_000,
+      previewOverflow: 0,
+    }));
+
+    await expect(new VercelBlobRelayWorkflowStatusStore().reserve({
+      source: "wired-server",
+      day: "2026-07-16",
+      minute: "2026-07-16T10:00",
+      previewCandidates: [{
+        correlation: { ...envelope.correlations[0], dailyToken: "zzzzzzzzzzzzzzzz" },
+        collectedAt: envelope.collectedAt,
+        sample: 0.999999,
+      }],
+    }, {
+      requestsPerSourcePerMinute: 60,
+      rowsPerSourcePerDay: 1_000,
+      previewKeysPerDay: 1_000,
+    })).resolves.toBe("preview-sampled-out");
+
+    const next = JSON.parse(blob.put.mock.calls[0][1]);
+    expect(next.previewSample).toHaveLength(1_000);
+    expect(next.previewOverflow).toBe(1);
   });
 
   it("appends aggregate envelopes as immutable private rows", async () => {

@@ -73,8 +73,8 @@ describe("RelayWorkflowStatusIngestService", () => {
     await expect(keys.ingest(correlation("bbbbbbbbbbbbbbbb"))).resolves.toBe("preview-sampled-out");
     expect(keys.status.previewOverflow).toBe(1);
     expect(keyStore.previewOverflow("2026-07-16", "wired-server")).toBe(1);
-    expect(keyStore.rows.map((row) => row.envelope.correlations[0].dailyToken))
-      .toEqual(["aaaaaaaaaaaaaaaa"]);
+    expect(keyStore.previewSnapshot("2026-07-16", "wired-server")
+      .map((entry) => entry.dailyToken)).toEqual(["aaaaaaaaaaaaaaaa"]);
 
     const replacementStore = new MemoryRelayWorkflowStatusStore(() => NOW);
     const replacement = new RelayWorkflowStatusIngestService(
@@ -83,37 +83,8 @@ describe("RelayWorkflowStatusIngestService", () => {
     );
     await expect(replacement.ingest(correlation("aaaaaaaaaaaaaaaa"))).resolves.toBe("stored");
     await expect(replacement.ingest(correlation("bbbbbbbbbbbbbbbb"))).resolves.toBe("stored");
-    expect(replacementStore.rows.map((row) => row.envelope.correlations[0].dailyToken))
-      .toEqual(["bbbbbbbbbbbbbbbb"]);
-  });
-
-  it("keeps the production preview reservoir bounded before the aggregate row cap", async () => {
-    const store = new MemoryRelayWorkflowStatusStore(() => NOW);
-    const service = new RelayWorkflowStatusIngestService(store, {
-      now: () => NOW,
-      random: () => 0.999999,
-      limits: { requestsPerSourcePerMinute: 2_000 },
-    });
-    for (let index = 0; index < 1_001; index += 1) {
-      const dailyToken = index.toString(36).padStart(16, "0");
-      const result = await service.ingest({
-        schemaVersion: 1,
-        source: "wired-server",
-        collectedAt: NOW,
-        aggregates: [],
-        correlations: [{
-          workflowOwner: "wired.server.preview",
-          endpoint: "thread-html",
-          outcome: "relay-fallback",
-          dailyToken,
-        }],
-      });
-      expect(result).toBe(index < 1_000 ? "stored" : "preview-sampled-out");
-    }
-    expect(store.rows).toHaveLength(1_000);
-    expect(new Set(store.rows.map((row) => row.envelope.correlations[0].dailyToken)).size)
-      .toBe(1_000);
-    expect(store.previewOverflow("2026-07-16", "wired-server")).toBe(1);
+    expect(replacementStore.previewSnapshot("2026-07-16", "wired-server")
+      .map((entry) => entry.dailyToken)).toEqual(["bbbbbbbbbbbbbbbb"]);
   });
 
   it("deletes rows at the 14-day retention boundary", async () => {

@@ -47,9 +47,10 @@ describe("preview correlation", () => {
     observer({ eventId: EVENT_ID, outcome: "relay-fallback" });
     await Promise.all(deferred);
 
-    expect(store.rows).toHaveLength(1);
-    expect(JSON.stringify(store.rows[0])).not.toContain(EVENT_ID);
-    expect(JSON.stringify(store.rows[0])).not.toContain(SECRET);
+    const sample = store.previewSnapshot("2026-07-16", "wired-server");
+    expect(sample).toHaveLength(1);
+    expect(JSON.stringify(sample[0])).not.toContain(EVENT_ID);
+    expect(JSON.stringify(sample[0])).not.toContain(SECRET);
 
     const failedDefer = createPreviewResolutionObserver({
       endpoint: "thread-card",

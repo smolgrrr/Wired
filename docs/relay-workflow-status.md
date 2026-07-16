@@ -6,7 +6,7 @@ Relay workflow status is bounded client-observed evidence. It does not measure p
 
 The v1 ingest accepts only fixed aggregate owner/operation/outcome buckets and optional 96-bit daily preview-correlation tokens. Event content, event IDs, pubkeys, relay URLs, secrets, and arbitrary labels fail validation. Envelopes are limited to 32 KiB and 100 aggregates, or one correlation observation.
 
-Accepted aggregate envelopes are immutable JSON objects in a **private** Vercel Blob store under `relay-workflow-status/v1/data/`. Preview correlations are kept only in the conditional control object as the actual bounded reservoir; replacing a sample does not leave an older correlation row behind. The same object holds the durable bounded preview-overflow counter and enforces limits across instances:
+Accepted aggregate envelopes are immutable JSON objects in a **private** Vercel Blob store under `relay-workflow-status/v1/data/`. Preview correlations are kept only in the conditional control object as the actual bounded reservoir. Each sampled token has a fixed 2-endpoint × 3-outcome counter matrix, so HTML/card observations survive without unbounded rows; replacing a sample leaves no older correlation row behind. The same object holds the durable bounded preview-overflow counter and enforces limits across instances:
 
 - 60 envelopes per source per minute;
 - 1,000 immutable aggregate rows per source per UTC day;
