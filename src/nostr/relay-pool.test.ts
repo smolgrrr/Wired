@@ -16,6 +16,7 @@ function relay(url: string) {
     url,
     connected: true,
     onclose: null as (() => void) | null,
+    close: vi.fn(),
     subscribe: vi.fn(),
     publish: vi.fn(),
   };
@@ -47,6 +48,25 @@ describe("RelayPool", () => {
     await connected;
 
     expect(pool.connectedUrls).toEqual(["wss://fast.example"]);
+  });
+
+  it("closes a legacy connection that arrives after its connect timeout", async () => {
+    vi.useFakeTimers();
+    const pool = new RelayPool();
+    const lateRelay = relay("wss://late.example");
+    let resolveConnection: ((value: typeof lateRelay) => void) | undefined;
+    mocks.connect.mockReturnValue(new Promise((resolve) => {
+      resolveConnection = resolve;
+    }));
+
+    const connecting = pool.ensureConnected([lateRelay.url]);
+    await vi.advanceTimersByTimeAsync(4_000);
+    await connecting;
+    resolveConnection?.(lateRelay);
+    await Promise.resolve();
+
+    expect(lateRelay.close).toHaveBeenCalledOnce();
+    expect(pool.connectedUrls).toEqual([]);
   });
 
   it("settles open subscriptions and removes a terminal relay", async () => {

@@ -55,6 +55,43 @@ describe("RelayWorkflowCollector", () => {
     expect(collector.snapshot()).toEqual([]);
   });
 
+  it("adds late cleanup without creating another operation sample", () => {
+    const collector = new RelayWorkflowCollector();
+    const timedOut = {
+      ...validRelayWorkflowEvidence.query,
+      outcome: "timed-out" as const,
+      work: { attempts: 1, targets: 1 },
+      terminal: {
+        eose: 0,
+        closed: 0,
+        connectFailed: 0,
+        timedOut: 1,
+        cancelled: 0,
+      },
+      timingMs: { firstResult: null, completion: 25 },
+    };
+    collector.record(timedOut);
+    collector.recordLateConnectionClosed({
+      workflowOwner: timedOut.workflowOwner,
+      operation: "query",
+      outcome: "timed-out",
+    });
+
+    const [aggregate] = collector.snapshot();
+    expect(aggregate).toMatchObject({
+      samples: 1,
+      totals: expect.objectContaining({
+        attempts: 1,
+        targets: 1,
+        timedOut: 1,
+        connectionsOpened: 3,
+        connectionsClosed: 3,
+        lateConnectionsClosed: 1,
+      }),
+      completionMs: { "25": 1 },
+    });
+  });
+
   it("isolates change callback failures", () => {
     const collector = new RelayWorkflowCollector({
       onChange() { throw new Error("scheduler unavailable"); },
