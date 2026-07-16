@@ -26,6 +26,10 @@ import type { MediaItem } from "../lib/mediaUtils";
 const MediaModerationContext = createContext<MediaModerationClient | null>(null);
 const COHORT_STORAGE_KEY = "wiredMediaModerationCohort";
 
+function hasContentWarning(event: Event): boolean {
+  return event.tags.some((tag) => tag[0] === "content-warning");
+}
+
 function selectedForMediaModerationCohort(): boolean {
   if (MEDIA_MODERATION_COHORT_PERCENT >= 100) return true;
   if (MEDIA_MODERATION_COHORT_PERCENT <= 0) return false;
@@ -126,5 +130,23 @@ export function useMediaModeration(event: Event, items: MediaItem[]) {
   const blocked = [...verdicts.values()].some(
     (verdict) => verdict.enforced && verdict.status === "blocked",
   );
-  return { blocked, verdicts };
+  const eventRequiresReview = hasContentWarning(event) || [...verdicts.values()].some(
+    (verdict) => verdict.enforced && verdict.status === "review-required",
+  );
+  const presentationVerdicts = useMemo(() => {
+    if (!eventRequiresReview) return verdicts;
+    const reason = hasContentWarning(event)
+      ? "event_content_warning"
+      : "event_attachment_review_required";
+    return new Map(
+      [...verdicts].map(([url, verdict]) => [
+        url,
+        verdict.enforced && verdict.status !== "blocked"
+          ? { ...verdict, status: "review-required" as const, reason }
+          : verdict,
+      ]),
+    );
+  }, [event, eventRequiresReview, verdicts]);
+
+  return { blocked, verdicts: presentationVerdicts };
 }
