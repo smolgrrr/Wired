@@ -59,7 +59,12 @@ export type { FeedBootstrapSnapshot };
 export type FeedSnapshotOptions = {
   ageHours?: number;
   filterDifficulty?: number;
-  relayUrls?: readonly string[];
+  relayCoverage?: {
+    snapshot: readonly string[];
+    pow: readonly string[];
+    replies: readonly string[];
+    profiles: readonly string[];
+  };
   timeoutMs?: number;
 };
 
@@ -561,10 +566,10 @@ export async function fetchFeedSnapshot(
   const ageHours = options.ageHours ?? BOOTSTRAP_AGE_HOURS;
   const filterDifficulty = options.filterDifficulty ?? BOOTSTRAP_FILTER_DIFFICULTY;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const snapshotRelayUrls = options.relayUrls ?? FEED_SNAPSHOT_RELAYS;
-  const powRelayUrls = options.relayUrls ?? POW_RELAYS;
-  const replyRelayUrls = options.relayUrls ?? REPLY_RELAYS;
-  const profileRelayUrls = options.relayUrls ?? PROFILE_RELAYS;
+  const snapshotRelayUrls = options.relayCoverage?.snapshot ?? FEED_SNAPSHOT_RELAYS;
+  const powRelayUrls = options.relayCoverage?.pow ?? POW_RELAYS;
+  const replyRelayUrls = options.relayCoverage?.replies ?? REPLY_RELAYS;
+  const profileRelayUrls = options.relayCoverage?.profiles ?? PROFILE_RELAYS;
 
   const feedBatch = await fetchGlobalFeedEvents(
     ageHours,

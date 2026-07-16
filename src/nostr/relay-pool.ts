@@ -11,6 +11,7 @@ export type SubscribeOptions = {
 
 export class RelayPool {
   private readonly relays = new Map<string, Relay>();
+  private readonly subscriptionsByRelay = new Map<string, Set<Subscription>>();
   private defaultRelayUrls = new Set<string>();
   private readonly inFlightPublishes = new Map<string, Promise<Set<string>>>();
 
@@ -50,9 +51,11 @@ export class RelayPool {
         if (this.relays.get(url) !== relay) return;
         this.relays.delete(url);
         // A terminal relay cannot deliver more events. Count its open subscriptions
-        // as EOSE before nostr-tools closes them so aggregate traversals can continue
-        // immediately and their library EOSE timers are cleared.
-        [...relay.openSubs.values()].forEach((subscription) => {
+        // as EOSE so aggregate traversals can continue immediately and their
+        // library EOSE timers are cleared.
+        const subscriptions = this.subscriptionsByRelay.get(url) ?? [];
+        this.subscriptionsByRelay.delete(url);
+        [...subscriptions].forEach((subscription) => {
           subscription.receivedEose();
         });
       };
@@ -88,7 +91,18 @@ export class RelayPool {
         onevent(event) {
           cb(event, relay.url);
         },
+        onclose: () => {
+          const tracked = this.subscriptionsByRelay.get(url);
+          tracked?.delete(sub);
+          if (tracked?.size === 0) {
+            this.subscriptionsByRelay.delete(url);
+          }
+        },
       });
+
+      const tracked = this.subscriptionsByRelay.get(url) ?? new Set<Subscription>();
+      tracked.add(sub);
+      this.subscriptionsByRelay.set(url, tracked);
 
       if (closeOnEose || onEose) {
         sub.oneose = () => handleEose(sub);

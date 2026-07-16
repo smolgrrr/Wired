@@ -83,7 +83,12 @@ describe("server feed snapshot relay transcript", () => {
       fetchSnapshot: () => fetchFeedSnapshot({
         ageHours: 24,
         filterDifficulty: 0,
-        relayUrls,
+        relayCoverage: {
+          snapshot: relayUrls,
+          pow: relayUrls,
+          replies: relayUrls,
+          profiles: relayUrls,
+        },
         timeoutMs: 1_000,
       }),
     });
@@ -229,7 +234,12 @@ describe("server feed snapshot relay transcript", () => {
     const snapshot = await fetchFeedSnapshot({
       ageHours: 24,
       filterDifficulty: 0,
-      relayUrls: harnesses.map((harness) => harness.url),
+      relayCoverage: {
+        snapshot: harnesses.map((harness) => harness.url),
+        pow: harnesses.map((harness) => harness.url),
+        replies: harnesses.map((harness) => harness.url),
+        profiles: harnesses.map((harness) => harness.url),
+      },
       timeoutMs: 50,
     });
     workflow.complete();
@@ -299,7 +309,12 @@ describe("server feed snapshot relay transcript", () => {
     const snapshot = await fetchFeedSnapshot({
       ageHours: 24,
       filterDifficulty: 0,
-      relayUrls,
+      relayCoverage: {
+        snapshot: relayUrls,
+        pow: relayUrls,
+        replies: relayUrls,
+        profiles: relayUrls,
+      },
       timeoutMs: 1_000,
     });
     await session.waitFor((entries) =>

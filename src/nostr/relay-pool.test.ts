@@ -16,7 +16,6 @@ function relay(url: string) {
     url,
     connected: true,
     onclose: null as (() => void) | null,
-    openSubs: new Map(),
     subscribe: vi.fn(),
     publish: vi.fn(),
   };
@@ -57,12 +56,15 @@ describe("RelayPool", () => {
       receivedEose: vi.fn(),
       close: vi.fn(),
       oneose: undefined as (() => void) | undefined,
+      onclose: undefined as ((reason: string) => void) | undefined,
     };
-    connectedRelay.openSubs.set("sub", subscription);
-    connectedRelay.subscribe.mockReturnValue(subscription);
+    connectedRelay.subscribe.mockImplementation((_filters, params) => {
+      subscription.onclose = params.onclose;
+      return subscription;
+    });
     mocks.connect.mockResolvedValue(connectedRelay);
 
-    await pool.ensureConnected([connectedRelay.url]);
+    await pool.connect([connectedRelay.url]);
     pool.subscribe({ kinds: [1] }, vi.fn(), { onEose: vi.fn() });
     connectedRelay.onclose?.();
 
