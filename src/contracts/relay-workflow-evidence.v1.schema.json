@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wired:relay-workflow-evidence:v1",
+  "title": "Relay workflow evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "workflowOwner",
+    "operation",
+    "outcome",
+    "work",
+    "connections",
+    "relay",
+    "results",
+    "terminal",
+    "publishing",
+    "timingMs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "workflowOwner": {
+      "enum": [
+        "wired.browser.thread",
+        "wired.browser.feed",
+        "wired.browser.notifications",
+        "wired.browser.quotes",
+        "wired.browser.profiles",
+        "wired.browser.publish",
+        "wired.server.preview",
+        "wired.server.feed-snapshot",
+        "wired-admin.server.feed-snapshot",
+        "wired-admin.server.wired-account-publish",
+        "wired-admin.server.confession-publish",
+        "wired-admin.server.revenue-receipt-publish",
+        "wired-admin.server.revenue-profile-publish",
+        "wired-admin.relay-gateway"
+      ]
+    },
+    "operation": {
+      "enum": [
+        "query",
+        "publish"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "completed",
+        "partial",
+        "timed-out",
+        "cancelled",
+        "failed"
+      ],
+      "description": "Derived by the v1 outcome precedence conformance cases."
+    },
+    "work": {
+      "$ref": "#/$defs/work"
+    },
+    "connections": {
+      "$ref": "#/$defs/connections"
+    },
+    "relay": {
+      "$ref": "#/$defs/relay"
+    },
+    "results": {
+      "$ref": "#/$defs/results"
+    },
+    "terminal": {
+      "$ref": "#/$defs/terminal"
+    },
+    "publishing": {
+      "$ref": "#/$defs/publishing"
+    },
+    "timingMs": {
+      "$ref": "#/$defs/timingMs"
+    }
+  },
+  "$defs": {
+    "work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempts",
+        "targets"
+      ],
+      "properties": {
+        "attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "targets": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "connections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opened",
+        "closed",
+        "reused",
+        "lateClosed"
+      ],
+      "properties": {
+        "opened": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "closed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "reused": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "lateClosed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "relay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestsSent",
+        "eventsPublished",
+        "eventsReceived",
+        "requestBytes",
+        "eventBytesSent",
+        "eventBytesReceived"
+      ],
+      "properties": {
+        "requestsSent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "eventsPublished": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "eventsReceived": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "requestBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "eventBytesSent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "eventBytesReceived": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unique",
+        "duplicates",
+        "coalescedOperations"
+      ],
+      "properties": {
+        "unique": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "duplicates": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "coalescedOperations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eose",
+        "closed",
+        "connectFailed",
+        "timedOut",
+        "cancelled"
+      ],
+      "properties": {
+        "eose": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "closed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "connectFailed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "timedOut": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "cancelled": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "publishing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptedCountBucket",
+        "rejected",
+        "ownerRetries"
+      ],
+      "properties": {
+        "acceptedCountBucket": {
+          "enum": [
+            "none",
+            "one",
+            "multiple",
+            "all"
+          ],
+          "description": "none for zero; otherwise all wins before one or multiple."
+        },
+        "rejected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "ownerRetries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "timingMs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firstResult",
+        "completion"
+      ],
+      "properties": {
+        "firstResult": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3600000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,445 @@
+{
+  "valid": [
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired-admin.server.wired-account-publish",
+      "operation": "publish",
+      "outcome": "partial",
+      "work": {
+        "attempts": 1,
+        "targets": 3
+      },
+      "connections": {
+        "opened": 3,
+        "closed": 3,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 0,
+        "eventsPublished": 3,
+        "eventsReceived": 0,
+        "requestBytes": 0,
+        "eventBytesSent": 1110,
+        "eventBytesReceived": 0
+      },
+      "results": {
+        "unique": 0,
+        "duplicates": 0,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 0,
+        "closed": 3,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "multiple",
+        "rejected": 1,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": null,
+        "completion": 21
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      },
+      "eventContent": "forbidden"
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      },
+      "eventId": "forbidden"
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      },
+      "pubkey": "forbidden"
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      },
+      "relayUrl": "wss://forbidden.example"
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "unbounded.owner",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 1000001
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "workflowOwner": "wired.browser.thread",
+      "operation": "query",
+      "outcome": "completed",
+      "work": {
+        "attempts": 1,
+        "targets": 2
+      },
+      "connections": {
+        "opened": 2,
+        "closed": 2,
+        "reused": 0,
+        "lateClosed": 0
+      },
+      "relay": {
+        "requestsSent": 4,
+        "eventsPublished": 0,
+        "eventsReceived": 6,
+        "requestBytes": 512,
+        "eventBytesSent": 0,
+        "eventBytesReceived": 2048,
+        "labels": [
+          "unbounded"
+        ]
+      },
+      "results": {
+        "unique": 3,
+        "duplicates": 3,
+        "coalescedOperations": 0
+      },
+      "terminal": {
+        "eose": 4,
+        "closed": 0,
+        "connectFailed": 0,
+        "timedOut": 0,
+        "cancelled": 0
+      },
+      "publishing": {
+        "acceptedCountBucket": "none",
+        "rejected": 0,
+        "ownerRetries": 0
+      },
+      "timingMs": {
+        "firstResult": 8,
+        "completion": 31
+      }
+    }
+  ],
+  "acceptedCountBucketCases": [
+    { "accepted": 0, "targets": 0, "expected": "none" },
+    { "accepted": 0, "targets": 3, "expected": "none" },
+    { "accepted": 1, "targets": 1, "expected": "all" },
+    { "accepted": 1, "targets": 3, "expected": "one" },
+    { "accepted": 2, "targets": 3, "expected": "multiple" },
+    { "accepted": 3, "targets": 3, "expected": "all" }
+  ],
+  "invalidAcceptedCountBucketCases": [
+    { "accepted": 2, "targets": 1 },
+    { "accepted": -1, "targets": 1 },
+    { "accepted": 0.5, "targets": 1 }
+  ],
+  "outcomeCases": [
+    { "targets": 0, "successfulTargets": 0, "timedOut": 0, "cancelled": 0, "expected": "completed" },
+    { "targets": 2, "successfulTargets": 2, "timedOut": 0, "cancelled": 0, "expected": "completed" },
+    { "targets": 2, "successfulTargets": 1, "timedOut": 1, "cancelled": 0, "expected": "partial" },
+    { "targets": 2, "successfulTargets": 0, "timedOut": 1, "cancelled": 0, "expected": "timed-out" },
+    { "targets": 2, "successfulTargets": 0, "timedOut": 0, "cancelled": 0, "expected": "failed" },
+    { "targets": 2, "successfulTargets": 0, "timedOut": 1, "cancelled": 1, "expected": "cancelled" }
+  ],
+  "invalidOutcomeCases": [
+    { "targets": 1, "successfulTargets": 1, "timedOut": 1, "cancelled": 0 },
+    { "targets": 0, "successfulTargets": 0, "timedOut": 0, "cancelled": 1 },
+    { "targets": 1, "successfulTargets": 2, "timedOut": 0, "cancelled": 0 },
+    { "targets": 1, "successfulTargets": -1, "timedOut": 0, "cancelled": 0 }
+  ]
+}
