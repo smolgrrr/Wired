@@ -104,3 +104,34 @@ export const REVENUE_API_BASE = (
 )
   .trim()
   .replace(/\/+$/, "");
+
+export const MEDIA_MODERATION_API_BASE = (
+  configuredEnv("VITE_MEDIA_MODERATION_API_BASE") || WIRED_ACCOUNT_API_BASE
+)
+  .trim()
+  .replace(/\/+$/, "");
+
+const configuredMediaModerationMode = (
+  configuredEnv("VITE_MEDIA_MODERATION_MODE") || "off"
+).toLowerCase();
+
+export const MEDIA_MODERATION_MODE =
+  configuredMediaModerationMode === "shadow" ||
+  configuredMediaModerationMode === "enforce"
+    ? configuredMediaModerationMode
+    : "off";
+
+export const MEDIA_MODERATION_SURFACES = new Set(
+  (configuredEnv("VITE_MEDIA_MODERATION_SURFACES") || "image,video")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value === "image" || value === "video"),
+);
+
+export const MEDIA_MODERATION_COHORT_PERCENT = Math.max(
+  0,
+  Math.min(
+    100,
+    Number(configuredEnv("VITE_MEDIA_MODERATION_COHORT_PERCENT") || 100) || 0,
+  ),
+);

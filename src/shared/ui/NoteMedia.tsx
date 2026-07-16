@@ -6,12 +6,30 @@ import {
   pickOptimizedWidth,
 } from "@lib/optimizedImageUrl";
 import { useInView } from "../hooks/useInView";
+import {
+  isMediaCovered,
+  type MediaPresentationVerdict,
+} from "../lib/mediaModeration";
 
 function MediaFallback() {
   return (
     <p className="text-meta text-muted py-2" role="status">
       signal lost
     </p>
+  );
+}
+
+function ModerationCover({ verdict }: { verdict: MediaPresentationVerdict }) {
+  const label = verdict.status === "pending" ? "checking media" : "media unavailable";
+  return (
+    <div
+      data-media-cover="true"
+      className="absolute inset-0 z-10 flex items-center justify-center rounded border border-ghost bg-surface text-meta text-muted"
+      role="status"
+      aria-label={label}
+    >
+      {label}
+    </div>
   );
 }
 
@@ -146,6 +164,7 @@ function MediaImage({
       loading={priority ? "eager" : "lazy"}
       {...(priority ? { fetchpriority: "high" } : {})}
       decoding="async"
+      referrerPolicy="no-referrer"
       onError={() => {
         onError();
         if (!isOptimized) setFailed(true);
@@ -166,12 +185,14 @@ function GridImage({
   hiddenCount = 0,
   fillHeight = false,
   priority = false,
+  verdict,
 }: {
   item: MediaItem;
   compact?: boolean;
   hiddenCount?: number;
   fillHeight?: boolean;
   priority?: boolean;
+  verdict?: MediaPresentationVerdict;
 }) {
   const [failed, setFailed] = useState(false);
   const maxWidth = compact ? 384 : 640;
@@ -202,6 +223,7 @@ function GridImage({
         loading={priority ? "eager" : "lazy"}
         {...(priority ? { fetchpriority: "high" } : {})}
         decoding="async"
+        referrerPolicy="no-referrer"
         onError={() => {
           onError();
           if (!isOptimized) setFailed(true);
@@ -219,6 +241,7 @@ function GridImage({
           +{hiddenCount}
         </div>
       )}
+      {isMediaCovered(verdict) && verdict && <ModerationCover verdict={verdict} />}
     </div>
   );
 }
@@ -358,19 +381,47 @@ export function MediaAttachment({
   item,
   compact,
   priority = false,
+  verdict,
 }: {
   item: MediaItem;
   compact?: boolean;
   priority?: boolean;
+  verdict?: MediaPresentationVerdict;
 }) {
+  const covered = isMediaCovered(verdict);
+  if (covered && item.type === "video" && verdict) {
+    return (
+      <div
+        className={videoWrapperClasses(getOrientation(item.width, item.height), compact)}
+        style={{ aspectRatio: aspectRatioFromDimensions(item.width, item.height) }}
+      >
+        <ModerationCover verdict={verdict} />
+      </div>
+    );
+  }
+
+  let media;
   switch (item.type) {
     case "image":
-      return <MediaImage item={item} compact={compact} priority={priority} />;
+      media = <MediaImage item={item} compact={compact} priority={priority} />;
+      break;
     case "video":
-      return <MediaVideo item={item} compact={compact} priority={priority} />;
+      media = <MediaVideo item={item} compact={compact} priority={priority} />;
+      break;
     case "audio":
       return <MediaAudio item={item} />;
   }
+
+  if (!covered || !verdict) return media;
+  return (
+    <div
+      className="relative overflow-hidden rounded"
+      style={{ aspectRatio: aspectRatioFromDimensions(item.width, item.height) }}
+    >
+      {media}
+      <ModerationCover verdict={verdict} />
+    </div>
+  );
 }
 
 export function MediaGrid({
@@ -378,19 +429,21 @@ export function MediaGrid({
   hiddenCount = 0,
   compact,
   priority = false,
+  verdicts,
 }: {
   items: MediaItem[];
   hiddenCount?: number;
   compact?: boolean;
   priority?: boolean;
+  verdicts?: ReadonlyMap<string, MediaPresentationVerdict>;
 }) {
   if (items.length === 0) return null;
 
   if (items.length === 2) {
     return (
       <div className="grid grid-cols-2 gap-3">
-        <GridImage item={items[0]} compact={compact} priority={priority} />
-        <GridImage item={items[1]} compact={compact} />
+        <GridImage item={items[0]} compact={compact} priority={priority} verdict={verdicts?.get(items[0].url)} />
+        <GridImage item={items[1]} compact={compact} verdict={verdicts?.get(items[1].url)} />
       </div>
     );
   }
@@ -399,29 +452,36 @@ export function MediaGrid({
     return (
       <div className="grid grid-cols-2 grid-rows-2 gap-3">
         <div className="row-span-2 min-h-0">
-          <GridImage item={items[0]} compact={compact} fillHeight priority={priority} />
+          <GridImage item={items[0]} compact={compact} fillHeight priority={priority} verdict={verdicts?.get(items[0].url)} />
         </div>
-        <GridImage item={items[1]} compact={compact} />
-        <GridImage item={items[2]} compact={compact} />
+        <GridImage item={items[1]} compact={compact} verdict={verdicts?.get(items[1].url)} />
+        <GridImage item={items[2]} compact={compact} verdict={verdicts?.get(items[2].url)} />
       </div>
     );
   }
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      <GridImage item={items[0]} compact={compact} priority={priority} />
-      <GridImage item={items[1]} compact={compact} />
-      <GridImage item={items[2]} compact={compact} />
+      <GridImage item={items[0]} compact={compact} priority={priority} verdict={verdicts?.get(items[0].url)} />
+      <GridImage item={items[1]} compact={compact} verdict={verdicts?.get(items[1].url)} />
+      <GridImage item={items[2]} compact={compact} verdict={verdicts?.get(items[2].url)} />
       <GridImage
         item={items[3]}
         compact={compact}
         hiddenCount={hiddenCount}
+        verdict={verdicts?.get(items[3].url)}
       />
     </div>
   );
 }
 
-export function NoteMedia({ items }: { items: MediaItem[] }) {
+export function NoteMedia({
+  items,
+  verdicts,
+}: {
+  items: MediaItem[];
+  verdicts?: ReadonlyMap<string, MediaPresentationVerdict>;
+}) {
   if (items.length === 0) return null;
 
   return (
@@ -430,7 +490,7 @@ export function NoteMedia({ items }: { items: MediaItem[] }) {
       aria-label={items.length > 1 ? `${items.length} attachments` : "attachment"}
     >
       {items.map((item) => (
-        <MediaAttachment key={item.url} item={item} />
+        <MediaAttachment key={item.url} item={item} verdict={verdicts?.get(item.url)} />
       ))}
     </div>
   );
