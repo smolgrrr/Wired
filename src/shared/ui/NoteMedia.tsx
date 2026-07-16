@@ -19,54 +19,24 @@ function MediaFallback() {
   );
 }
 
-function moderationCoverLabel(verdict: MediaPresentationVerdict): string {
-  switch (verdict.status) {
-    case "pending":
-      return "checking media";
-    case "review-required":
-      return "sensitive media";
-    case "unavailable":
-    case "stale":
-      return "media check unavailable";
-    default:
-      return "media unavailable";
-  }
-}
-
 function ModerationCover({
-  verdict,
   onReveal,
 }: {
-  verdict: MediaPresentationVerdict;
-  onReveal?: () => void;
+  onReveal: () => void;
 }) {
-  const label = moderationCoverLabel(verdict);
   const className =
     "absolute inset-0 z-10 flex items-center justify-center rounded border border-ghost bg-surface text-meta text-muted";
 
-  if (onReveal) {
-    return (
-      <button
-        type="button"
-        data-media-cover="true"
-        className={`${className} cursor-pointer`}
-        aria-label={`${label}; click to view`}
-        onClick={onReveal}
-      >
-        {label} · click to view
-      </button>
-    );
-  }
-
   return (
-    <div
+    <button
+      type="button"
       data-media-cover="true"
-      className={className}
-      role="status"
-      aria-label={label}
+      className={`${className} cursor-pointer`}
+      aria-label="sensitive media; click to view"
+      onClick={onReveal}
     >
-      {label}
-    </div>
+      sensitive media · click to view
+    </button>
   );
 }
 
@@ -281,10 +251,7 @@ function GridImage({
       )}
       {isMediaCovered(verdict) && revealedUrl !== item.url && verdict && (
         <ModerationCover
-          verdict={verdict}
-          onReveal={
-            verdict.status === "blocked" ? undefined : () => setRevealedUrl(item.url)
-          }
+          onReveal={() => setRevealedUrl(item.url)}
         />
       )}
     </div>
@@ -435,16 +402,14 @@ export function MediaAttachment({
 }) {
   const [revealedUrl, setRevealedUrl] = useState<string | null>(null);
   const covered = isMediaCovered(verdict) && revealedUrl !== item.url;
-  const onReveal = verdict?.status === "blocked"
-    ? undefined
-    : () => setRevealedUrl(item.url);
+  const onReveal = () => setRevealedUrl(item.url);
   if (covered && item.type === "video" && verdict) {
     return (
       <div
         className={videoWrapperClasses(getOrientation(item.width, item.height), compact)}
         style={{ aspectRatio: aspectRatioFromDimensions(item.width, item.height) }}
       >
-        <ModerationCover verdict={verdict} onReveal={onReveal} />
+        <ModerationCover onReveal={onReveal} />
       </div>
     );
   }
@@ -468,7 +433,7 @@ export function MediaAttachment({
       style={{ aspectRatio: aspectRatioFromDimensions(item.width, item.height) }}
     >
       {media}
-      <ModerationCover verdict={verdict} onReveal={onReveal} />
+      <ModerationCover onReveal={onReveal} />
     </div>
   );
 }

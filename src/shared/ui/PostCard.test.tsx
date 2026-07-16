@@ -266,7 +266,8 @@ describe("PostCard thread opening", () => {
       );
     });
     expect(container.querySelector("article")).not.toBeNull();
-    expect(container.querySelector("[data-media-cover='true']")).not.toBeNull();
+    expect(container.querySelector("img")).not.toBeNull();
+    expect(container.querySelector("[data-media-cover='true']")).toBeNull();
 
     await act(async () => {
       await client.waitForIdle();
