@@ -6,7 +6,9 @@ import {
   put,
 } from "@vercel/blob";
 import {
+  isRelayWorkflowStatusEnvelope,
   RELAY_WORKFLOW_STATUS_LIMITS,
+  type RelayPreviewCorrelation,
   type RelayWorkflowStatusEnvelope,
 } from "../src/contracts/relay-workflow-status.js";
 import { RELAY_EVIDENCE_LIMITS } from "../src/contracts/relay-workflow-evidence.js";
@@ -15,7 +17,11 @@ export type WorkflowStatusReservation = {
   source: RelayWorkflowStatusEnvelope["source"];
   day: string;
   minute: string;
-  previewCandidates: Array<{ token: string; sample: number }>;
+  previewCandidates: Array<{
+    correlation: RelayPreviewCorrelation;
+    collectedAt: number;
+    sample: number;
+  }>;
 };
 
 export type WorkflowStatusReservationResult =
@@ -40,12 +46,17 @@ export type RelayWorkflowStatusStore = {
 };
 
 type StoredRow = { envelope: RelayWorkflowStatusEnvelope; uploadedAt: number };
+type PreviewSampleEntry = {
+  correlation: RelayPreviewCorrelation;
+  collectedAt: number;
+};
 type ControlState = {
   rows: number;
   minute: string;
   minuteRequests: number;
-  previewTokens: string[];
+  previewSample: PreviewSampleEntry[];
   previewKeysSeen: number;
+  previewOverflow: number;
 };
 
 function nextControlState(
@@ -59,17 +70,29 @@ function nextControlState(
   if (minuteRequests >= limits.requestsPerSourcePerMinute) {
     return { result: "rate-limited", state: current };
   }
-  if (current.rows >= limits.rowsPerSourcePerDay) {
+  const isPreview = reservation.previewCandidates.length > 0;
+  if (!isPreview && current.rows >= limits.rowsPerSourcePerDay) {
     return { result: "daily-limit", state: current };
   }
-  const previewTokens = [...current.previewTokens];
+  const previewSample = structuredClone(current.previewSample);
   let previewKeysSeen = current.previewKeysSeen;
+  let previewOverflow = current.previewOverflow;
   let sampledOut = false;
   for (const candidate of reservation.previewCandidates) {
-    if (previewTokens.includes(candidate.token)) continue;
+    const existing = previewSample.findIndex((entry) =>
+      entry.correlation.dailyToken === candidate.correlation.dailyToken
+    );
+    const entry: PreviewSampleEntry = {
+      correlation: structuredClone(candidate.correlation),
+      collectedAt: candidate.collectedAt,
+    };
+    if (existing >= 0) {
+      previewSample[existing] = entry;
+      continue;
+    }
     previewKeysSeen = Math.min(RELAY_EVIDENCE_LIMITS.count, previewKeysSeen + 1);
-    if (previewTokens.length < limits.previewKeysPerDay) {
-      previewTokens.push(candidate.token);
+    if (previewSample.length < limits.previewKeysPerDay) {
+      previewSample.push(entry);
       continue;
     }
     const sample = Number.isFinite(candidate.sample)
@@ -77,19 +100,21 @@ function nextControlState(
       : 0.9999999999999999;
     const replacement = Math.floor(sample * previewKeysSeen);
     if (replacement < limits.previewKeysPerDay) {
-      previewTokens[replacement] = candidate.token;
+      previewSample[replacement] = entry;
     } else {
       sampledOut = true;
+      previewOverflow = Math.min(RELAY_EVIDENCE_LIMITS.count, previewOverflow + 1);
     }
   }
   return {
     result: sampledOut ? "preview-sampled-out" : "accepted",
     state: {
-      rows: current.rows + (sampledOut ? 0 : 1),
+      rows: current.rows + (!isPreview && !sampledOut ? 1 : 0),
       minute: reservation.minute,
       minuteRequests: minuteRequests + 1,
-      previewTokens,
+      previewSample,
       previewKeysSeen,
+      previewOverflow,
     },
   };
 }
@@ -98,8 +123,9 @@ const EMPTY_CONTROL: ControlState = {
   rows: 0,
   minute: "",
   minuteRequests: 0,
-  previewTokens: [],
+  previewSample: [],
   previewKeysSeen: 0,
+  previewOverflow: 0,
 };
 
 export class MemoryRelayWorkflowStatusStore implements RelayWorkflowStatusStore {
@@ -120,12 +146,35 @@ export class MemoryRelayWorkflowStatusStore implements RelayWorkflowStatusStore 
     );
     if (next.result === "accepted" || next.result === "preview-sampled-out") {
       this.controls.set(key, next.state);
+      if (reservation.previewCandidates.length > 0) {
+        const retained = this.rows.filter((row) =>
+          !(row.envelope.source === reservation.source &&
+            row.envelope.correlations.length > 0 &&
+            new Date(row.envelope.collectedAt).toISOString().slice(0, 10) === reservation.day)
+        );
+        const sampled = next.state.previewSample.map((entry) => ({
+          envelope: {
+            schemaVersion: 1 as const,
+            source: reservation.source,
+            collectedAt: entry.collectedAt,
+            aggregates: [],
+            correlations: [structuredClone(entry.correlation)],
+          },
+          uploadedAt: this.now(),
+        }));
+        this.rows.splice(0, this.rows.length, ...retained, ...sampled);
+      }
     }
     return next.result;
   }
 
   async append(envelope: RelayWorkflowStatusEnvelope): Promise<void> {
+    if (envelope.correlations.length > 0) return;
     this.rows.push({ envelope: structuredClone(envelope), uploadedAt: this.now() });
+  }
+
+  previewOverflow(day: string, source: WorkflowStatusReservation["source"]): number {
+    return this.controls.get(`${day}|${source}`)?.previewOverflow ?? 0;
   }
 
   async purgeBefore(cutoff: number): Promise<number> {
@@ -151,10 +200,19 @@ function isControlState(value: unknown): value is ControlState {
     Number.isInteger(state.minuteRequests) && Number(state.minuteRequests) >= 0 &&
     Number.isInteger(state.previewKeysSeen) && Number(state.previewKeysSeen) >= 0 &&
     Number(state.previewKeysSeen) <= RELAY_EVIDENCE_LIMITS.count &&
-    Array.isArray(state.previewTokens) &&
-    state.previewTokens.length <= RELAY_WORKFLOW_STATUS_LIMITS.previewKeysPerDay &&
-    state.previewTokens.every((token) =>
-      typeof token === "string" && /^[A-Za-z0-9_-]{16}$/.test(token)
+    Number.isInteger(state.previewOverflow) && Number(state.previewOverflow) >= 0 &&
+    Number(state.previewOverflow) <= RELAY_EVIDENCE_LIMITS.count &&
+    Array.isArray(state.previewSample) &&
+    state.previewSample.length <= RELAY_WORKFLOW_STATUS_LIMITS.previewKeysPerDay &&
+    state.previewSample.every((entry) =>
+      Boolean(entry) && typeof entry === "object" && !Array.isArray(entry) &&
+      isRelayWorkflowStatusEnvelope({
+        schemaVersion: 1,
+        source: "wired-server",
+        collectedAt: (entry as PreviewSampleEntry).collectedAt,
+        aggregates: [],
+        correlations: [(entry as PreviewSampleEntry).correlation],
+      })
     );
 }
 
@@ -201,6 +259,7 @@ export class VercelBlobRelayWorkflowStatusStore implements RelayWorkflowStatusSt
   }
 
   async append(envelope: RelayWorkflowStatusEnvelope, day: string): Promise<void> {
+    if (envelope.correlations.length > 0) return;
     await put(
       `${DATA_PREFIX}${day}/${envelope.source}/envelope.json`,
       JSON.stringify(envelope),

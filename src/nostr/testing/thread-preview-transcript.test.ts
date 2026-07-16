@@ -230,46 +230,43 @@ describe("thread preview relay transcript", () => {
         }),
       },
     ];
-    let p95: Record<string, number> = {};
-    let batches = 0;
-    for (; batches < 3; batches += 1) {
-      const latencies = new Map(variants.map((variant) => [variant.name, [] as number[]]));
-      for (let run = 0; run < 20; run += 1) {
-        for (const variant of variants) {
-          const workflow = session.beginWorkflow(
-            `preview-correlation-${batches}-${variant.name}-${run}`,
-          );
-          const preview = await resolveThreadPreview(root.id, {
-            origin: "https://wiredsignal.online",
-            fetchImpl: async () => new Response(null, { status: 404 }),
-            relayFallback: (eventId, relayHints) =>
-              fetchThreadEventsFromRelays(eventId, relayHints, {
-                configuredRelayUrls: [harness.url],
-              }),
-            ...(variant.onResolution ? { onResolution: variant.onResolution } : {}),
-          });
-          workflow.complete();
-          expect(preview).toMatchObject({ eventId: root.id, replyCount: 2 });
-          latencies.get(variant.name)!.push(session.summary(workflow).completionLatencyMs);
-        }
+    const resolveVariant = async (variant: (typeof variants)[number], label: string) => {
+      const workflow = session.beginWorkflow(`preview-correlation-${label}-${variant.name}`);
+      const preview = await resolveThreadPreview(root.id, {
+        origin: "https://wiredsignal.online",
+        fetchImpl: async () => new Response(null, { status: 404 }),
+        relayFallback: (eventId, relayHints) =>
+          fetchThreadEventsFromRelays(eventId, relayHints, {
+            configuredRelayUrls: [harness.url],
+          }),
+        ...(variant.onResolution ? { onResolution: variant.onResolution } : {}),
+      });
+      workflow.complete();
+      expect(preview).toMatchObject({ eventId: root.id, replyCount: 2 });
+      return session.summary(workflow).completionLatencyMs;
+    };
+    for (let warmup = 0; warmup < 5; warmup += 1) {
+      for (const variant of variants) await resolveVariant(variant, `warmup-${warmup}`);
+    }
+    const latencies = new Map(variants.map((variant) => [variant.name, [] as number[]]));
+    for (let run = 0; run < 20; run += 1) {
+      for (const variant of variants) {
+        latencies.get(variant.name)!.push(await resolveVariant(variant, `measured-${run}`));
       }
-      p95 = Object.fromEntries(
-        [...latencies].map(([name, samples]) => [name, summarizeSamples(samples).p95]),
-      );
-      if (p95.disabled <= 31 && p95.enabled <= 31 && p95.enabled <= p95.disabled + 3) break;
     }
     await Promise.all(deferred);
 
+    const p95 = Object.fromEntries(
+      [...latencies].map(([name, samples]) => [name, summarizeSamples(samples).p95]),
+    );
     expect(p95.disabled).toBeLessThanOrEqual(31);
     expect(p95.enabled).toBeLessThanOrEqual(31);
     expect(p95.enabled).toBeLessThanOrEqual(p95.disabled + 3);
-    const completedBatches = Math.min(batches + 1, 3);
-    expect(store.rows).toHaveLength(completedBatches * 20);
+    expect(store.rows).toHaveLength(1);
     if (process.env.RELAY_AUDIT_OUTPUT === "1") {
       console.info(JSON.stringify({
         scenario: "thread-preview-correlation-local-fixture",
         samplesPerVariant: 20,
-        completedBatches,
         completionP95Ms: p95,
       }));
     }

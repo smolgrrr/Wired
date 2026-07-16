@@ -102,7 +102,8 @@ export class RelayWorkflowStatusIngestService {
       day,
       minute: utcMinute(now),
       previewCandidates: value.correlations.map((entry) => ({
-        token: entry.dailyToken,
+        correlation: entry,
+        collectedAt: value.collectedAt,
         sample: this.random(),
       })),
     }, this.limits);
