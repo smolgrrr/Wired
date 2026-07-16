@@ -42,4 +42,6 @@ Browser writes require an exact `Origin` match with `WORKFLOW_STATUS_ALLOWED_ORI
 
 Disable browser export with `VITE_RELAY_WORKFLOW_STATUS_ENABLED=false` or percentage `0`. Disable preview correlation with `RELAY_WORKFLOW_PREVIEW_CORRELATION_ENABLED=false`. Disable ingest independently with `RELAY_WORKFLOW_STATUS_INGEST_ENABLED=false`. Any switch leaves relay/query/publish operations unchanged; exporter, network, Blob, or purge failures drop evidence only.
 
+Run `npm run test:relay-audit` as the isolated single-worker latency guard before rollout. It enforces the absolute preview p95 ceiling of 31 ms and reports paired enabled/disabled preview and publish measurements without parallel-suite contention.
+
 To delete a run, disable its exporter first, then delete the private objects under `relay-workflow-status/v1/` using the Vercel Blob dashboard or CLI. Re-enable only after access, caps, and the purge cron are confirmed.

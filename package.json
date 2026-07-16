@@ -23,6 +23,7 @@
     "snapshot:serve": "vite-node scripts/feed-snapshot-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:relay-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/thread-preview-transcript.test.ts src/nostr/testing/publish-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'keeps preview identity and p95 stable|keeps collection and export scheduling timing-equivalent'",
     "lint": "eslint src lib/feedBootstrapCache.ts api scripts vite.config.ts eslint.config.js"
   },
   "devDependencies": {
