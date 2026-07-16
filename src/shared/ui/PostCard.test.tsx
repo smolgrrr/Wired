@@ -276,4 +276,98 @@ describe("PostCard thread opening", () => {
     expect(container.querySelector("article")).toBeNull();
     client.close();
   });
+
+  it("covers every attachment when the note declares a content warning", async () => {
+    const warnedEvent = event({
+      tags: [["content-warning", "nsfw"]],
+      content: [
+        "https://example.com/one.jpg",
+        "https://example.com/two.jpg",
+      ].join("\n"),
+    });
+    const client = createMediaModerationClient({
+      baseUrl: "https://admin.example",
+      mode: "enforce",
+      batchDelayMs: 0,
+      fetcher: vi.fn(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          items: Array<{ requestId: string; url: string }>;
+        };
+        return new Response(JSON.stringify({
+          mode: "enforce",
+          policyVersion: "wired-media-v1",
+          verdicts: request.items.map((item) => ({
+            requestId: item.requestId,
+            eventId: warnedEvent.id,
+            url: item.url,
+            mediaType: "image",
+            status: "allowed",
+            reason: "model_allowed",
+            expiresAt: Date.now() + 60_000,
+          })),
+        }), { status: 200 });
+      }),
+    });
+
+    act(() => {
+      root.render(
+        <MediaModerationProvider client={client}>
+          <PostCard event={warnedEvent} replies={[]} totalWork={16} />
+        </MediaModerationProvider>,
+      );
+    });
+
+    expect(container.querySelectorAll("[data-media-cover='true']")).toHaveLength(2);
+    await act(async () => {
+      await client.waitForIdle();
+    });
+    expect(container.querySelectorAll("[data-media-cover='true']")).toHaveLength(2);
+    client.close();
+  });
+
+  it("covers every attachment when one attachment requires review", async () => {
+    const galleryEvent = event({
+      content: [
+        "https://example.com/allowed.jpg",
+        "https://example.com/risky.jpg",
+      ].join("\n"),
+    });
+    const client = createMediaModerationClient({
+      baseUrl: "https://admin.example",
+      mode: "enforce",
+      batchDelayMs: 0,
+      fetcher: vi.fn(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as {
+          items: Array<{ requestId: string; url: string }>;
+        };
+        return new Response(JSON.stringify({
+          mode: "enforce",
+          policyVersion: "wired-media-v1",
+          verdicts: request.items.map((item) => ({
+            requestId: item.requestId,
+            eventId: galleryEvent.id,
+            url: item.url,
+            mediaType: "image",
+            status: item.url.endsWith("risky.jpg") ? "review-required" : "allowed",
+            reason: "model_classification",
+            expiresAt: Date.now() + 60_000,
+          })),
+        }), { status: 200 });
+      }),
+    });
+
+    act(() => {
+      root.render(
+        <MediaModerationProvider client={client}>
+          <PostCard event={galleryEvent} replies={[]} totalWork={16} />
+        </MediaModerationProvider>,
+      );
+    });
+
+    await act(async () => {
+      await client.waitForIdle();
+    });
+    expect(container.querySelectorAll("[data-media-cover='true']")).toHaveLength(2);
+    client.close();
+  });
 });
