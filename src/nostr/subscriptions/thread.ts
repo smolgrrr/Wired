@@ -1,19 +1,28 @@
-import { getRegistry, THREAD_RELAYS } from "../client";
+import { getRegistry, startFiniteQuery, THREAD_RELAYS } from "../client";
+import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
-import { composeSubHandle } from "./utils";
+import { composeSubHandle, finiteQuerySubHandle } from "./utils";
 import { buildThreadReplyFilter } from "./query-limits";
 import { uniqueRelays } from "@lib/threadRefs";
+
+type ThreadSubscriptionOptions = {
+  configuredRelayUrls?: readonly string[];
+  hintedRelayUrls?: readonly string[];
+};
 
 export const subNote = (
   eventId: string,
   onEvent: SubCallback,
   relayHints: readonly string[] = [],
+  options: ThreadSubscriptionOptions = {},
 ): SubHandle => {
   const registry = getRegistry();
   const children: SubHandle[] = [];
   let replyHandle: SubHandle | null = null;
   const replies = new Set<string>([eventId]);
-  const relayUrls = uniqueRelays([...THREAD_RELAYS, ...relayHints]);
+  const configuredRelayUrls = options.configuredRelayUrls ?? THREAD_RELAYS;
+  const hintedRelayUrls = options.hintedRelayUrls ?? relayHints;
+  const relayUrls = uniqueRelays([...configuredRelayUrls, ...hintedRelayUrls]);
 
   const refreshReplySubscription = () => {
     const filter = buildThreadReplyFilter(Array.from(replies));
@@ -38,20 +47,21 @@ export const subNote = (
     ]);
   };
 
-  children.push(
-    registry.subscribe([
-      {
-        filter: {
-          ids: [eventId],
-          kinds: [1, 1068],
-          limit: 1,
-        },
-        relayUrls,
-        cb: onEvent,
-        closeOnEose: true,
-      },
-    ]),
-  );
+  const rootQuery = startFiniteQuery({
+    workflowOwner: "wired.browser.thread",
+    filters: [{
+      ids: [eventId],
+      kinds: [1, 1068],
+      limit: 1,
+    }],
+    coverage: {
+      configuredRelayUrls,
+      hintedRelayUrls,
+    },
+    completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+    onEvent,
+  });
+  children.push(finiteQuerySubHandle(`thread-root:${eventId}`, rootQuery));
 
   refreshReplySubscription();
 

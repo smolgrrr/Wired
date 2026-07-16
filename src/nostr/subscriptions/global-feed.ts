@@ -1,5 +1,7 @@
 import type { Event } from "nostr-tools";
-import { getRegistry } from "../client";
+import { POW_RELAYS } from "../../config";
+import { getRegistry, startFiniteQuery } from "../client";
+import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
 import {
   ROOT_RESOLUTION_DEPTH,
@@ -10,7 +12,7 @@ import {
   uniqueRelayUrls,
   type FeedRootRef,
 } from "../feed-candidates";
-import { createSubHandleOwner } from "./utils";
+import { createSubHandleOwner, finiteQuerySubHandle } from "./utils";
 import {
   buildReplyFilter,
   clampReplyDepth,
@@ -33,16 +35,17 @@ function uniqueRelays(relays: readonly string[]): string[] {
   return uniqueRelayUrls(relays);
 }
 
-function rootRelayUrls(
+function rootRelayCoverage(
   roots: Iterable<FeedRootRef>,
   fallbackRelays: readonly string[] | undefined,
-): string[] | undefined {
-  const relays = uniqueRelays([
-    ...(fallbackRelays ?? []),
-    ...[...roots].flatMap((ref) => ref.relays),
-  ]);
-
-  return relays.length > 0 ? relays : undefined;
+): {
+  configuredRelayUrls: readonly string[];
+  hintedRelayUrls: readonly string[];
+} {
+  return {
+    configuredRelayUrls: fallbackRelays ?? POW_RELAYS,
+    hintedRelayUrls: uniqueRelays([...roots].flatMap((ref) => ref.relays)),
+  };
 }
 
 function chunkItems<T>(items: readonly T[], size: number): T[][] {
@@ -187,32 +190,34 @@ class FeedRootFetch {
       nextRefs.set(ref.id, merged);
     };
 
-    this.owner.add(getRegistry().subscribe([
-      {
-        filter: {
-          ids,
-          kinds: [1],
-          limit: ids.length,
-        },
-        relayUrls: rootRelayUrls(chunk, this.fallbackRelayUrls),
-        cb: (evt, relay) => {
-          this.eventsById.set(evt.id.toLowerCase(), evt);
-          this.onEvent(evt, relay);
+    const query = startFiniteQuery({
+      workflowOwner: "wired.browser.feed",
+      filters: [{
+        ids,
+        kinds: [1],
+        limit: ids.length,
+      }],
+      coverage: rootRelayCoverage(chunk, this.fallbackRelayUrls),
+      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+      onEvent: (evt, relay) => {
+        this.eventsById.set(evt.id.toLowerCase(), evt);
+        this.onEvent(evt, relay);
 
-          const nextRef = resolveFeedRootRef(evt, this.eventsById);
-          if (nextRef?.id === evt.id.toLowerCase()) {
-            this.onRootEvents([evt]);
-            return;
-          }
+        const nextRef = resolveFeedRootRef(evt, this.eventsById);
+        if (nextRef?.id === evt.id.toLowerCase()) {
+          this.onRootEvents([evt]);
+          return;
+        }
 
-          if (nextRef) addNextRef(nextRef);
-        },
-        closeOnEose: true,
-        onEose: () => {
-          this.subscribeRootChunk(rootChunks, index + 1, nextRefs, depth);
-        },
+        if (nextRef) addNextRef(nextRef);
       },
-    ]));
+      onComplete: (completion) => {
+        if (completion.reason !== "cancelled") {
+          this.subscribeRootChunk(rootChunks, index + 1, nextRefs, depth);
+        }
+      },
+    });
+    this.owner.add(finiteQuerySubHandle(`feed-root-chunk:${index}`, query));
   }
 }
 
@@ -241,7 +246,6 @@ export const subGlobalFeed = (
   ageHours: number,
   options: GlobalFeedOptions = {},
 ): SubHandle => {
-  const registry = getRegistry();
   const owner = createSubHandleOwner("global-feed");
   const activityEvents: Event[] = [];
   const eventsById = new Map<string, Event>();
@@ -268,7 +272,7 @@ export const subGlobalFeed = (
   };
   const rootFetch = new FeedRootFetch(
     onEvent,
-    options.replyRelayUrls ?? options.rootRelayUrls,
+    options.replyRelayUrls ?? options.rootRelayUrls ?? POW_RELAYS,
     eventsById,
     startRepliesForRoots,
   );
@@ -276,36 +280,37 @@ export const subGlobalFeed = (
   owner.add(replies.handle);
   owner.add(rootFetch.handle);
 
-  owner.add(
-    registry.subscribe([
-      {
-        filter: {
-          kinds: [1],
-          since,
-          limit: 500,
-        },
-        relayUrls: options.rootRelayUrls
-          ? [...options.rootRelayUrls]
-          : undefined,
-        cb: (evt, relay) => {
-          eventsById.set(evt.id.toLowerCase(), evt);
-          activityEvents.push(evt);
-          onEvent(evt, relay);
-        },
-        closeOnEose: true,
-        onEose: () => {
-          options.onInitialEose?.();
-          const rootRefs = feedRootRefsFromQualifyingActivity(
-            activityEvents,
-            options.rootFilterDifficulty ?? 0,
-            eventsById,
-          );
-          activityEvents.length = 0;
-          rootFetch.start(rootRefs);
-        },
-      },
-    ]),
-  );
+  const activityQuery = startFiniteQuery({
+    workflowOwner: "wired.browser.feed",
+    filters: [{
+      kinds: [1],
+      since,
+      limit: 500,
+    }],
+    coverage: {
+      configuredRelayUrls: options.rootRelayUrls ?? POW_RELAYS,
+      hintedRelayUrls: [],
+    },
+    completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+    onEvent: (evt, relay) => {
+      eventsById.set(evt.id.toLowerCase(), evt);
+      activityEvents.push(evt);
+      onEvent(evt, relay);
+    },
+    onComplete: (completion) => {
+      if (completion.reason !== "cancelled") {
+        options.onInitialEose?.();
+        const rootRefs = feedRootRefsFromQualifyingActivity(
+          activityEvents,
+          options.rootFilterDifficulty ?? 0,
+          eventsById,
+        );
+        activityEvents.length = 0;
+        rootFetch.start(rootRefs);
+      }
+    },
+  });
+  owner.add(finiteQuerySubHandle("global-feed-activity", activityQuery));
 
   return owner.handle();
 };

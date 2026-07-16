@@ -112,7 +112,7 @@ describe("thread relay transcript", () => {
           initialContentLatencyMs = Date.now() - workflow.startedAt;
         }
         receivedIds.add(event.id);
-      }, relayUrls);
+      }, [], { configuredRelayUrls: relayUrls });
 
       await session.waitFor(() => receivedIds.has(nestedReply.id));
       handle.close();
