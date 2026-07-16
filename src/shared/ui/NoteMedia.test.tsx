@@ -376,6 +376,87 @@ describe("NoteMedia video previews", () => {
     expect(container.textContent).toContain("checking media");
   });
 
+  it("lets a user reveal an image when the moderation service is unavailable", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{ url: "https://example.com/unavailable.jpg", type: "image" }}
+          verdict={{
+            status: "unavailable",
+            reason: "verdict_api_unavailable",
+            enforced: true,
+          }}
+        />,
+      );
+    });
+
+    const reveal = container.querySelector<HTMLButtonElement>(
+      "[data-media-cover='true']",
+    );
+    expect(reveal).not.toBeNull();
+
+    act(() => reveal?.click());
+
+    expect(container.querySelector("[data-media-cover='true']")).toBeNull();
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/unavailable.jpg",
+    );
+  });
+
+  it("loads and reveals a pending video after the user clears its cover", () => {
+    act(() => {
+      root.render(
+        <MediaAttachment
+          item={{ url: "https://example.com/pending.mp4", type: "video" }}
+          verdict={{ status: "pending", reason: "analysis_queued", enforced: true }}
+        />,
+      );
+    });
+
+    const reveal = container.querySelector<HTMLButtonElement>(
+      "[data-media-cover='true']",
+    );
+    expect(container.querySelector("video")).toBeNull();
+
+    act(() => reveal?.click());
+
+    expect(container.querySelector("[data-media-cover='true']")).toBeNull();
+    expect(container.querySelector("video")?.getAttribute("src")).toBe(
+      "https://example.com/pending.mp4",
+    );
+  });
+
+  it("reveals only the selected image in a moderated image grid", () => {
+    const verdict: MediaPresentationVerdict = {
+      status: "pending",
+      reason: "analysis_queued",
+      enforced: true,
+    };
+    act(() => {
+      root.render(
+        <MediaGrid
+          items={[
+            { url: "https://example.com/one.jpg", type: "image" },
+            { url: "https://example.com/two.jpg", type: "image" },
+          ]}
+          verdicts={new Map([
+            ["https://example.com/one.jpg", verdict],
+            ["https://example.com/two.jpg", verdict],
+          ])}
+        />,
+      );
+    });
+
+    const covers = container.querySelectorAll<HTMLButtonElement>(
+      "[data-media-cover='true']",
+    );
+    expect(covers).toHaveLength(2);
+
+    act(() => covers[0]?.click());
+
+    expect(container.querySelectorAll("[data-media-cover='true']")).toHaveLength(1);
+  });
+
   it("does not assign a video source before an allowed verdict", () => {
     act(() => {
       root.render(
