@@ -176,4 +176,3 @@ export function workflowStatusRolloutEnabled(
   const bounded = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
   return sample >= 0 && sample < bounded / 100;
 }
-

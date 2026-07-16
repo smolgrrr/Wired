@@ -125,4 +125,3 @@ export function getDefaultRelayWorkflowStatusIngestService(): RelayWorkflowStatu
   );
   return defaultService;
 }
-
