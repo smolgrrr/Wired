@@ -300,6 +300,38 @@ describe("useSubmitForm", () => {
     expect(mocks.appendKey).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the compose state publishing until relay settlement is visible", async () => {
+    let settlePublish!: (accepted: Set<string>) => void;
+    mocks.publish.mockReturnValue(new Promise<Set<string>>((resolve) => {
+      settlePublish = resolve;
+    }));
+
+    act(() => {
+      root.render(<Probe onState={(nextState) => (state = nextState)} />);
+    });
+    await submitForm();
+    const startedAt = performance.now();
+
+    act(() => {
+      mockWorkers[0].emit({ type: "found", event: minedEvent });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(state.submitStatus).toBe("publishing");
+    expect(state.signedPoWEvent).toBeUndefined();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      settlePublish(new Set(["wss://relay.example"]));
+    });
+
+    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(20);
+    expect(state.submitStatus).toBe("published");
+    expect(state.acceptedRelays).toEqual(["wss://relay.example"]);
+    expect((state.signedPoWEvent as Event | undefined)?.content).toBe("test reply");
+  });
+
   it("enrolls a revenue-tagged browser event before relay publication", async () => {
     mocks.publish.mockResolvedValue(new Set<string>(["wss://relay.example"]));
 

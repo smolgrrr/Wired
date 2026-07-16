@@ -14,6 +14,8 @@ vi.mock("nostr-tools", () => ({
 function relay(url: string) {
   return {
     url,
+    connected: true,
+    onclose: null as (() => void) | null,
     subscribe: vi.fn(),
     publish: vi.fn(),
   };
@@ -45,5 +47,28 @@ describe("RelayPool", () => {
     await connected;
 
     expect(pool.connectedUrls).toEqual(["wss://fast.example"]);
+  });
+
+  it("settles open subscriptions and removes a terminal relay", async () => {
+    const pool = new RelayPool();
+    const connectedRelay = relay("wss://closed.example");
+    const subscription = {
+      receivedEose: vi.fn(),
+      close: vi.fn(),
+      oneose: undefined as (() => void) | undefined,
+      onclose: undefined as ((reason: string) => void) | undefined,
+    };
+    connectedRelay.subscribe.mockImplementation((_filters, params) => {
+      subscription.onclose = params.onclose;
+      return subscription;
+    });
+    mocks.connect.mockResolvedValue(connectedRelay);
+
+    await pool.connect([connectedRelay.url]);
+    pool.subscribe({ kinds: [1] }, vi.fn(), { onEose: vi.fn() });
+    connectedRelay.onclose?.();
+
+    expect(subscription.receivedEose).toHaveBeenCalledOnce();
+    expect(pool.connectedUrls).toEqual([]);
   });
 });

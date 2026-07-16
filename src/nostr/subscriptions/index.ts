@@ -44,12 +44,17 @@ export async function subProfilesOnce(
   pubkeys: string[],
   onEvent: SubCallback,
   onEose?: () => void,
+  options: { relayUrls?: readonly string[] } = {},
 ): Promise<SubHandle> {
   if (pubkeys.length === 0) {
     return emptySubHandle("profiles-once:empty");
   }
 
-  await initNostr();
+  if (options.relayUrls) {
+    await ensureRelaysConnected(options.relayUrls);
+  } else {
+    await initNostr();
+  }
 
   return getRegistry().subscribe([
     {
@@ -61,7 +66,7 @@ export async function subProfilesOnce(
       cb: onEvent,
       closeOnEose: true,
       onEose,
-      relayUrls: PROFILE_RELAYS,
+      relayUrls: options.relayUrls ?? PROFILE_RELAYS,
     },
   ]);
 }
@@ -70,17 +75,25 @@ function uniqueRelayUrls(relays: readonly string[]): string[] {
   return [...new Set(relays)];
 }
 
-function fallbackRelayUrlsForQuote(ref: QuotedRef): string[] {
-  return uniqueRelayUrls([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS, ...ref.relays]);
+function fallbackRelayUrlsForQuote(
+  fallbackRelayUrls: readonly string[] = [...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS],
+): string[] {
+  return uniqueRelayUrls(fallbackRelayUrls);
 }
 
-function extraRelayHintsForQuote(ref: QuotedRef): string[] {
-  const fallbackRelays = new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS]);
+function extraRelayHintsForQuote(
+  ref: QuotedRef,
+  fallbackRelayUrls: readonly string[] = [...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS],
+): string[] {
+  const fallbackRelays = new Set(fallbackRelayUrls);
   return uniqueRelayUrls(ref.relays.filter((relay) => !fallbackRelays.has(relay)));
 }
 
-function hasExtraRelayHints(ref: QuotedRef): boolean {
-  return extraRelayHintsForQuote(ref).length > 0;
+function hasExtraRelayHints(
+  ref: QuotedRef,
+  fallbackRelayUrls?: readonly string[],
+): boolean {
+  return extraRelayHintsForQuote(ref, fallbackRelayUrls).length > 0;
 }
 
 function quoteRequests(
@@ -107,15 +120,26 @@ export async function subQuotedEventsOnce(
   refs: QuotedRef[],
   onEvent: SubCallback,
   onEose?: (refId: string) => void,
+  options: { fallbackRelayUrls?: readonly string[] } = {},
 ): Promise<SubHandle> {
   if (refs.length === 0) {
     return emptySubHandle("quoted-events-once:empty");
   }
 
-  await initNostr();
+  const fallbackRelayUrls = options.fallbackRelayUrls ?? [
+    ...POW_RELAYS,
+    ...QUOTE_FALLBACK_RELAYS,
+  ];
+  if (options.fallbackRelayUrls) {
+    await ensureRelaysConnected(fallbackRelayUrls);
+  } else {
+    await initNostr();
+  }
 
   const owner = createSubHandleOwner("quoted-events-once");
-  const refsWithExtraHints = refs.filter(hasExtraRelayHints);
+  const refsWithExtraHints = refs.filter((ref) =>
+    hasExtraRelayHints(ref, fallbackRelayUrls)
+  );
 
   owner.add(
     getRegistry().subscribe(
@@ -123,21 +147,28 @@ export async function subQuotedEventsOnce(
         refs,
         onEvent,
         onEose,
-        fallbackRelayUrlsForQuote,
-        (ref) => !hasExtraRelayHints(ref),
+        () => fallbackRelayUrlsForQuote(fallbackRelayUrls),
+        (ref) => !hasExtraRelayHints(ref, fallbackRelayUrls),
       ),
     ),
   );
 
   if (refsWithExtraHints.length > 0) {
     const extraRelayHints = uniqueRelayUrls(
-      refsWithExtraHints.flatMap(extraRelayHintsForQuote),
+      refsWithExtraHints.flatMap((ref) =>
+        extraRelayHintsForQuote(ref, fallbackRelayUrls)
+      ),
     );
     void ensureRelaysConnected(extraRelayHints)
       .then(() => {
         owner.add(
           getRegistry().subscribe(
-            quoteRequests(refsWithExtraHints, onEvent, onEose, extraRelayHintsForQuote),
+            quoteRequests(
+              refsWithExtraHints,
+              onEvent,
+              onEose,
+              (ref) => extraRelayHintsForQuote(ref, fallbackRelayUrls),
+            ),
           ),
         );
       })

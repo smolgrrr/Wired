@@ -60,7 +60,7 @@ describe("subQuotedEventsOnce", () => {
       limit: 1,
     });
     expect(fallbackRequest.relayUrls).toEqual([
-      ...new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS, "wss://nostr.land"]),
+      ...new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
     ]);
     expect(fallbackRequest.onEose).toBeUndefined();
 
@@ -121,7 +121,6 @@ describe("subQuotedEventsOnce", () => {
       ...powRelays,
       ...defaultQuoteRelays,
       ...configuredQuoteRelays,
-      "wss://nostr.land",
     ]);
     expect(mocks.ensureRelaysConnected).toHaveBeenCalledWith(["wss://nostr.land"]);
   });

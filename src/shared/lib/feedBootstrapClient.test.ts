@@ -4,6 +4,7 @@ import {
   eventsFromSnapshot,
   feedBootstrapUrls,
   fetchFeedBootstrapSnapshot,
+  loadFeedBootstrapSnapshot,
   processedEventsFromSnapshot,
   relayHintsFromSnapshot,
   resetFeedBootstrapSnapshotCache,
@@ -293,5 +294,27 @@ describe("fetchFeedBootstrapSnapshot", () => {
     await expect(
       fetchFeedBootstrapSnapshot(fetcher, "https://snapshot.example/feed.json"),
     ).resolves.toBeNull();
+  });
+});
+
+describe("loadFeedBootstrapSnapshot", () => {
+  it("coalesces a cache miss and serves the subsequent cache hit without I/O", async () => {
+    resetFeedBootstrapSnapshotCache();
+    let resolveFetch: ((response: Response) => void) | undefined;
+    const fetcher = vi.fn(() => new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    }));
+
+    const first = loadFeedBootstrapSnapshot(fetcher, null);
+    const coalesced = loadFeedBootstrapSnapshot(fetcher, null);
+    expect(coalesced).toBe(first);
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    resolveFetch?.(new Response(JSON.stringify(snapshot()), {
+      headers: { "content-type": "application/json" },
+    }));
+    await expect(first).resolves.toEqual(snapshot());
+    await expect(loadFeedBootstrapSnapshot(fetcher, null)).resolves.toEqual(snapshot());
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 });
