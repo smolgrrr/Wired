@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   finalizeEvent,
   useWebSocketImplementation as configureWebSocketImplementation,
 } from "nostr-tools";
 import { WebSocket } from "ws";
 import { RelayPool } from "../relay-pool";
+import { RelayWorkflowCollector } from "../evidence/relay-workflow-collector";
 import {
   auditSampleCount,
   emitAuditMeasurement,
@@ -106,7 +107,8 @@ describe("browser publish relay transcript", () => {
       },
     });
     harnesses.push(rejectedRelay, disconnectedRelay);
-    const pool = new RelayPool();
+    const recorder = { record: vi.fn() };
+    const pool = new RelayPool({ workflowEvidence: recorder });
     await pool.connect([rejectedRelay.url, disconnectedRelay.url]);
     const workflow = session.beginWorkflow("browser-publish-reject-disconnect");
     expect(await pool.publish(event)).toEqual(new Set());
@@ -118,6 +120,13 @@ describe("browser publish relay transcript", () => {
       rejections: 1,
       relayFanout: 2,
     });
+    await vi.waitFor(() => expect(recorder.record).toHaveBeenCalledOnce());
+    expect(recorder.record).toHaveBeenCalledWith(expect.objectContaining({
+      connections: expect.objectContaining({ closed: 1 }),
+      terminal: expect.objectContaining({ closed: 1 }),
+      publishing: expect.objectContaining({ rejected: 1 }),
+      relay: expect.objectContaining({ eventsPublished: 1 }),
+    }));
   });
 
   it("does not complete an unacknowledged publish until the relay disconnects", async () => {
@@ -204,5 +213,57 @@ describe("browser publish relay transcript", () => {
       repeatedOperations: 1,
       relayFanout: 2,
     });
+  });
+
+  it("keeps disabled, enabled, full, and failing collection timing-equivalent", async () => {
+    const session = new RelayTranscriptSession();
+    const runHarnesses = [
+      await RelayTranscriptHarness.listen({
+        session,
+        onPublish(publish) { publish.acknowledge(true, "", 5); },
+      }),
+      await RelayTranscriptHarness.listen({
+        session,
+        onPublish(publish) { publish.acknowledge(false, "blocked", 5); },
+      }),
+    ];
+    harnesses.push(...runHarnesses);
+    const variants = [
+      { name: "disabled", recorder: undefined },
+      { name: "enabled", recorder: new RelayWorkflowCollector() },
+      { name: "full", recorder: new RelayWorkflowCollector({ counterLimit: 1 }) },
+      {
+        name: "failing",
+        recorder: { record() { throw new Error("unavailable"); } },
+      },
+    ];
+    const p95ByVariant = new Map<string, number>();
+
+    for (const variant of variants) {
+      const pool = new RelayPool({ workflowEvidence: variant.recorder });
+      await pool.connect(runHarnesses.map((harness) => harness.url));
+      const latencies: number[] = [];
+      for (let run = 0; run < 20; run += 1) {
+        const workflow = session.beginWorkflow(`${variant.name}-${run}`);
+        expect(await pool.publish(event)).toEqual(new Set([runHarnesses[0].url]));
+        workflow.complete();
+        latencies.push(session.summary(workflow).completionLatencyMs);
+      }
+      p95ByVariant.set(
+        variant.name,
+        summarizeSamples(latencies).p95,
+      );
+    }
+
+    const disabledP95 = p95ByVariant.get("disabled")!;
+    expect([...p95ByVariant.values()].every((p95) => p95 <= disabledP95 + 3))
+      .toBe(true);
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      console.info(JSON.stringify({
+        scenario: "wired-browser-publish-instrumentation-local-fixture",
+        samplesPerVariant: 20,
+        completionP95Ms: Object.fromEntries(p95ByVariant),
+      }));
+    }
   });
 });

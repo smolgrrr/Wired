@@ -6,20 +6,36 @@ import {
 } from "../config";
 import { RelayPool } from "./relay-pool";
 import { SubscriptionRegistry } from "./subscription-registry";
+import {
+  RelayWorkflowCollector,
+  type RelayWorkflowAggregate,
+} from "./evidence/relay-workflow-collector";
 
 export { THREAD_RELAYS } from "../config";
 
 let pool: RelayPool | null = null;
 let registry: SubscriptionRegistry | null = null;
 let connectPromise: Promise<void> | null = null;
+const workflowEvidence = new RelayWorkflowCollector();
 
 export const PROFILE_RELAYS = [...CONFIG_THREAD_RELAYS];
 
 function ensureNostrClient(): void {
   if (!pool) {
-    pool = new RelayPool();
+    pool = new RelayPool({ workflowEvidence });
     registry = new SubscriptionRegistry(pool);
   }
+}
+
+export function getRelayWorkflowEvidence(): RelayWorkflowAggregate[] {
+  return workflowEvidence.snapshot();
+}
+
+export function getRelayWorkflowEvidenceStatus(): {
+  pending: number;
+  dropped: number;
+} {
+  return pool?.workflowEvidenceStatus ?? { pending: 0, dropped: 0 };
 }
 
 export function initNostr(): Promise<void> {
