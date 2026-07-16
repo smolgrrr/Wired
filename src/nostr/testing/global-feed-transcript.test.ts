@@ -332,13 +332,13 @@ describe("global feed relay transcript", () => {
     const live = subRepliesForRootIds(
       [rootEvent.id],
       (event) => liveIds.add(event.id),
-      { relayUrls, depth: 2 },
+      { relayUrls, depth: 2, since: 1_999_000_000 },
     );
     await new Promise((resolve) => setTimeout(resolve, 10));
     const bootstrap = subRepliesForRootIds(
       [rootEvent.id],
       (event) => bootstrapIds.add(event.id),
-      { relayUrls, depth: 2 },
+      { relayUrls, depth: 2, since: 1_999_000_000 },
     );
     await session.waitFor(() =>
       liveIds.has(nestedReplyEvent.id) && bootstrapIds.has(nestedReplyEvent.id)
@@ -359,9 +359,9 @@ describe("global feed relay transcript", () => {
       closes: 8,
       eose: 8,
       returnedEvents: 8,
+      repeatedOperations: 6,
       relayFanout: 2,
     });
-    expect([4, 6]).toContain(summary.repeatedOperations);
     emitAuditMeasurement({
       scenario: "wired-browser-bootstrap-live-reply-overlap-local-fixture",
       samples: 1,
