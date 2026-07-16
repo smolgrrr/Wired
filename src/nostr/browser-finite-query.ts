@@ -117,6 +117,7 @@ export function startBrowserFiniteQuery(
       // Status evidence cannot affect query completion.
     }
     resolveDone(completion);
+    query.onComplete?.(completion);
   };
 
   const maybeFinish = () => {

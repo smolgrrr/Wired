@@ -18,6 +18,8 @@ export type QueryCompletion = {
   receivedEvents: number;
 };
 
+export const DEFAULT_BROWSER_QUERY_DEADLINE_MS = 4_400;
+
 export type FiniteQuery = {
   workflowOwner:
     | "wired.browser.thread"
@@ -33,6 +35,7 @@ export type FiniteQuery = {
   completionDeadlineMs: number;
   signal?: AbortSignal;
   onEvent(event: Event, relayUrl: string): void;
+  onComplete?(completion: QueryCompletion): void;
 };
 
 export type QueryHandle = {

@@ -2,15 +2,20 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { THREAD_RELAYS } from "../../config";
 import { REPLY_QUERY_LIMIT } from "./query-limits";
 
-const subscribeMock = vi.fn();
+const { subscribeMock, startFiniteQueryMock } = vi.hoisted(() => ({
+  subscribeMock: vi.fn(),
+  startFiniteQueryMock: vi.fn(),
+}));
 
 vi.mock("../client", () => ({
   getRegistry: () => ({
     subscribe: subscribeMock,
   }),
+  startFiniteQuery: startFiniteQueryMock,
   THREAD_RELAYS,
 }));
 
+import type { FiniteQuery } from "../browser-relay-access";
 import { subNote } from "./thread";
 
 const expectedRelays = [...THREAD_RELAYS];
@@ -19,6 +24,23 @@ describe("subNote", () => {
   beforeEach(() => {
     subscribeMock.mockReset();
     subscribeMock.mockImplementation(() => ({ id: "1", close: vi.fn() }));
+    startFiniteQueryMock.mockReset();
+    startFiniteQueryMock.mockImplementation((query: FiniteQuery) => {
+      const relayUrls = [...new Set([
+        ...query.coverage.configuredRelayUrls,
+        ...(query.coverage.hintedRelayUrls ?? []),
+      ].map((relayUrl) => relayUrl.replace(/\/+$/, "")))];
+      const legacy = subscribeMock([{
+        filter: query.filters[0],
+        relayUrls,
+        cb: query.onEvent,
+        closeOnEose: true,
+      }]);
+      return {
+        done: new Promise(() => {}),
+        close: legacy.close,
+      };
+    });
   });
 
   it("subscribes to the OP and replies on default and fallback relays", () => {

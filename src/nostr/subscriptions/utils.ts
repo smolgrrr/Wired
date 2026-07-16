@@ -1,7 +1,12 @@
 import type { SubHandle } from "../types";
+import type { QueryHandle } from "../browser-relay-access";
 
 export function emptySubHandle(id: string): SubHandle {
   return { id, close: () => {} };
+}
+
+export function finiteQuerySubHandle(id: string, query: QueryHandle): SubHandle {
+  return { id, close: query.close };
 }
 
 export function composeSubHandle(

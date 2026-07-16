@@ -88,6 +88,24 @@ describe("RelayPool browser finite queries", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("notifies the workflow owner when a finite query completes", async () => {
+    const onComplete = vi.fn();
+    const pool = new RelayPool();
+
+    const query = pool.startFiniteQuery({
+      workflowOwner: "wired.browser.feed",
+      filters: [{ kinds: [1] }],
+      coverage: { configuredRelayUrls: [] },
+      completionDeadlineMs: 1_000,
+      onEvent: vi.fn(),
+      onComplete,
+    });
+
+    const completion = await query.done;
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(onComplete).toHaveBeenCalledWith(completion);
+  });
+
   it("normalizes and unions configured and hinted coverage without narrowing", async () => {
     const first = controlledRelay("wss://one.example/");
     const hinted = controlledRelay("wss://hint.example/");

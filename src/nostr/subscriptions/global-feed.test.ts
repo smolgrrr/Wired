@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { Event } from "nostr-tools";
+import type { FiniteQuery, QueryCompletion } from "../browser-relay-access";
 import type { SubCallback } from "../types";
 import {
   MAX_REPLY_FETCH_DEPTH,
@@ -7,12 +8,16 @@ import {
   REPLY_QUERY_LIMIT,
 } from "./query-limits";
 
-const subscribeMock = vi.fn();
+const { subscribeMock, startFiniteQueryMock } = vi.hoisted(() => ({
+  subscribeMock: vi.fn(),
+  startFiniteQueryMock: vi.fn(),
+}));
 
 vi.mock("../client", () => ({
   getRegistry: () => ({
     subscribe: subscribeMock,
   }),
+  startFiniteQuery: startFiniteQueryMock,
 }));
 
 import {
@@ -40,6 +45,29 @@ const rootNoteFromPubkey = (id: string, pubkey: string): Event => ({
 describe("subGlobalFeed", () => {
   beforeEach(() => {
     subscribeMock.mockReset();
+    startFiniteQueryMock.mockReset();
+    startFiniteQueryMock.mockImplementation((query: FiniteQuery) => {
+      const relayUrls = [...new Set([
+        ...query.coverage.configuredRelayUrls,
+        ...(query.coverage.hintedRelayUrls ?? []),
+      ])];
+      const completion: QueryCompletion = {
+        reason: "settled",
+        targets: relayUrls.map((relayUrl) => ({ relayUrl, state: "eose" })),
+        receivedEvents: 0,
+      };
+      const legacy = subscribeMock([{
+        filter: query.filters[0],
+        relayUrls,
+        cb: query.onEvent,
+        closeOnEose: true,
+        onEose: () => query.onComplete?.(completion),
+      }]);
+      return {
+        done: Promise.resolve(completion),
+        close: legacy.close,
+      };
+    });
   });
 
   it("subscribes to replies when the root feed reaches EOSE", () => {
