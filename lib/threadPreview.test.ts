@@ -54,15 +54,21 @@ describe("thread preview", () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ unavailable: true }), { status: 200 }),
     );
+    const onResolution = vi.fn();
 
     const preview = await resolveThreadPreview(rootId, {
       origin: "https://wiredsignal.online",
       fetchImpl,
       relayFallback,
+      onResolution,
     });
 
     expect(preview?.replyCount).toBe(1);
     expect(relayFallback).toHaveBeenCalledWith(rootId, []);
+    expect(onResolution).toHaveBeenCalledWith({
+      eventId: rootId,
+      outcome: "relay-fallback",
+    });
   });
 
   it("rejects invalid thread references without network work", async () => {

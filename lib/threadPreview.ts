@@ -29,6 +29,10 @@ export type ResolveThreadPreviewOptions = {
   snapshotUrl?: string;
   fetchImpl?: typeof fetch;
   relayFallback?: (eventId: string, relayHints: readonly string[]) => Promise<Event[]>;
+  onResolution?: (observation: {
+    eventId: string;
+    outcome: "snapshot-hit" | "relay-fallback" | "missing";
+  }) => void;
 };
 
 export type FetchThreadEventsOptions = {
@@ -174,6 +178,7 @@ export async function resolveThreadPreview(
     snapshotUrl = process.env.VITE_FEED_SNAPSHOT_URL,
     fetchImpl = fetch,
     relayFallback = fetchThreadEventsFromRelays,
+    onResolution = () => {},
   }: ResolveThreadPreviewOptions,
 ): Promise<ThreadPreview | null> {
   const decoded = decodeThreadRef(ref);
@@ -191,11 +196,19 @@ export async function resolveThreadPreview(
   const snapshotPreview = snapshots
     .map((snapshot) => snapshot && previewFromSnapshot(snapshot, decoded.id))
     .find((preview): preview is ThreadPreview => Boolean(preview));
-  if (snapshotPreview) return snapshotPreview;
+  if (snapshotPreview) {
+    try { onResolution({ eventId: decoded.id, outcome: "snapshot-hit" }); } catch {}
+    return snapshotPreview;
+  }
 
   const events = await relayFallback(decoded.id, decoded.relays);
   const event = events.find((candidate) => candidate.id === decoded.id);
-  if (!event) return null;
+  if (!event) {
+    try { onResolution({ eventId: decoded.id, outcome: "missing" }); } catch {}
+    return null;
+  }
+
+  try { onResolution({ eventId: decoded.id, outcome: "relay-fallback" }); } catch {}
 
   return {
     eventId: event.id,

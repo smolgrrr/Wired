@@ -1,6 +1,8 @@
 import { ImageResponse } from "@vercel/og";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { resolveThreadPreview } from "../lib/threadPreview.js";
+import { waitUntil } from "@vercel/functions";
+import { createPreviewResolutionObserver } from "../lib/relayWorkflowPreviewCorrelation.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -95,7 +97,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const ref = first(req.query.id) || undefined;
-  const preview = await resolveThreadPreview(ref, { origin: requestOrigin(req) });
+  const preview = await resolveThreadPreview(ref, {
+    origin: requestOrigin(req),
+    onResolution: createPreviewResolutionObserver({
+      endpoint: "thread-card",
+      defer: waitUntil,
+    }),
+  });
   const image = renderThreadCard(preview);
   const body = Buffer.from(await image.arrayBuffer());
 

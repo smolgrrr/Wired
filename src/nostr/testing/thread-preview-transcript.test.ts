@@ -23,6 +23,9 @@ import {
   type RelayRequestController,
   type RelayTranscriptEntry,
 } from "./relay-transcript";
+import { RelayWorkflowStatusIngestService } from "../../../lib/relayWorkflowStatusIngest";
+import { MemoryRelayWorkflowStatusStore } from "../../../lib/relayWorkflowStatusStore";
+import { createPreviewResolutionObserver } from "../../../lib/relayWorkflowPreviewCorrelation";
 
 configureWebSocketImplementation(WebSocket);
 
@@ -202,6 +205,76 @@ describe("thread preview relay transcript", () => {
       returnedEvents: 2,
       relayFanout: 1,
     });
+  });
+
+  it("keeps preview identity and p95 stable with correlation disabled or enabled", async () => {
+    const session = new RelayTranscriptSession();
+    const harness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest: returnCompleteThread,
+    });
+    harnesses.push(harness);
+    const store = new MemoryRelayWorkflowStatusStore();
+    const service = new RelayWorkflowStatusIngestService(store);
+    const deferred: Promise<unknown>[] = [];
+    const variants = [
+      { name: "disabled", onResolution: undefined },
+      {
+        name: "enabled",
+        onResolution: createPreviewResolutionObserver({
+          endpoint: "thread-html",
+          enabled: true,
+          service,
+          secret: "controlled-preview-correlation-secret-32-bytes",
+          defer: (promise) => { deferred.push(promise); },
+        }),
+      },
+    ];
+    const resolveVariant = async (variant: (typeof variants)[number], label: string) => {
+      const workflow = session.beginWorkflow(`preview-correlation-${label}-${variant.name}`);
+      const preview = await resolveThreadPreview(root.id, {
+        origin: "https://wiredsignal.online",
+        fetchImpl: async () => new Response(null, { status: 404 }),
+        relayFallback: (eventId, relayHints) =>
+          fetchThreadEventsFromRelays(eventId, relayHints, {
+            configuredRelayUrls: [harness.url],
+          }),
+        ...(variant.onResolution ? { onResolution: variant.onResolution } : {}),
+      });
+      workflow.complete();
+      expect(preview).toMatchObject({ eventId: root.id, replyCount: 2 });
+      return session.summary(workflow).completionLatencyMs;
+    };
+    for (let warmup = 0; warmup < 5; warmup += 1) {
+      for (const variant of variants) await resolveVariant(variant, `warmup-${warmup}`);
+    }
+    const latencies = new Map(variants.map((variant) => [variant.name, [] as number[]]));
+    for (let run = 0; run < 20; run += 1) {
+      for (const variant of variants) {
+        latencies.get(variant.name)!.push(await resolveVariant(variant, `measured-${run}`));
+      }
+    }
+    await Promise.all(deferred);
+
+    const p95 = Object.fromEntries(
+      [...latencies].map(([name, samples]) => [name, summarizeSamples(samples).p95]),
+    );
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      expect(p95.disabled).toBeLessThanOrEqual(31);
+      expect(p95.enabled).toBeLessThanOrEqual(31);
+      expect(p95.enabled).toBeLessThanOrEqual(p95.disabled + 3);
+    }
+    expect(store.previewSnapshot(
+      new Date().toISOString().slice(0, 10),
+      "wired-server",
+    )).toHaveLength(1);
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      console.info(JSON.stringify({
+        scenario: "thread-preview-correlation-local-fixture",
+        samplesPerVariant: 20,
+        completionP95Ms: p95,
+      }));
+    }
   });
 
   it("retains complete output but reaches the deadline after a relay disconnects", async () => {

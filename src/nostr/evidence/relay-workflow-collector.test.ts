@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { validRelayWorkflowEvidence } from "../../contracts/relay-workflow-evidence.test-fixtures";
 import { RelayWorkflowCollector } from "./relay-workflow-collector";
 
@@ -41,5 +41,25 @@ describe("RelayWorkflowCollector", () => {
     collector.record(validRelayWorkflowEvidence.query);
 
     expect(collector.snapshot()[0]?.samples).toBe(1);
+  });
+
+  it("seals and clears aggregate windows without exposing mutable state", () => {
+    const onChange = vi.fn();
+    const collector = new RelayWorkflowCollector({ onChange });
+    collector.record(validRelayWorkflowEvidence.query);
+
+    const sealed = collector.drain();
+    sealed[0]!.samples = 999;
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(collector.snapshot()).toEqual([]);
+  });
+
+  it("isolates change callback failures", () => {
+    const collector = new RelayWorkflowCollector({
+      onChange() { throw new Error("scheduler unavailable"); },
+    });
+    expect(() => collector.record(validRelayWorkflowEvidence.query)).not.toThrow();
+    expect(collector.snapshot()).toHaveLength(1);
   });
 });

@@ -5,6 +5,7 @@
   "private": false,
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+    "@vercel/blob": "^2.6.1",
     "@vercel/functions": "^3.7.1",
     "@vercel/og": "^0.11.1",
     "@vercel/speed-insights": "^2.0.0",
@@ -22,6 +23,7 @@
     "snapshot:serve": "vite-node scripts/feed-snapshot-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:relay-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/thread-preview-transcript.test.ts src/nostr/testing/publish-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'keeps preview identity and p95 stable|keeps collection and export scheduling timing-equivalent'",
     "lint": "eslint src lib/feedBootstrapCache.ts api scripts vite.config.ts eslint.config.js"
   },
   "devDependencies": {
