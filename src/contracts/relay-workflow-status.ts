@@ -5,7 +5,7 @@ import {
   RELAY_WORKFLOW_OUTCOMES,
   RELAY_WORKFLOW_OWNERS,
   type RelayWorkflowEvidence,
-} from "./relay-workflow-evidence";
+} from "./relay-workflow-evidence.js";
 
 export const RELAY_WORKFLOW_STATUS_SCHEMA_VERSION = 1 as const;
 export const RELAY_WORKFLOW_STATUS_SOURCES = [

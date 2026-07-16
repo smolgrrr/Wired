@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { RelayWorkflowCollector } from "../nostr/evidence/relay-workflow-collector";
 import { validRelayWorkflowEvidence } from "./relay-workflow-evidence.test-fixtures";
@@ -19,6 +20,14 @@ function browserEnvelope(): RelayWorkflowStatusEnvelope {
 }
 
 describe("relay workflow status envelope", () => {
+  it("keeps its server-runtime imports resolvable by Node ESM", async () => {
+    const source = await readFile(
+      new URL("./relay-workflow-status.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('from "./relay-workflow-evidence.js"');
+  });
+
   it("accepts fixed, content-free aggregate envelopes", () => {
     expect(isRelayWorkflowStatusEnvelope(browserEnvelope())).toBe(true);
   });
