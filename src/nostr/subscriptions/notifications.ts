@@ -1,6 +1,12 @@
-import { getRegistry } from "../client";
+import { POW_RELAYS } from "../../config";
+import { startFiniteQuery } from "../client";
+import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
-import { emptySubHandle } from "./utils";
+import {
+  createSubHandleOwner,
+  emptySubHandle,
+  finiteQuerySubHandle,
+} from "./utils";
 
 export const subNotifications = (
   pubkeys: string[],
@@ -12,36 +18,45 @@ export const subNotifications = (
     return emptySubHandle("notifications:empty");
   }
 
-  let eoseCount = 0;
-  const handleEose = () => {
-    eoseCount += 1;
-    if (eoseCount >= 2) {
+  const owner = createSubHandleOwner("notifications");
+  const relayUrls = options.relayUrls ?? POW_RELAYS;
+  let completedQueries = 0;
+  const handleCompletion = () => {
+    completedQueries += 1;
+    if (completedQueries >= 2) {
       onEose?.();
     }
   };
 
-  return getRegistry().subscribe([
+  const filters = [
     {
-      filter: {
-        authors: pubkeys,
-        kinds: [1],
-        limit: 25,
-      },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose: handleEose,
-      relayUrls: options.relayUrls,
+      authors: pubkeys,
+      kinds: [1],
+      limit: 25,
     },
     {
-      filter: {
-        "#p": pubkeys,
-        kinds: [1],
-        limit: 50,
-      },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose: handleEose,
-      relayUrls: options.relayUrls,
+      "#p": pubkeys,
+      kinds: [1],
+      limit: 50,
     },
-  ]);
+  ];
+
+  filters.forEach((filter, index) => {
+    const query = startFiniteQuery({
+      workflowOwner: "wired.browser.notifications",
+      filters: [filter],
+      coverage: {
+        configuredRelayUrls: relayUrls,
+        hintedRelayUrls: [],
+      },
+      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+      onEvent,
+      onComplete: (completion) => {
+        if (completion.reason !== "cancelled") handleCompletion();
+      },
+    });
+    owner.add(finiteQuerySubHandle(`notifications:${index}`, query));
+  });
+
+  return owner.handle();
 };

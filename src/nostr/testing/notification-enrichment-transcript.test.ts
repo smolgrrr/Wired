@@ -238,6 +238,48 @@ describe("notification and enrichment relay transcripts", () => {
     });
   });
 
+  it("completes an empty notification union across all covered relays", async () => {
+    const session = new RelayTranscriptSession();
+    const relayUrls = await Promise.all([0, 1].map(async () => {
+      const relay = await RelayTranscriptHarness.listen({
+        session,
+        onRequest(request) {
+          request.sendEose(5);
+        },
+      });
+      harnesses.push(relay);
+      return relay.url;
+    }));
+    await ensureRelaysConnected(relayUrls);
+    const workflow = session.beginWorkflow("notifications-empty");
+    const receivedIds = new Set<string>();
+    let completed = false;
+    const handle = subNotifications(
+      [localAuthored.pubkey],
+      (event) => receivedIds.add(event.id),
+      () => { completed = true; },
+      { relayUrls },
+    );
+
+    await session.waitFor(() => completed);
+    await session.waitFor((entries) =>
+      entries.filter((entry) => entry.type === "close").length === 4
+    );
+    handle.close();
+    workflow.complete();
+
+    expect(receivedIds).toEqual(new Set());
+    const entries = workflowEntries(session, workflow);
+    expectExactFiniteCompletion(entries);
+    expect(session.summary(workflow)).toMatchObject({
+      requests: 4,
+      closes: 4,
+      eose: 4,
+      returnedEvents: 0,
+      relayFanout: 2,
+    });
+  });
+
   it("captures batched profiles and deterministic newest metadata inputs", async () => {
     const session = new RelayTranscriptSession();
     const profileKeys = [localPubkeyKey, otherKey];
