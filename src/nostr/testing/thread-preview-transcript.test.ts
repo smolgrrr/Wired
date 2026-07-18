@@ -1,10 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   finalizeEvent,
   matchFilters,
   nip19,
-  Relay,
-  type Subscription,
   useWebSocketImplementation as configureWebSocketImplementation,
 } from "nostr-tools";
 import { WebSocket } from "ws";
@@ -320,59 +318,4 @@ describe("thread preview relay transcript", () => {
     });
   });
 
-  it("settles a terminal subscription close and clears its EOSE timer", async () => {
-    vi.useFakeTimers();
-    try {
-      const completedRelay = new Relay("ws://completed-relay.invalid");
-      const closedRelay = new Relay("ws://closed-relay.invalid");
-      const closedSubscription = {
-        close: vi.fn(),
-        receivedEose: vi.fn(),
-      } as unknown as Subscription;
-      vi.spyOn(completedRelay, "subscribe").mockImplementation((_filters, params) => {
-        queueMicrotask(() => params.oneose?.());
-        return { close: vi.fn() } as unknown as Subscription;
-      });
-      vi.spyOn(closedRelay, "subscribe").mockImplementation((_filters, params) => {
-        queueMicrotask(() => params.onclose?.("relay connection closed"));
-        return closedSubscription;
-      });
-
-      expect(await fetchThreadEventsFromRelays(root.id, [], {
-        configuredRelayUrls: [completedRelay.url, closedRelay.url],
-        connectRelay: async (url) =>
-          url.includes("completed-relay") ? completedRelay : closedRelay,
-        timeoutMs: 2_500,
-      })).toEqual([]);
-
-      expect(closedSubscription.receivedEose).toHaveBeenCalledOnce();
-      expect(vi.getTimerCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("closes a connection that arrives after the connection deadline", async () => {
-    vi.useFakeTimers();
-    try {
-      const lateRelay = new Relay("ws://late-relay.invalid");
-      const close = vi.spyOn(lateRelay, "close");
-      const result = fetchThreadEventsFromRelays(root.id, [], {
-        configuredRelayUrls: [lateRelay.url],
-        connectRelay: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20));
-          return lateRelay;
-        },
-        timeoutMs: 5,
-      });
-
-      await vi.advanceTimersByTimeAsync(5);
-      expect(await result).toEqual([]);
-      expect(close).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(15);
-      expect(close).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
 });

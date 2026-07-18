@@ -1,10 +1,4 @@
-import {
-  Relay,
-  type Event,
-  type Subscription,
-  useWebSocketImplementation,
-} from "nostr-tools";
-import { WebSocket } from "ws";
+import type { Event } from "nostr-tools";
 import { THREAD_RELAYS } from "../src/config.js";
 import {
   isFeedBootstrapSnapshot,
@@ -12,8 +6,7 @@ import {
 } from "../src/shared/lib/feedBootstrapTypes.js";
 import { decodeThreadRef, uniqueRelays } from "../src/shared/lib/threadRefs.js";
 import { cleanThreadExcerpt } from "../src/shared/lib/threadExcerpt.js";
-
-useWebSocketImplementation(WebSocket);
+import { withFiniteRelaySession } from "./serverRelaySession.js";
 
 const SNAPSHOT_TIMEOUT_MS = 1_500;
 const RELAY_TIMEOUT_MS = 2_500;
@@ -37,8 +30,8 @@ export type ResolveThreadPreviewOptions = {
 
 export type FetchThreadEventsOptions = {
   configuredRelayUrls?: readonly string[];
-  connectRelay?: typeof Relay.connect;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 function replyCountFromEvents(events: readonly Event[], eventId: string): number {
@@ -100,75 +93,23 @@ export async function fetchThreadEventsFromRelays(
     ...(options.configuredRelayUrls ?? THREAD_RELAYS),
   ]);
   const timeoutMs = options.timeoutMs ?? RELAY_TIMEOUT_MS;
-  const connectRelay = options.connectRelay ?? Relay.connect;
-  const relays: Relay[] = [];
-  const events = new Map<string, Event>();
-  let acceptingConnections = true;
-  let connectionTimer: ReturnType<typeof setTimeout> | undefined;
-
-  const connectionAttempts = Promise.all(
-    relayUrls.map(async (url) => {
-      try {
-        const relay = await connectRelay(url);
-        if (!acceptingConnections) {
-          relay.close();
-          return;
-        }
-        relays.push(relay);
-      } catch {
-        // A preview can succeed from any available relay.
-      }
-    }),
-  );
-  await Promise.race([
-    connectionAttempts,
-    new Promise<void>((resolve) => {
-      connectionTimer = setTimeout(resolve, timeoutMs);
-    }),
-  ]);
-  acceptingConnections = false;
-  if (connectionTimer) clearTimeout(connectionTimer);
-
-  if (relays.length === 0) return [];
-
-  await new Promise<void>((resolve) => {
-    const settledRelays = new Set<number>();
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      subscriptions.forEach((subscription) => subscription.close());
-      resolve();
-    };
-    const timer = setTimeout(finish, timeoutMs);
-    const settleRelay = (index: number) => {
-      settledRelays.add(index);
-      if (settledRelays.size >= relays.length) finish();
-    };
-    const subscriptions: Subscription[] = [];
-    relays.forEach((relay, index) => {
-      let subscription: Subscription;
-      subscription = relay.subscribe(
-        [
+  return withFiniteRelaySession(
+    { relayUrls, connectDeadlineMs: timeoutMs, signal: options.signal },
+    async (session) => {
+      const events = new Map<string, Event>();
+      await session.query({
+        filters: [
           { ids: [eventId], kinds: [1], limit: 1 },
           { "#e": [eventId], kinds: [1], limit: 500 },
         ],
-        {
-          onevent: (event) => events.set(event.id, event),
-          oneose: () => settleRelay(index),
-          onclose: () => {
-            subscription.receivedEose();
-            settleRelay(index);
-          },
-        },
-      );
-      subscriptions.push(subscription);
-    });
-  });
-
-  relays.forEach((relay) => relay.close());
-  return [...events.values()];
+        relayUrls,
+        deadlineMs: timeoutMs,
+        signal: options.signal,
+        onEvent: (event) => events.set(event.id, event),
+      });
+      return [...events.values()];
+    },
+  );
 }
 
 export async function resolveThreadPreview(
