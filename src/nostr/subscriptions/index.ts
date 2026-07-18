@@ -100,33 +100,6 @@ function extraRelayHintsForQuote(
   return uniqueRelayUrls(ref.relays.filter((relay) => !fallbackRelays.has(relay)));
 }
 
-function hasExtraRelayHints(
-  ref: QuotedRef,
-  fallbackRelayUrls?: readonly string[],
-): boolean {
-  return extraRelayHintsForQuote(ref, fallbackRelayUrls).length > 0;
-}
-
-function quoteRequests(
-  refs: QuotedRef[],
-  onEvent: SubCallback,
-  onEose: ((refId: string) => void) | undefined,
-  relayUrlsForRef: (ref: QuotedRef) => string[],
-  shouldReportEose: (ref: QuotedRef) => boolean = () => true,
-) {
-  return refs.map((ref) => ({
-    filter: {
-      ids: [ref.id],
-      kinds: [1, 1068],
-      limit: 1,
-    },
-    cb: onEvent,
-    closeOnEose: true,
-    onEose: onEose && shouldReportEose(ref) ? () => onEose(ref.id) : undefined,
-    relayUrls: relayUrlsForRef(ref),
-  }));
-}
-
 export async function subQuotedEventsOnce(
   refs: QuotedRef[],
   onEvent: SubCallback,
@@ -148,43 +121,26 @@ export async function subQuotedEventsOnce(
   }
 
   const owner = createSubHandleOwner("quoted-events-once");
-  const refsWithExtraHints = refs.filter((ref) =>
-    hasExtraRelayHints(ref, fallbackRelayUrls)
-  );
-
-  owner.add(
-    getRegistry().subscribe(
-      quoteRequests(
-        refs,
-        onEvent,
-        onEose,
-        () => fallbackRelayUrlsForQuote(fallbackRelayUrls),
-        (ref) => !hasExtraRelayHints(ref, fallbackRelayUrls),
-      ),
-    ),
-  );
-
-  if (refsWithExtraHints.length > 0) {
-    const extraRelayHints = uniqueRelayUrls(
-      refsWithExtraHints.flatMap((ref) =>
-        extraRelayHintsForQuote(ref, fallbackRelayUrls)
-      ),
-    );
-    void ensureRelaysConnected(extraRelayHints)
-      .then(() => {
-        owner.add(
-          getRegistry().subscribe(
-            quoteRequests(
-              refsWithExtraHints,
-              onEvent,
-              onEose,
-              (ref) => extraRelayHintsForQuote(ref, fallbackRelayUrls),
-            ),
-          ),
-        );
-      })
-      .catch(() => {});
-  }
+  refs.forEach((ref) => {
+    const query = startFiniteQuery({
+      workflowOwner: "wired.browser.quotes",
+      filters: [{
+        ids: [ref.id],
+        kinds: [1, 1068],
+        limit: 1,
+      }],
+      coverage: {
+        configuredRelayUrls: fallbackRelayUrlsForQuote(fallbackRelayUrls),
+        hintedRelayUrls: extraRelayHintsForQuote(ref, fallbackRelayUrls),
+      },
+      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+      onEvent,
+      onComplete: (completion) => {
+        if (completion.reason !== "cancelled") onEose?.(ref.id);
+      },
+    });
+    owner.add(finiteQuerySubHandle(`quoted-event:${ref.id}`, query));
+  });
 
   return owner.handle();
 }

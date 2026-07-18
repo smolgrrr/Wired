@@ -4,19 +4,19 @@ import { POW_RELAYS, QUOTE_FALLBACK_RELAYS, THREAD_RELAYS } from "../../config";
 const mocks = vi.hoisted(() => ({
   ensureRelaysConnected: vi.fn(),
   initNostr: vi.fn(),
-  subscribe: vi.fn(),
+  startFiniteQuery: vi.fn(),
 }));
 
 vi.mock("../client", () => ({
   ensureRelaysConnected: mocks.ensureRelaysConnected,
-  getRegistry: () => ({
-    subscribe: mocks.subscribe,
-  }),
+  getRegistry: () => ({ subscribe: vi.fn() }),
   initNostr: mocks.initNostr,
   PROFILE_RELAYS: THREAD_RELAYS,
+  startFiniteQuery: mocks.startFiniteQuery,
   THREAD_RELAYS,
 }));
 
+import type { FiniteQuery } from "../browser-relay-access";
 import { subQuotedEventsOnce } from "./index";
 
 const quoteId = "a38fb77ce8783c30bf64063fe78e8060f3b58e41476fb3a5cd94ddfb1b3837d1";
@@ -29,20 +29,16 @@ describe("subQuotedEventsOnce", () => {
   beforeEach(() => {
     mocks.ensureRelaysConnected.mockReset();
     mocks.initNostr.mockReset();
-    mocks.subscribe.mockReset();
+    mocks.startFiniteQuery.mockReset();
     mocks.initNostr.mockResolvedValue(undefined);
     mocks.ensureRelaysConnected.mockResolvedValue(undefined);
-    mocks.subscribe.mockReturnValue({ id: "sub", close: vi.fn() });
+    mocks.startFiniteQuery.mockReturnValue({
+      done: new Promise(() => {}),
+      close: vi.fn(),
+    });
   });
 
-  it("subscribes to fallback quote relays before waiting for stale relay hints", async () => {
-    let resolveHintRelays: () => void = () => {};
-    mocks.ensureRelaysConnected.mockReturnValue(
-      new Promise<void>((resolve) => {
-        resolveHintRelays = resolve;
-      }),
-    );
-
+  it("starts configured fallback coverage with a stale relay hint", async () => {
     await subQuotedEventsOnce(
       [{ id: quoteId, relays: ["wss://nostr.land"] }],
       vi.fn(),
@@ -50,27 +46,16 @@ describe("subQuotedEventsOnce", () => {
     );
 
     expect(mocks.initNostr).toHaveBeenCalledTimes(1);
-    expect(mocks.subscribe).toHaveBeenCalledTimes(1);
-    expect(mocks.ensureRelaysConnected).toHaveBeenCalledWith(["wss://nostr.land"]);
-
-    const fallbackRequest = mocks.subscribe.mock.calls[0][0][0];
-    expect(fallbackRequest.filter).toEqual({
-      ids: [quoteId],
-      kinds: [1, 1068],
-      limit: 1,
+    expect(mocks.startFiniteQuery).toHaveBeenCalledOnce();
+    expect(mocks.ensureRelaysConnected).not.toHaveBeenCalled();
+    const query = mocks.startFiniteQuery.mock.calls[0][0] as FiniteQuery;
+    expect(query.filters).toEqual([{
+      ids: [quoteId], kinds: [1, 1068], limit: 1,
+    }]);
+    expect(query.coverage).toEqual({
+      configuredRelayUrls: [...new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS])],
+      hintedRelayUrls: ["wss://nostr.land"],
     });
-    expect(fallbackRequest.relayUrls).toEqual([
-      ...new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS]),
-    ]);
-    expect(fallbackRequest.onEose).toBeUndefined();
-
-    resolveHintRelays();
-    await Promise.resolve();
-
-    expect(mocks.subscribe).toHaveBeenCalledTimes(2);
-    const hintedRequest = mocks.subscribe.mock.calls[1][0][0];
-    expect(hintedRequest.relayUrls).toEqual(["wss://nostr.land"]);
-    expect(hintedRequest.onEose).toEqual(expect.any(Function));
   });
 
   it("reports EOSE from the fallback subscription when no extra relay hints exist", async () => {
@@ -83,14 +68,13 @@ describe("subQuotedEventsOnce", () => {
     );
 
     expect(mocks.ensureRelaysConnected).not.toHaveBeenCalled();
-    expect(mocks.subscribe).toHaveBeenCalledTimes(1);
-
-    const fallbackRequest = mocks.subscribe.mock.calls[0][0][0];
-    expect(fallbackRequest.relayUrls).toEqual([
+    expect(mocks.startFiniteQuery).toHaveBeenCalledOnce();
+    const query = mocks.startFiniteQuery.mock.calls[0][0] as FiniteQuery;
+    expect(query.coverage.configuredRelayUrls).toEqual([
       ...new Set([...POW_RELAYS, ...QUOTE_FALLBACK_RELAYS, "wss://nos.lol"]),
     ]);
-
-    fallbackRequest.onEose();
+    expect(query.coverage.hintedRelayUrls).toEqual([]);
+    query.onComplete?.({ reason: "settled", targets: [], receivedEvents: 0 });
     expect(onEose).toHaveBeenCalledWith(quoteId);
   });
 
@@ -116,12 +100,12 @@ describe("subQuotedEventsOnce", () => {
       vi.fn(),
     );
 
-    const fallbackRequest = mocks.subscribe.mock.calls[0][0][0];
-    expect(fallbackRequest.relayUrls).toEqual([
+    const query = mocks.startFiniteQuery.mock.calls[0][0] as FiniteQuery;
+    expect(query.coverage.configuredRelayUrls).toEqual([
       ...powRelays,
       ...defaultQuoteRelays,
       ...configuredQuoteRelays,
     ]);
-    expect(mocks.ensureRelaysConnected).toHaveBeenCalledWith(["wss://nostr.land"]);
+    expect(query.coverage.hintedRelayUrls).toEqual(["wss://nostr.land"]);
   });
 });
