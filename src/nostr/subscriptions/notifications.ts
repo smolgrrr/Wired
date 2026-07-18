@@ -1,6 +1,12 @@
-import { getRegistry } from "../client";
+import { POW_RELAYS } from "../../config";
+import { startFiniteQuery } from "../client";
+import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
-import { emptySubHandle } from "./utils";
+import {
+  createSubHandleOwner,
+  emptySubHandle,
+  finiteQuerySubHandle,
+} from "./utils";
 
 export const subNotifications = (
   pubkeys: string[],
@@ -12,36 +18,44 @@ export const subNotifications = (
     return emptySubHandle("notifications:empty");
   }
 
-  let eoseCount = 0;
-  const handleEose = () => {
-    eoseCount += 1;
-    if (eoseCount >= 2) {
+  const owner = createSubHandleOwner("notifications");
+  const relayUrls = options.relayUrls ?? POW_RELAYS;
+  const filters = [
+    {
+      authors: pubkeys,
+      kinds: [1],
+      limit: 25,
+    },
+    {
+      "#p": pubkeys,
+      kinds: [1],
+      limit: 50,
+    },
+  ];
+  let completedQueries = 0;
+  const handleCompletion = () => {
+    completedQueries += 1;
+    if (completedQueries >= filters.length) {
       onEose?.();
     }
   };
 
-  return getRegistry().subscribe([
-    {
-      filter: {
-        authors: pubkeys,
-        kinds: [1],
-        limit: 25,
+  filters.forEach((filter, index) => {
+    const query = startFiniteQuery({
+      workflowOwner: "wired.browser.notifications",
+      filters: [filter],
+      coverage: {
+        configuredRelayUrls: relayUrls,
+        hintedRelayUrls: [],
       },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose: handleEose,
-      relayUrls: options.relayUrls,
-    },
-    {
-      filter: {
-        "#p": pubkeys,
-        kinds: [1],
-        limit: 50,
+      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+      onEvent,
+      onComplete: (completion) => {
+        if (completion.reason !== "cancelled") handleCompletion();
       },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose: handleEose,
-      relayUrls: options.relayUrls,
-    },
-  ]);
+    });
+    owner.add(finiteQuerySubHandle(`notifications:${index}`, query));
+  });
+
+  return owner.handle();
 };
