@@ -18,6 +18,7 @@ export type RelayConnectionOutcome = {
 export type RelaySessionOptions = {
   relayUrls: readonly string[];
   connectDeadlineMs: number;
+  signal?: AbortSignal;
 };
 
 export type FiniteRelayQuery = {
@@ -318,10 +319,14 @@ export async function withFiniteRelaySession<T>(
   run: (session: FiniteRelaySession) => Promise<T> | T,
 ): Promise<T> {
   const session = new WiredServerFiniteRelaySession();
+  const cancel = () => session.close();
+  if (options.signal?.aborted) cancel();
+  else options.signal?.addEventListener("abort", cancel, { once: true });
   try {
     await session.ensureRelays(options.relayUrls, options.connectDeadlineMs);
     return await run(session);
   } finally {
+    options.signal?.removeEventListener("abort", cancel);
     session.close();
   }
 }
