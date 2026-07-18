@@ -20,14 +20,6 @@ export const subNotifications = (
 
   const owner = createSubHandleOwner("notifications");
   const relayUrls = options.relayUrls ?? POW_RELAYS;
-  let completedQueries = 0;
-  const handleCompletion = () => {
-    completedQueries += 1;
-    if (completedQueries >= 2) {
-      onEose?.();
-    }
-  };
-
   const filters = [
     {
       authors: pubkeys,
@@ -40,6 +32,13 @@ export const subNotifications = (
       limit: 50,
     },
   ];
+  let completedQueries = 0;
+  const handleCompletion = () => {
+    completedQueries += 1;
+    if (completedQueries >= filters.length) {
+      onEose?.();
+    }
+  };
 
   filters.forEach((filter, index) => {
     const query = startFiniteQuery({
