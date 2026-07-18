@@ -4,7 +4,6 @@ import {
   initNostr,
   PROFILE_RELAYS,
   THREAD_RELAYS,
-  getRegistry,
   startFiniteQuery,
 } from "../client";
 import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
@@ -61,25 +60,26 @@ export async function subProfilesOnce(
     return emptySubHandle("profiles-once:empty");
   }
 
-  if (options.relayUrls) {
-    await ensureRelaysConnected(options.relayUrls);
-  } else {
-    await initNostr();
-  }
-
-  return getRegistry().subscribe([
-    {
-      filter: {
+  return finiteQuerySubHandle(
+    "profiles-once",
+    startFiniteQuery({
+      workflowOwner: "wired.browser.profiles",
+      filters: [{
         authors: pubkeys,
         kinds: [0],
         limit: profileQueryLimit(pubkeys.length),
+      }],
+      coverage: {
+        configuredRelayUrls: options.relayUrls ?? PROFILE_RELAYS,
+        hintedRelayUrls: [],
       },
-      cb: onEvent,
-      closeOnEose: true,
-      onEose,
-      relayUrls: options.relayUrls ?? PROFILE_RELAYS,
-    },
-  ]);
+      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+      onEvent,
+      onComplete: (completion) => {
+        if (completion.reason !== "cancelled") onEose?.();
+      },
+    }),
+  );
 }
 
 function uniqueRelayUrls(relays: readonly string[]): string[] {

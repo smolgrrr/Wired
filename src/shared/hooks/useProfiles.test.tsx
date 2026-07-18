@@ -126,4 +126,39 @@ describe("useProfiles batching", () => {
 
     await act(async () => root.unmount());
   });
+
+  it("allows a later consumer to retry after a completed profile miss", async () => {
+    mocks.subProfilesOnce.mockResolvedValue({ id: "profiles", close: vi.fn() });
+    const pubkey = "c".repeat(64);
+    const firstContainer = document.createElement("div");
+    document.body.append(firstContainer);
+    containers.push(firstContainer);
+    const firstRoot = createRoot(firstContainer);
+
+    await act(async () => {
+      firstRoot.render(<Probe pubkey={pubkey} />);
+      await Promise.resolve();
+    });
+    expect(mocks.subProfilesOnce).toHaveBeenCalledTimes(1);
+    const onEose = mocks.subProfilesOnce.mock.calls[0]?.[2] as
+      | (() => void)
+      | undefined;
+    await act(async () => {
+      onEose?.();
+      firstRoot.unmount();
+    });
+
+    const laterContainer = document.createElement("div");
+    document.body.append(laterContainer);
+    containers.push(laterContainer);
+    const laterRoot = createRoot(laterContainer);
+    await act(async () => {
+      laterRoot.render(<Probe pubkey={pubkey} />);
+      await Promise.resolve();
+    });
+
+    expect(mocks.subProfilesOnce).toHaveBeenCalledTimes(2);
+    expect(mocks.subProfilesOnce.mock.calls[1]?.[0]).toEqual([pubkey]);
+    await act(async () => laterRoot.unmount());
+  });
 });
