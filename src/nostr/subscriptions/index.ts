@@ -5,10 +5,16 @@ import {
   PROFILE_RELAYS,
   THREAD_RELAYS,
   getRegistry,
+  startFiniteQuery,
 } from "../client";
+import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
-import { createSubHandleOwner, emptySubHandle } from "./utils";
+import {
+  createSubHandleOwner,
+  emptySubHandle,
+  finiteQuerySubHandle,
+} from "./utils";
 import { profileQueryLimit } from "./query-limits";
 
 export type { SubCallback, SubHandle };
@@ -26,18 +32,23 @@ export const subNotesOnce = (
     return emptySubHandle("notes-once:empty");
   }
 
-  return getRegistry().subscribe([
-    {
-      filter: {
+  return finiteQuerySubHandle(
+    "notes-once",
+    startFiniteQuery({
+      workflowOwner: "wired.browser.thread",
+      filters: [{
         ids: eventIds,
         kinds: [1],
         limit: eventIds.length,
+      }],
+      coverage: {
+        configuredRelayUrls: relayUrls,
+        hintedRelayUrls: [],
       },
-      relayUrls,
-      cb: onEvent,
-      closeOnEose: true,
-    },
-  ]);
+      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+      onEvent,
+    }),
+  );
 };
 
 export async function subProfilesOnce(
