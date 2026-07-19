@@ -465,4 +465,98 @@ describe("server feed snapshot relay transcript", () => {
       relayFanout: 2,
     });
   });
+
+  it("queries dynamic hints only for references still missing after configured coverage", async () => {
+    const session = new RelayTranscriptSession();
+    const configuredReference = finalizeEvent({
+      created_at: 2_000_000_050,
+      kind: 1,
+      tags: [],
+      content: "configured reference",
+    }, new Uint8Array(32).fill(72));
+    const hintedReference = finalizeEvent({
+      created_at: 2_000_000_051,
+      kind: 1,
+      tags: [],
+      content: "hinted reference",
+    }, new Uint8Array(32).fill(73));
+    let referenceRoot = root;
+    const configuredHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const [filter] = request.filters;
+        if (filter?.ids) {
+          if (filter.ids.includes(configuredReference.id)) {
+            request.sendEvent(configuredReference);
+          }
+        } else if (filter?.kinds?.includes(1) && !filter["#e"]) {
+          request.sendEvent(referenceRoot);
+        }
+        request.sendEose();
+      },
+    });
+    const hintedHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const [filter] = request.filters;
+        if (filter?.ids?.includes(hintedReference.id)) {
+          request.sendEvent(hintedReference);
+        }
+        request.sendEose();
+      },
+    });
+    harnesses.push(configuredHarness, hintedHarness);
+    referenceRoot = finalizeEvent({
+      created_at: 2_000_000_052,
+      kind: 1,
+      tags: [],
+      content: [configuredReference, hintedReference]
+        .map((event) => `nostr:${nip19.neventEncode({
+          id: event.id,
+          relays: [hintedHarness.url],
+        })}`)
+        .join(" "),
+    }, new Uint8Array(32).fill(74));
+    const workflow = session.beginWorkflow("wired-server-feed-targeted-hints");
+
+    const snapshot = await fetchFeedSnapshot({
+      ageHours: 24,
+      filterDifficulty: 0,
+      relayCoverage: {
+        snapshot: [configuredHarness.url],
+        pow: [configuredHarness.url],
+        replies: [configuredHarness.url],
+        profiles: [],
+      },
+      timeoutMs: 1_000,
+    });
+    await session.waitFor((entries) =>
+      entries.filter((entry) => entry.type === "connection-closed").length === 3
+    );
+    workflow.complete();
+
+    expect(Object.keys(snapshot.eventsById).sort()).toEqual(
+      [referenceRoot.id, configuredReference.id, hintedReference.id].sort(),
+    );
+    const referenceRequests = session.entries
+      .slice(workflow.startIndex, workflow.completedIndex)
+      .filter((entry) => entry.type === "request" && entry.filters[0]?.ids);
+    expect(referenceRequests).toHaveLength(2);
+    expect(referenceRequests[0]).toMatchObject({
+      relayUrl: configuredHarness.url,
+      filters: [{
+        ids: [configuredReference.id, hintedReference.id],
+        kinds: [1, 1068],
+        limit: 2,
+      }],
+    });
+    expect(referenceRequests[1]).toMatchObject({
+      relayUrl: hintedHarness.url,
+      filters: [{
+        ids: [hintedReference.id],
+        kinds: [1, 1068],
+        limit: 1,
+      }],
+    });
+  });
 });
