@@ -1,4 +1,4 @@
-import { Relay, type Event, type Filter, useWebSocketImplementation } from "nostr-tools";
+import { type Event, type Filter, useWebSocketImplementation } from "nostr-tools";
 import { WebSocket } from "ws";
 import {
   POW_RELAYS,
@@ -125,93 +125,6 @@ function serializeRelayHints(
       uniqueRelays(relays),
     ]),
   );
-}
-
-async function connectRelays(urls: readonly string[]): Promise<Relay[]> {
-  const relays = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        return await Relay.connect(url);
-      } catch {
-        return null;
-      }
-    }),
-  );
-
-  return relays.filter((relay): relay is Relay => relay !== null);
-}
-
-function closeRelays(relays: Relay[]): void {
-  relays.forEach((relay) => {
-    try {
-      relay.close();
-    } catch {
-      // Relay already closed.
-    }
-  });
-}
-
-async function subscribeOnce(
-  relays: Relay[],
-  filter: Filter,
-  timeoutMs: number,
-  relayUrls?: string[],
-): Promise<EventBatch> {
-  if (relays.length === 0) {
-    return { events: [], relayHintsByEventId: new Map() };
-  }
-
-  const targetRelays = relayUrls
-    ? relays.filter((relay) =>
-        relayUrls.some(
-          (url) => normalizeRelayUrl(url) === normalizeRelayUrl(relay.url),
-        ),
-      )
-    : relays;
-
-  if (targetRelays.length === 0) {
-    return { events: [], relayHintsByEventId: new Map() };
-  }
-
-  const events: Event[] = [];
-  const seenIds = new Set<string>();
-  const relayHintsByEventId = new Map<string, string[]>();
-
-  await new Promise<void>((resolve) => {
-    const subscriptions: { close: () => void }[] = [];
-    let eoseCount = 0;
-    let settled = false;
-
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      subscriptions.forEach((sub) => sub.close());
-      resolve();
-    };
-
-    const timer = setTimeout(finish, timeoutMs);
-
-    for (const relay of targetRelays) {
-      const sub = relay.subscribe([filter], {
-        onevent(event) {
-          addRelayHint(relayHintsByEventId, event.id, relay.url);
-          if (seenIds.has(event.id)) return;
-          seenIds.add(event.id);
-          events.push(event);
-        },
-        oneose: () => {
-          eoseCount += 1;
-          if (eoseCount >= targetRelays.length) {
-            finish();
-          }
-        },
-      });
-      subscriptions.push(sub);
-    }
-  });
-
-  return { events, relayHintsByEventId };
 }
 
 async function querySessionOnce(
