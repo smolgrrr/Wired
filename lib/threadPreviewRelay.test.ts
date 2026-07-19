@@ -61,7 +61,31 @@ async function flushPromises(): Promise<void> {
 describe("thread preview relay compatibility", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     mocks.connect.mockReset();
+  });
+
+  it("keeps root-only relay behavior when the recursive rollout flag is disabled", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("WIRED_PREVIEW_RECURSIVE_REPLIES", "false");
+    const target = controlledRelay("wss://rollback.example/");
+    mocks.connect.mockResolvedValue(target.relay);
+    const rootId = "1".repeat(64);
+    const reply = {
+      id: "2".repeat(64),
+      tags: [["e", rootId, "", "reply"]],
+    } as Event;
+    const result = fetchThreadEventsFromRelays(rootId, [], {
+      configuredRelayUrls: [target.relay.url],
+      timeoutMs: 1_000,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    target.callbacks[0]?.onevent?.(reply);
+    target.callbacks[0]?.oneose?.();
+
+    await expect(result).resolves.toEqual([reply]);
+    expect(target.relay.subscribe).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("does not open relay connections for a pre-aborted preview", async () => {

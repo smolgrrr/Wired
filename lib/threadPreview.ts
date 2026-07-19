@@ -10,6 +10,8 @@ import { withFiniteRelaySession } from "./serverRelaySession.js";
 
 const SNAPSHOT_TIMEOUT_MS = 1_500;
 const RELAY_TIMEOUT_MS = 2_500;
+const PREVIEW_REPLY_PARENT_CHUNK_SIZE = 50;
+const PREVIEW_FRONTIER_EARLY_FLUSH_MS = 25;
 
 export type ThreadPreview = {
   eventId: string;
@@ -32,18 +34,43 @@ export type FetchThreadEventsOptions = {
   configuredRelayUrls?: readonly string[];
   timeoutMs?: number;
   signal?: AbortSignal;
+  recursiveReplies?: boolean;
 };
 
 function replyCountFromEvents(events: readonly Event[], eventId: string): number {
-  return new Set(
-    events
-      .filter(
-        (event) =>
-          event.id !== eventId &&
-          event.tags.some((tag) => tag[0] === "e" && tag[1] === eventId),
-      )
-      .map((event) => event.id),
-  ).size;
+  const childIdsByParent = new Map<string, Set<string>>();
+  events.forEach((event) => {
+    event.tags.forEach((tag) => {
+      if (tag[0] !== "e" || !tag[1]) return;
+      const childIds = childIdsByParent.get(tag[1]) ?? new Set<string>();
+      childIds.add(event.id);
+      childIdsByParent.set(tag[1], childIds);
+    });
+  });
+  const reachableIds = new Set([eventId]);
+  const queue = [eventId];
+  for (let index = 0; index < queue.length; index += 1) {
+    const parentId = queue[index]!;
+    childIdsByParent.get(parentId)?.forEach((childId) => {
+      if (reachableIds.has(childId)) return;
+      reachableIds.add(childId);
+      queue.push(childId);
+    });
+  }
+  return reachableIds.size - 1;
+}
+
+function chunkIds(ids: readonly string[], chunkSize: number): string[][] {
+  const chunks: string[][] = [];
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    chunks.push(ids.slice(index, index + chunkSize));
+  }
+  return chunks;
+}
+
+function recursivePreviewRepliesEnabled(): boolean {
+  const configured = process.env.WIRED_PREVIEW_RECURSIVE_REPLIES?.trim().toLowerCase();
+  return configured !== "0" && configured !== "false";
 }
 
 export function previewFromSnapshot(
@@ -93,20 +120,119 @@ export async function fetchThreadEventsFromRelays(
     ...(options.configuredRelayUrls ?? THREAD_RELAYS),
   ]);
   const timeoutMs = options.timeoutMs ?? RELAY_TIMEOUT_MS;
+  const recursiveReplies =
+    options.recursiveReplies ?? recursivePreviewRepliesEnabled();
   return withFiniteRelaySession(
     { relayUrls, connectDeadlineMs: timeoutMs, signal: options.signal },
     async (session) => {
       const events = new Map<string, Event>();
+      const queryDeadlineAt = Date.now() + timeoutMs;
+      const remainingQueryMs = () => Math.max(0, queryDeadlineAt - Date.now());
+      const recursiveParentIds = new Set<string>();
+      const pendingParentIds = new Set<string>();
+      let activeFrontierQuery: {
+        controller: AbortController;
+        promise: Promise<unknown>;
+      } | null = null;
+      let frontierFlush: Promise<void> | null = null;
+      let frontierFlushTimer: ReturnType<typeof setTimeout> | null = null;
+      let resolveFrontierFlush: (() => void) | null = null;
+      const currentFrontierQuery = () => activeFrontierQuery;
+
+      const addEvent = (event: Event) => {
+        if (events.has(event.id)) return;
+        events.set(event.id, event);
+        if (
+          recursiveReplies &&
+          event.id !== eventId &&
+          !recursiveParentIds.has(event.id)
+        ) {
+          recursiveParentIds.add(event.id);
+          pendingParentIds.add(event.id);
+          scheduleFrontier();
+        }
+      };
+      const queryParentChunks = (parentChunks: string[][]) => {
+        const deadlineMs = remainingQueryMs();
+        if (deadlineMs === 0) return;
+        activeFrontierQuery?.controller.abort();
+        const controller = new AbortController();
+        let operation!: {
+          controller: AbortController;
+          promise: Promise<unknown>;
+        };
+        const promise = session.query({
+          filters: parentChunks.map((parentIds) => ({
+            "#e": parentIds,
+            kinds: [1],
+          })),
+          relayUrls,
+          deadlineMs,
+          signal: controller.signal,
+          onEvent: addEvent,
+        });
+        operation = { controller, promise };
+        activeFrontierQuery = operation;
+        void promise.finally(() => {
+          if (activeFrontierQuery === operation) activeFrontierQuery = null;
+          if (pendingParentIds.size > 0) flushScheduledFrontier();
+        });
+      };
+      const flushFrontier = () => {
+        if (remainingQueryMs() === 0) {
+          pendingParentIds.clear();
+          return;
+        }
+        pendingParentIds.clear();
+        queryParentChunks(
+          chunkIds([...recursiveParentIds], PREVIEW_REPLY_PARENT_CHUNK_SIZE),
+        );
+      };
+      function flushScheduledFrontier() {
+        if (!frontierFlush) return;
+        if (frontierFlushTimer) clearTimeout(frontierFlushTimer);
+        frontierFlushTimer = null;
+        const resolve = resolveFrontierFlush;
+        resolveFrontierFlush = null;
+        frontierFlush = null;
+        flushFrontier();
+        resolve?.();
+      }
+      function scheduleFrontier() {
+        if (frontierFlush) return;
+        frontierFlush = new Promise<void>((resolve) => {
+          resolveFrontierFlush = resolve;
+          frontierFlushTimer = setTimeout(
+            flushScheduledFrontier,
+            PREVIEW_FRONTIER_EARLY_FLUSH_MS,
+          );
+        });
+      }
+
       await session.query({
         filters: [
           { ids: [eventId], kinds: [1], limit: 1 },
           { "#e": [eventId], kinds: [1], limit: 500 },
         ],
         relayUrls,
-        deadlineMs: timeoutMs,
+        deadlineMs: remainingQueryMs(),
         signal: options.signal,
-        onEvent: (event) => events.set(event.id, event),
+        onEvent: addEvent,
       });
+      flushScheduledFrontier();
+
+      if (recursiveReplies) {
+        while (
+          frontierFlush ||
+          pendingParentIds.size > 0 ||
+          currentFrontierQuery()
+        ) {
+          if (frontierFlush) await frontierFlush;
+          if (pendingParentIds.size > 0 && !frontierFlush) flushFrontier();
+          const activeQuery = currentFrontierQuery();
+          if (activeQuery) await activeQuery.promise;
+        }
+      }
       return [...events.values()];
     },
   );
