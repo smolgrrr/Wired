@@ -45,6 +45,15 @@ const nestedReply = finalizeEvent({
   tags: [["e", reply.id, "", "reply"]],
   content: "server nested reply",
 }, secretKey);
+const rootSeekingReply = finalizeEvent({
+  created_at: root.created_at + 2,
+  kind: 1,
+  tags: [
+    ["e", root.id, "", "root"],
+    ["e", root.id, "", "reply"],
+  ],
+  content: "activity before root resolution",
+}, secretKey);
 
 function driveSnapshot(request: RelayRequestController): void {
   const [filter] = request.filters;
@@ -206,6 +215,113 @@ describe("server feed snapshot relay transcript", () => {
           .map((entry) => entry.lifetimeMs),
       },
     });
+  });
+
+  it("reuses one session across activity, missing-root, and reply phases", async () => {
+    const session = new RelayTranscriptSession();
+    harnesses.push(
+      await RelayTranscriptHarness.listen({
+        session,
+        onRequest(request) {
+          const [filter] = request.filters;
+          if (filter?.ids?.includes(root.id)) {
+            request.sendEvent(root);
+          } else if (filter?.["#e"]?.includes(root.id)) {
+            request.sendEvent(rootSeekingReply);
+          } else if (filter?.kinds?.includes(1)) {
+            request.sendEvent(rootSeekingReply);
+          }
+          request.sendEose();
+        },
+      }),
+      await RelayTranscriptHarness.listen({
+        session,
+        onRequest(request) {
+          request.sendEose();
+        },
+      }),
+    );
+    const relayUrls = harnesses.map((harness) => harness.url);
+    const workflow = session.beginWorkflow("wired-server-feed-session-reuse");
+
+    const snapshot = await fetchFeedSnapshot({
+      ageHours: 24,
+      filterDifficulty: 0,
+      relayCoverage: {
+        snapshot: relayUrls,
+        pow: relayUrls,
+        replies: relayUrls,
+        profiles: relayUrls,
+      },
+      timeoutMs: 1_000,
+    });
+    await session.waitFor((entries) =>
+      entries.filter((entry) => entry.type === "close").length === 10 &&
+      entries.filter((entry) => entry.type === "connection-closed").length >= 4
+    );
+    workflow.complete();
+
+    expect(Object.keys(snapshot.eventsById).sort()).toEqual(
+      [root.id, rootSeekingReply.id].sort(),
+    );
+    expect(snapshot.processedEvents[0]?.replyIds).toEqual([rootSeekingReply.id]);
+    expect(session.summary(workflow)).toMatchObject({
+      openedConnections: 4,
+      requests: 10,
+      closes: 10,
+      eose: 10,
+      relayFanout: 2,
+    });
+  });
+
+  it("preserves distinct activity and reply relay coverage", async () => {
+    const session = new RelayTranscriptSession();
+    const activityHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        request.sendEvent(root);
+        request.sendEose();
+      },
+    });
+    const replyHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const [filter] = request.filters;
+        if (filter?.["#e"]?.includes(root.id)) request.sendEvent(reply);
+        if (filter?.["#e"]?.includes(reply.id)) request.sendEvent(nestedReply);
+        request.sendEose();
+      },
+    });
+    harnesses.push(activityHarness, replyHarness);
+    const workflow = session.beginWorkflow("wired-server-feed-distinct-coverage");
+
+    const snapshot = await fetchFeedSnapshot({
+      ageHours: 24,
+      filterDifficulty: 0,
+      relayCoverage: {
+        snapshot: [activityHarness.url],
+        pow: [activityHarness.url],
+        replies: [replyHarness.url],
+        profiles: [],
+      },
+      timeoutMs: 1_000,
+    });
+    workflow.complete();
+
+    expect(Object.keys(snapshot.eventsById).sort()).toEqual(
+      [root.id, reply.id, nestedReply.id].sort(),
+    );
+    expect(snapshot.processedEvents[0]?.replyIds.sort()).toEqual(
+      [reply.id, nestedReply.id].sort(),
+    );
+    const requests = session.entries
+      .slice(workflow.startIndex, workflow.completedIndex)
+      .filter((entry) => entry.type === "request");
+    expect(requests).toHaveLength(3);
+    expect(requests[0]?.relayUrl).toBe(activityHarness.url);
+    expect(requests.slice(1).every((request) =>
+      request.relayUrl === replyHarness.url
+    )).toBe(true);
   });
 
   it("retains complete results when one relay never sends EOSE", async () => {
