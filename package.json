@@ -20,6 +20,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "prototype:reply-frontier": "vite-node scripts/reply-frontier-prototype.ts",
+    "prototype:reply-frontier:audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/reply-frontier-prototype-transcript.test.ts --maxWorkers=1 --minWorkers=1",
     "snapshot:serve": "vite-node scripts/feed-snapshot-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
