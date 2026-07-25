@@ -100,7 +100,12 @@ describe("RelayPool browser finite queries", () => {
       "wired.browser.feed",
     );
     preparation.close();
-    await preparation.done;
+    await expect(preparation.done).resolves.toEqual({
+      targets: [{
+        relayUrl: hinted.relay.url,
+        state: "cancelled",
+      }],
+    });
 
     connection.resolve(hinted.relay);
     await flushPromises();
@@ -119,7 +124,12 @@ describe("RelayPool browser finite queries", () => {
       [hinted.relay.url],
       "wired.browser.feed",
     );
-    await preparation.done;
+    await expect(preparation.done).resolves.toEqual({
+      targets: [{
+        relayUrl: hinted.relay.url,
+        state: "connected",
+      }],
+    });
     const query = pool.startFiniteQuery({
       workflowOwner: "wired.browser.feed",
       filters: [{ ids: ["1".repeat(64)], kinds: [1], limit: 1 }],
@@ -133,6 +143,25 @@ describe("RelayPool browser finite queries", () => {
 
     expect(mocks.connect).toHaveBeenCalledOnce();
     expect(hinted.relay.subscribe).toHaveBeenCalledOnce();
+  });
+
+  it("reports a failed preparation without retrying the connection", async () => {
+    const relayUrl = "wss://failed-hint.example/";
+    mocks.connect.mockRejectedValue(new Error("offline"));
+    const pool = new RelayPool();
+
+    const preparation = pool.prepareRelayConnections(
+      [relayUrl],
+      "wired.browser.thread",
+    );
+
+    await expect(preparation.done).resolves.toEqual({
+      targets: [{
+        relayUrl,
+        state: "connect-failed",
+      }],
+    });
+    expect(mocks.connect).toHaveBeenCalledOnce();
   });
 
   it("notifies the workflow owner when a finite query completes", async () => {

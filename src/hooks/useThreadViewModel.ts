@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import type { Event } from "nostr-tools";
-import { subNotesOnce } from "../nostr/subscriptions";
+import { subReferencedEventsOnce } from "../nostr/subscriptions";
 import { scoreThreadPost } from "../nostr/processEvents";
 import { uniqBy } from "@lib/collections";
 import { useThreadEvents } from "./useThreadEvents";
 import { useNostrSubscription } from "../shared/hooks/useNostrSubscription";
 import { useModerationManifest } from "../shared/hooks/useModerationManifest";
 import { filterModeratedEvents } from "../shared/lib/moderation";
+import { extractEventTagRefs } from "../shared/lib/quotedEvents";
 
 export function useThreadViewModel(
   hexID: string,
@@ -28,18 +29,14 @@ export function useThreadViewModel(
 
   const opEvent = allEvents.find((event) => event.id === hexID);
 
-  const opMentionIds = useMemo(() => {
-    if (!opEvent) return [];
-    return opEvent.tags
-      .filter((tag: string[]) => tag[0] === "e")
-      .map((tag: string[]) => tag[1])
-      .filter(Boolean);
+  const opMentionRefs = useMemo(() => {
+    return opEvent ? extractEventTagRefs(opEvent) : [];
   }, [opEvent]);
 
   const prevMentions = useNostrSubscription(
-    (onEvent) => subNotesOnce(opMentionIds, onEvent),
-    [opMentionIds.join(",")],
-    Boolean(opEvent && opMentionIds.length > 0),
+    (onEvent) => subReferencedEventsOnce(opMentionRefs, onEvent),
+    [JSON.stringify(opMentionRefs)],
+    Boolean(opEvent && opMentionRefs.length > 0),
   );
 
   const replyEvents = useMemo(() => {

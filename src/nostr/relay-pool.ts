@@ -6,6 +6,7 @@ import type {
   FiniteQuery,
   QueryHandle,
   RelayConnectionPreparation,
+  RelayConnectionPreparationState,
 } from "./browser-relay-access";
 import {
   startBrowserFiniteQuery,
@@ -108,6 +109,7 @@ export class RelayPool implements BrowserRelayAccess {
       resolveClosed = resolve;
     });
     const leases = relayUrls.map((relayUrl) => ({
+      relayUrl,
       lease: this.acquireConnection(relayUrl, workflowOwner),
       released: false,
       timeout: undefined as ReturnType<typeof setTimeout> | undefined,
@@ -121,20 +123,25 @@ export class RelayPool implements BrowserRelayAccess {
       if (target.timeout) clearTimeout(target.timeout);
       target.lease.release(state);
     };
-    const done = Promise.allSettled(leases.map(async (target) => {
-      let timedOut = false;
-      await Promise.race([
-        target.lease.promise,
-        closedPromise,
-        new Promise<void>((resolve) => {
+    const done = Promise.all(leases.map(async (target) => {
+      const state = await Promise.race<RelayConnectionPreparationState>([
+        target.lease.promise.then(
+          (location) => location ? "connected" : "cancelled",
+          () => "connect-failed",
+        ),
+        closedPromise.then(() => "cancelled" as const),
+        new Promise<RelayConnectionPreparationState>((resolve) => {
           target.timeout = setTimeout(() => {
-            timedOut = true;
-            resolve();
+            resolve("timed-out");
           }, RELAY_CONNECT_TIMEOUT_MS);
         }),
-      ]).catch(() => {});
-      release(target, closed ? "cancelled" : timedOut ? "timed-out" : undefined);
-    })).then(() => {});
+      ]);
+      release(
+        target,
+        state === "timed-out" || state === "cancelled" ? state : undefined,
+      );
+      return { relayUrl: target.relayUrl, state };
+    })).then((targets) => ({ targets }));
 
     return {
       done,
