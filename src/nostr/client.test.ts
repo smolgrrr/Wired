@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   connect: vi.fn(),
   ensureConnected: vi.fn(),
+  prepareRelayConnections: vi.fn(),
   startFiniteQuery: vi.fn(),
 }));
 
@@ -10,6 +11,7 @@ vi.mock("./relay-pool", () => ({
   RelayPool: vi.fn().mockImplementation(() => ({
     connect: mocks.connect,
     ensureConnected: mocks.ensureConnected,
+    prepareRelayConnections: mocks.prepareRelayConnections,
     startFiniteQuery: mocks.startFiniteQuery,
   })),
 }));
@@ -19,6 +21,7 @@ describe("nostr client", () => {
     vi.resetModules();
     mocks.connect.mockReset();
     mocks.ensureConnected.mockReset();
+    mocks.prepareRelayConnections.mockReset();
     mocks.startFiniteQuery.mockReset();
   });
 
@@ -55,6 +58,27 @@ describe("nostr client", () => {
 
     expect(close).toHaveBeenCalledOnce();
     resolveDone(result);
+    await done;
+  });
+
+  it("cancels active relay preparations during route subscription cleanup", async () => {
+    let resolveDone!: () => void;
+    const close = vi.fn();
+    const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+    mocks.prepareRelayConnections.mockReturnValue({ close, done });
+    const {
+      closeAllSubscriptions,
+      prepareRelayConnections,
+    } = await import("./client");
+
+    prepareRelayConnections(
+      ["wss://hint.example"],
+      "wired.browser.feed",
+    );
+    closeAllSubscriptions();
+
+    expect(close).toHaveBeenCalledOnce();
+    resolveDone();
     await done;
   });
 });

@@ -5,7 +5,11 @@ import {
   THREAD_RELAYS as CONFIG_THREAD_RELAYS,
 } from "../config";
 import { RelayPool } from "./relay-pool";
-import type { FiniteQuery, QueryHandle } from "./browser-relay-access";
+import type {
+  FiniteQuery,
+  QueryHandle,
+  RelayConnectionPreparation,
+} from "./browser-relay-access";
 import { SubscriptionRegistry } from "./subscription-registry";
 import {
   RelayWorkflowCollector,
@@ -32,6 +36,7 @@ let pool: RelayPool | null = null;
 let registry: SubscriptionRegistry | null = null;
 let connectPromise: Promise<void> | null = null;
 const activeFiniteQueries = new Set<QueryHandle>();
+const activeRelayPreparations = new Set<RelayConnectionPreparation>();
 let scheduleWorkflowEvidenceExport = () => {};
 const workflowEvidence = new RelayWorkflowCollector({
   onChange: () => { scheduleWorkflowEvidenceExport(); },
@@ -131,6 +136,22 @@ export function startFiniteQuery(query: FiniteQuery): QueryHandle {
   return handle;
 }
 
+export function prepareRelayConnections(
+  urls: readonly string[],
+  workflowOwner: FiniteQuery["workflowOwner"],
+): RelayConnectionPreparation {
+  ensureNostrClient();
+  if (!pool) {
+    throw new Error("Nostr client is not initialized.");
+  }
+  const preparation = pool.prepareRelayConnections(urls, workflowOwner);
+  activeRelayPreparations.add(preparation);
+  void preparation.done.finally(() =>
+    activeRelayPreparations.delete(preparation)
+  );
+  return preparation;
+}
+
 export async function publish(event: Event): Promise<Set<string>> {
   await initNostr();
   if (!pool) {
@@ -146,4 +167,5 @@ export function isNostrReady(): boolean {
 export function closeAllSubscriptions(): void {
   registry?.closeAll();
   [...activeFiniteQueries].forEach((query) => query.close());
+  [...activeRelayPreparations].forEach((preparation) => preparation.close());
 }

@@ -1,7 +1,14 @@
 import type { Event } from "nostr-tools";
-import { POW_RELAYS } from "../../config";
-import { getRegistry, startFiniteQuery } from "../client";
-import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
+import { DYNAMIC_FEED_ROOT_HINTS_ENABLED, POW_RELAYS } from "../../config";
+import {
+  getRegistry,
+  prepareRelayConnections,
+  startFiniteQuery,
+} from "../client";
+import {
+  DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+  type QueryCompletion,
+} from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
 import {
   ROOT_RESOLUTION_DEPTH,
@@ -29,22 +36,53 @@ type GlobalFeedOptions = {
   rootFilterDifficulty?: number;
   replyDepth?: number;
   onInitialEose?: () => void;
+  dynamicRootHints?: boolean;
 };
 
 function uniqueRelays(relays: readonly string[]): string[] {
   return uniqueRelayUrls(relays);
 }
 
-function rootRelayCoverage(
+type HintQueryPlan = {
+  ids: string[];
+  relayUrl: string;
+};
+
+function hintQueryPlans(
+  roots: readonly FeedRootRef[],
+  configuredRelayUrls: readonly string[],
+): HintQueryPlan[] {
+  const configured = new Set(configuredRelayUrls);
+  const idsByRelay = new Map<string, Set<string>>();
+
+  roots.forEach((ref) => {
+    uniqueRelays(ref.relays)
+      .filter((relayUrl) => !configured.has(relayUrl))
+      .forEach((relayUrl) => {
+        const ids = idsByRelay.get(relayUrl) ?? new Set<string>();
+        ids.add(ref.id.toLowerCase());
+        idsByRelay.set(relayUrl, ids);
+      });
+  });
+
+  return [...idsByRelay.entries()].map(([relayUrl, ids]) => ({
+    ids: [...ids],
+    relayUrl,
+  }));
+}
+
+function rootRelayPlan(
   roots: Iterable<FeedRootRef>,
   fallbackRelays: readonly string[] | undefined,
 ): {
   configuredRelayUrls: readonly string[];
-  hintedRelayUrls: readonly string[];
+  hintPlans: HintQueryPlan[];
 } {
+  const rootRefs = [...roots];
+  const configuredRelayUrls = uniqueRelays(fallbackRelays ?? POW_RELAYS);
   return {
-    configuredRelayUrls: fallbackRelays ?? POW_RELAYS,
-    hintedRelayUrls: uniqueRelays([...roots].flatMap((ref) => ref.relays)),
+    configuredRelayUrls,
+    hintPlans: hintQueryPlans(rootRefs, configuredRelayUrls),
   };
 }
 
@@ -126,7 +164,11 @@ class FeedReplyTraversal {
 }
 
 class FeedRootFetch {
-  private readonly owner = createSubHandleOwner("feed-roots");
+  private closed = false;
+  private readonly owner = createSubHandleOwner(
+    "feed-roots",
+    () => { this.closed = true; },
+  );
   private readonly requestedIds = new Set<string>();
 
   constructor(
@@ -134,6 +176,7 @@ class FeedRootFetch {
     private readonly fallbackRelayUrls: readonly string[] | undefined,
     private readonly eventsById: Map<string, Event>,
     private readonly onRootEvents: (events: Event[]) => void,
+    private readonly dynamicRootHints: boolean,
   ) {}
 
   get handle(): SubHandle {
@@ -161,27 +204,14 @@ class FeedRootFetch {
       mergeFeedRootRefs(refsToFetch),
       FEED_ROOT_FETCH_CHUNK_SIZE,
     );
-    this.subscribeRootChunk(chunks, 0, new Map(), depth);
+    this.subscribeRootChunks(chunks, new Map(), depth);
   }
 
-  private subscribeRootChunk(
+  private subscribeRootChunks(
     rootChunks: FeedRootRef[][],
-    index: number,
     nextRefs: Map<string, FeedRootRef>,
     depth: number,
   ) {
-    const chunk = rootChunks[index];
-    if (!chunk) {
-      this.start([...nextRefs.values()], depth - 1);
-      return;
-    }
-
-    const ids = chunk.map((ref) => ref.id);
-    if (ids.length === 0) {
-      this.subscribeRootChunk(rootChunks, index + 1, nextRefs, depth);
-      return;
-    }
-
     const addNextRef = (ref: FeedRootRef) => {
       const [merged] = mergeFeedRootRefs([
         ...(nextRefs.get(ref.id) ? [nextRefs.get(ref.id)!] : []),
@@ -190,34 +220,166 @@ class FeedRootFetch {
       nextRefs.set(ref.id, merged);
     };
 
-    const query = startFiniteQuery({
-      workflowOwner: "wired.browser.feed",
-      filters: [{
+    const recordRootEvent = (evt: Event, relay: string) => {
+      this.eventsById.set(evt.id.toLowerCase(), evt);
+      this.onEvent(evt, relay);
+
+      const nextRef = resolveFeedRootRef(evt, this.eventsById);
+      if (nextRef?.id === evt.id.toLowerCase()) {
+        this.onRootEvents([evt]);
+        return;
+      }
+
+      if (nextRef) addNextRef(nextRef);
+    };
+    const onExpectedRootEvent = (expectedIds: readonly string[]) => {
+      const expected = new Set(expectedIds.map((id) => id.toLowerCase()));
+      return (evt: Event, relay: string) => {
+        if (!expected.has(evt.id.toLowerCase())) return;
+        recordRootEvent(evt, relay);
+      };
+    };
+    const relayPlan = rootRelayPlan(
+      rootChunks.flat(),
+      this.fallbackRelayUrls,
+    );
+    const hintPreparations = new Map<
+      string,
+      ReturnType<typeof prepareRelayConnections>
+    >();
+    const hintQueues = new Map<string, Promise<void>>();
+    let configuredComplete = false;
+    let pendingHintChunks = this.dynamicRootHints ? rootChunks.length : 0;
+    let batchComplete = false;
+
+    const maybeFinishBatch = () => {
+      if (
+        this.closed ||
+        batchComplete ||
+        !configuredComplete ||
+        pendingHintChunks > 0
+      ) return;
+      batchComplete = true;
+      this.start([...nextRefs.values()], depth - 1);
+    };
+    const completeHintChunk = () => {
+      if (this.closed) return;
+      pendingHintChunks -= 1;
+      maybeFinishBatch();
+    };
+    const startExactRootQuery = (
+      ids: string[],
+      configuredRelayUrls: readonly string[],
+      hintedRelayUrls: readonly string[],
+      handleId: string,
+      onComplete: (completion: QueryCompletion) => void,
+    ) => {
+      const query = startFiniteQuery({
+        workflowOwner: "wired.browser.feed",
+        filters: [{
+          ids,
+          kinds: [1],
+          limit: ids.length,
+        }],
+        coverage: { configuredRelayUrls, hintedRelayUrls },
+        completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+        onEvent: onExpectedRootEvent(ids),
+        onComplete,
+      });
+      this.owner.add(finiteQuerySubHandle(handleId, query));
+    };
+    const startHintChunk = (chunk: FeedRootRef[], index: number) => {
+      if (this.closed) return;
+      const missingRefs = chunk.filter((ref) =>
+        !this.eventsById.has(ref.id.toLowerCase())
+      );
+      const hintPlans = hintQueryPlans(
+        missingRefs,
+        relayPlan.configuredRelayUrls,
+      );
+      if (hintPlans.length === 0) {
+        completeHintChunk();
+        return;
+      }
+
+      let pendingPlans = hintPlans.length;
+      const completePlan = () => {
+        if (this.closed) return;
+        pendingPlans -= 1;
+        if (pendingPlans === 0) completeHintChunk();
+      };
+      hintPlans.forEach((hintPlan) => {
+        const prior = hintQueues.get(hintPlan.relayUrl) ??
+          hintPreparations.get(hintPlan.relayUrl)?.done ??
+          Promise.resolve();
+        const queued = prior.catch(() => {}).then(() =>
+          new Promise<void>((resolve) => {
+            if (this.closed) {
+              resolve();
+              return;
+            }
+            const stillMissingIds = hintPlan.ids.filter((id) =>
+              !this.eventsById.has(id.toLowerCase())
+            );
+            if (stillMissingIds.length === 0) {
+              resolve();
+              return;
+            }
+            startExactRootQuery(
+              stillMissingIds,
+              [hintPlan.relayUrl],
+              [],
+              `feed-root-hint-chunk:${index}:${hintPlan.relayUrl}`,
+              () => resolve(),
+            );
+          })
+        );
+        hintQueues.set(hintPlan.relayUrl, queued);
+        void queued.then(completePlan);
+      });
+    };
+    const startConfiguredChunk = (index: number) => {
+      if (this.closed) return;
+      const chunk = rootChunks[index];
+      if (!chunk) {
+        configuredComplete = true;
+        maybeFinishBatch();
+        return;
+      }
+      const ids = chunk.map((ref) => ref.id);
+      const chunkHints = hintQueryPlans(
+        chunk,
+        relayPlan.configuredRelayUrls,
+      ).map((plan) => plan.relayUrl);
+      startExactRootQuery(
         ids,
-        kinds: [1],
-        limit: ids.length,
-      }],
-      coverage: rootRelayCoverage(chunk, this.fallbackRelayUrls),
-      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
-      onEvent: (evt, relay) => {
-        this.eventsById.set(evt.id.toLowerCase(), evt);
-        this.onEvent(evt, relay);
+        relayPlan.configuredRelayUrls,
+        this.dynamicRootHints ? [] : chunkHints,
+        `feed-root-chunk:${index}`,
+        (completion) => {
+          if (completion.reason === "cancelled") return;
+          queueMicrotask(() => {
+            startConfiguredChunk(index + 1);
+            if (this.dynamicRootHints) startHintChunk(chunk, index);
+          });
+        },
+      );
+    };
 
-        const nextRef = resolveFeedRootRef(evt, this.eventsById);
-        if (nextRef?.id === evt.id.toLowerCase()) {
-          this.onRootEvents([evt]);
-          return;
-        }
-
-        if (nextRef) addNextRef(nextRef);
-      },
-      onComplete: (completion) => {
-        if (completion.reason !== "cancelled") {
-          this.subscribeRootChunk(rootChunks, index + 1, nextRefs, depth);
-        }
-      },
-    });
-    this.owner.add(finiteQuerySubHandle(`feed-root-chunk:${index}`, query));
+    startConfiguredChunk(0);
+    if (this.dynamicRootHints) {
+      relayPlan.hintPlans.forEach((hintPlan) => {
+        const preparation = prepareRelayConnections(
+          [hintPlan.relayUrl],
+          "wired.browser.feed",
+        );
+        hintPreparations.set(hintPlan.relayUrl, preparation);
+        this.owner.add({
+          id: `feed-root-hint-connection:${hintPlan.relayUrl}`,
+          close: preparation.close,
+        });
+      });
+    }
   }
 }
 
@@ -275,6 +437,7 @@ export const subGlobalFeed = (
     options.replyRelayUrls ?? options.rootRelayUrls ?? POW_RELAYS,
     eventsById,
     startRepliesForRoots,
+    options.dynamicRootHints ?? DYNAMIC_FEED_ROOT_HINTS_ENABLED,
   );
 
   owner.add(replies.handle);

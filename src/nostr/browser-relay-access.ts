@@ -43,8 +43,17 @@ export type QueryHandle = {
   close(): void;
 };
 
+export type RelayConnectionPreparation = {
+  done: Promise<void>;
+  close(): void;
+};
+
 export interface BrowserRelayAccess {
   connectConfigured(urls: readonly string[]): Promise<void>;
+  prepareRelayConnections(
+    urls: readonly string[],
+    workflowOwner: FiniteQuery["workflowOwner"],
+  ): RelayConnectionPreparation;
   startFiniteQuery(query: FiniteQuery): QueryHandle;
   publish(event: Event): Promise<ReadonlySet<string>>;
 }
