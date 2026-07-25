@@ -150,13 +150,20 @@ describe("global feed relay transcript", () => {
       initialContentLatencies.push(initialContentLatencyMs ?? summary.completionLatencyMs);
       completionLatencies.push(summary.completionLatencyMs);
       evidenceEntries = entries;
+      await Promise.all(runHarnesses.map((harness) => harness.close()));
+      runHarnesses.forEach((harness) => {
+        const harnessIndex = harnesses.indexOf(harness);
+        if (harnessIndex >= 0) harnesses.splice(harnessIndex, 1);
+      });
     }
 
+    const initialContent = summarizeSamples(initialContentLatencies);
+    const completion = summarizeSamples(completionLatencies);
     emitAuditMeasurement({
       scenario: "wired-browser-global-feed-cold-local-fixture",
       samples: completionLatencies.length,
-      initialContentLatencyMs: summarizeSamples(initialContentLatencies),
-      completionLatencyMs: summarizeSamples(completionLatencies),
+      initialContentLatencyMs: initialContent,
+      completionLatencyMs: completion,
       evidence: {
         requestBytes: evidenceEntries
           .filter((entry) => entry.type === "request")
@@ -166,9 +173,13 @@ describe("global feed relay transcript", () => {
           .map((entry) => entry.bytes),
         subscriptionLifetimesMs: evidenceEntries
           .filter((entry) => entry.type === "close")
-          .map((entry) => entry.lifetimeMs),
+        .map((entry) => entry.lifetimeMs),
       },
     });
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      expect(initialContent.p95).toBeLessThanOrEqual(26);
+      expect(completion.p95).toBeLessThanOrEqual(50);
+    }
   });
 
   it("captures missing-root chunking and a distinct NIP-10 relay hint", async () => {
@@ -208,18 +219,24 @@ describe("global feed relay transcript", () => {
     activityEvents = rootEvents.map((root, index) => finalizeEvent({
       created_at: root.created_at + 100,
       kind: 1,
-      tags: [["e", root.id, hintedRelay.url, "root"]],
+      tags: [[
+        "e",
+        root.id,
+        index % 2 === 0 ? `${hintedRelay.url}/` : hintedRelay.url,
+        "root",
+      ]],
       content: `activity reply ${index}`,
     }, new Uint8Array(32).fill(index + 40)));
 
     const activityRelayUrls = activityRelays.map((relay) => relay.url);
-    await ensureRelaysConnected([...activityRelayUrls, hintedRelay.url]);
+    await ensureRelaysConnected(activityRelayUrls);
     const workflow = session.beginWorkflow("global-feed-missing-roots-hint-chunk");
     const receivedIds = new Set<string>();
     const handle = subGlobalFeed((event) => receivedIds.add(event.id), 24, {
       rootRelayUrls: activityRelayUrls,
       replyRelayUrls: activityRelayUrls,
       replyDepth: 1,
+      dynamicRootHints: true,
     });
 
     const expectedIds = [...activityEvents, ...rootEvents].map((event) => event.id);
@@ -239,14 +256,226 @@ describe("global feed relay transcript", () => {
       .map((request) => request.filters[0]?.ids?.length)).toEqual([20, 1]);
     expect(new Set(rootRequests.flatMap((request) => request.filters[0]?.ids ?? [])))
       .toEqual(new Set(rootEvents.map((event) => event.id)));
-    expect(session.summary(workflow)).toMatchObject({
-      openedConnections: 0,
+    expect(rootRequests.filter((request) => request.relayUrl === hintedRelay.url)
+      .every((request) => request.filters[0]?.limit ===
+        request.filters[0]?.ids?.length)).toBe(true);
+    const summary = session.summary(workflow);
+    expect(summary).toMatchObject({
+      openedConnections: 1,
       requests: 50,
       closes: 50,
       eose: 50,
       returnedEvents: 63,
       relayFanout: 3,
     });
+    emitAuditMeasurement({
+      scenario: "wired-browser-dynamic-feed-root-hints-local-fixture",
+      samples: 1,
+      completionLatencyMs: summary.completionLatencyMs,
+      evidence: {
+        discoveredHints: 1,
+        connectedHints: summary.openedConnections,
+        queriedHintRequests: rootRequests.filter(
+          (request) => request.relayUrl === hintedRelay.url,
+        ).length,
+        resolvedHintRoots: rootEvents.filter((event) =>
+          receivedIds.has(event.id)
+        ).length,
+      },
+    });
+  });
+
+  it("resolves an exact missing root from an already-connected hint", async () => {
+    const session = new RelayTranscriptSession();
+    const hintedRoot = finalizeEvent({
+      created_at: rootEvent.created_at + 150,
+      kind: 1,
+      tags: [],
+      content: "already-connected hinted root",
+    }, new Uint8Array(32).fill(69));
+    const hintedRelay = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        if (request.filters[0]?.ids?.includes(hintedRoot.id)) {
+          request.sendEvent(hintedRoot);
+        }
+        request.sendEose();
+      },
+    });
+    const activityEvent = finalizeEvent({
+      created_at: hintedRoot.created_at + 1,
+      kind: 1,
+      tags: [["e", hintedRoot.id, hintedRelay.url, "root"]],
+      content: "already-connected hint activity",
+    }, new Uint8Array(32).fill(70));
+    const configuredRelay = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const [filter] = request.filters;
+        if (!filter?.ids && !filter?.["#e"]) request.sendEvent(activityEvent);
+        request.sendEose();
+      },
+    });
+    harnesses.push(configuredRelay, hintedRelay);
+
+    await ensureRelaysConnected([configuredRelay.url, hintedRelay.url]);
+    const workflow = session.beginWorkflow("global-feed-connected-hint");
+    const receivedIds = new Set<string>();
+    const handle = subGlobalFeed((event) => receivedIds.add(event.id), 24, {
+      rootRelayUrls: [configuredRelay.url],
+      replyRelayUrls: [configuredRelay.url],
+      replyDepth: 0,
+      dynamicRootHints: true,
+    });
+
+    await session.waitFor(() => receivedIds.has(hintedRoot.id));
+    await session.waitFor(
+      (entries) => entries.filter((entry) => entry.type === "close").length === 3,
+    );
+    handle.close();
+    workflow.complete();
+
+    expect([...receivedIds].sort()).toEqual(
+      [activityEvent.id, hintedRoot.id].sort(),
+    );
+    expect(session.summary(workflow)).toMatchObject({
+      openedConnections: 0,
+      requests: 3,
+      closes: 3,
+      returnedEvents: 2,
+      relayFanout: 2,
+    });
+  });
+
+  it("does not query a newly connected hint after configured coverage resolves the root", async () => {
+    const session = new RelayTranscriptSession();
+    const configuredRoot = finalizeEvent({
+      created_at: rootEvent.created_at + 200,
+      kind: 1,
+      tags: [],
+      content: "configured root",
+    }, new Uint8Array(32).fill(71));
+    const hintedRelay = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        request.sendEose();
+      },
+    });
+    const activityEvent = finalizeEvent({
+      created_at: configuredRoot.created_at + 1,
+      kind: 1,
+      tags: [["e", configuredRoot.id, hintedRelay.url, "root"]],
+      content: "configured-root activity",
+    }, new Uint8Array(32).fill(72));
+    const configuredRelay = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const [filter] = request.filters;
+        if (filter?.ids?.includes(configuredRoot.id)) {
+          request.sendEvent(configuredRoot);
+        } else if (!filter?.["#e"]) {
+          request.sendEvent(activityEvent);
+        }
+        request.sendEose();
+      },
+    });
+    harnesses.push(configuredRelay, hintedRelay);
+
+    await ensureRelaysConnected([configuredRelay.url]);
+    const workflow = session.beginWorkflow("global-feed-configured-before-hint");
+    const receivedIds = new Set<string>();
+    const handle = subGlobalFeed((event) => receivedIds.add(event.id), 24, {
+      rootRelayUrls: [configuredRelay.url],
+      replyRelayUrls: [configuredRelay.url],
+      replyDepth: 0,
+      dynamicRootHints: true,
+    });
+
+    await session.waitFor(() => receivedIds.has(configuredRoot.id));
+    await session.waitFor((entries) =>
+      entries.some((entry) =>
+        entry.type === "connection-opened" && entry.relayUrl === hintedRelay.url
+      )
+    );
+    await session.waitFor(
+      (entries) => entries.filter((entry) => entry.type === "close").length === 2,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    handle.close();
+    workflow.complete();
+
+    expect([...receivedIds].sort()).toEqual(
+      [activityEvent.id, configuredRoot.id].sort(),
+    );
+    const requests = session.entries
+      .slice(workflow.startIndex, workflow.completedIndex)
+      .filter((entry) => entry.type === "request");
+    expect(requests.filter((request) => request.relayUrl === configuredRelay.url))
+      .toHaveLength(2);
+    expect(requests.filter((request) => request.relayUrl === hintedRelay.url))
+      .toHaveLength(0);
+  });
+
+  it("preserves activity identity when a hint closes without returning a root", async () => {
+    const session = new RelayTranscriptSession();
+    const missingRootId = "f".repeat(64);
+    const failingHint = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        request.closeConnection();
+      },
+    });
+    const activityEvent = finalizeEvent({
+      created_at: rootEvent.created_at + 300,
+      kind: 1,
+      tags: [["e", missingRootId, failingHint.url, "root"]],
+      content: "missing-root activity",
+    }, new Uint8Array(32).fill(73));
+    const configuredRelay = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const [filter] = request.filters;
+        if (!filter?.ids && !filter?.["#e"]) request.sendEvent(activityEvent);
+        request.sendEose();
+      },
+    });
+    harnesses.push(configuredRelay, failingHint);
+
+    await ensureRelaysConnected([configuredRelay.url]);
+    const workflow = session.beginWorkflow("global-feed-failed-hint");
+    const receivedIds = new Set<string>();
+    const handle = subGlobalFeed((event) => receivedIds.add(event.id), 24, {
+      rootRelayUrls: [configuredRelay.url],
+      replyRelayUrls: [configuredRelay.url],
+      replyDepth: 0,
+      dynamicRootHints: true,
+    });
+
+    await session.waitFor((entries) =>
+      entries.some((entry) =>
+        entry.type === "connection-closed" && entry.relayUrl === failingHint.url
+      )
+    );
+    handle.close();
+    workflow.complete();
+
+    expect([...receivedIds]).toEqual([activityEvent.id]);
+    const hintRequests = session.entries
+      .slice(workflow.startIndex, workflow.completedIndex)
+      .filter((entry) =>
+        entry.type === "request" && entry.relayUrl === failingHint.url
+      );
+    expect(hintRequests).toHaveLength(1);
+    const hintRequest = hintRequests[0];
+    expect(hintRequest?.type).toBe("request");
+    if (hintRequest?.type !== "request") {
+      throw new Error("Expected one failed-hint root request");
+    }
+    expect(hintRequest.filters).toEqual([{
+      ids: [missingRootId],
+      kinds: [1],
+      limit: 1,
+    }]);
   });
 
   it("retains exact recursive output when a peer relay disconnects", async () => {

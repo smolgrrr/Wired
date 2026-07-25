@@ -5,6 +5,7 @@ import {
   DEFAULT_FILTER_DIFFICULTY,
   DEFAULT_POST_DIFFICULTY,
   DEFAULT_RELAYS,
+  configuredFlag,
   configuredHttpUrls,
   configuredRelays,
 } from "./config";
@@ -73,6 +74,16 @@ describe("configuredHttpUrls", () => {
     expect(configuredHttpUrls("wss://bad.example", ["https://fallback.example"])).toEqual([
       "https://fallback.example",
     ]);
+  });
+});
+
+describe("configuredFlag", () => {
+  it("accepts explicit true and false values with a safe fallback", () => {
+    expect(configuredFlag(undefined)).toBe(true);
+    expect(configuredFlag(" false ")).toBe(false);
+    expect(configuredFlag("0")).toBe(false);
+    expect(configuredFlag("true", false)).toBe(true);
+    expect(configuredFlag("unexpected", false)).toBe(false);
   });
 });
 

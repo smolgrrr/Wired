@@ -57,6 +57,18 @@ export function configuredHttpUrls(
   return urls.length > 0 ? urls : fallback;
 }
 
+export function configuredFlag(
+  envValue: string | undefined,
+  fallback = true,
+): boolean {
+  if (!envValue?.trim()) return fallback;
+
+  const normalized = envValue.trim().toLowerCase();
+  if (normalized === "0" || normalized === "false") return false;
+  if (normalized === "1" || normalized === "true") return true;
+  return fallback;
+}
+
 function configuredEnv(key: string): string | undefined {
   const viteEnv = import.meta.env as Record<string, string | undefined> | undefined;
   if (viteEnv?.[key] !== undefined) return viteEnv[key];
@@ -134,4 +146,8 @@ export const MEDIA_MODERATION_COHORT_PERCENT = Math.max(
     100,
     Number(configuredEnv("VITE_MEDIA_MODERATION_COHORT_PERCENT") || 100) || 0,
   ),
+);
+
+export const DYNAMIC_FEED_ROOT_HINTS_ENABLED = configuredFlag(
+  configuredEnv("VITE_DYNAMIC_FEED_ROOT_HINTS_ENABLED"),
 );

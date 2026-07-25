@@ -88,6 +88,53 @@ describe("RelayPool browser finite queries", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("closes a prepared relay that connects after navigation cancellation", async () => {
+    vi.useFakeTimers();
+    const hinted = controlledRelay("wss://late-hint.example/");
+    const connection = deferred<typeof hinted.relay>();
+    mocks.connect.mockReturnValue(connection.promise);
+    const pool = new RelayPool();
+
+    const preparation = pool.prepareRelayConnections(
+      [hinted.relay.url],
+      "wired.browser.feed",
+    );
+    preparation.close();
+    await preparation.done;
+
+    connection.resolve(hinted.relay);
+    await flushPromises();
+
+    expect(hinted.relay.close).toHaveBeenCalledOnce();
+    expect(hinted.relay.subscribe).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("reuses a prepared relay for the later exact finite query", async () => {
+    const hinted = controlledRelay("wss://prepared-hint.example/");
+    mocks.connect.mockResolvedValue(hinted.relay);
+    const pool = new RelayPool();
+
+    const preparation = pool.prepareRelayConnections(
+      [hinted.relay.url],
+      "wired.browser.feed",
+    );
+    await preparation.done;
+    const query = pool.startFiniteQuery({
+      workflowOwner: "wired.browser.feed",
+      filters: [{ ids: ["1".repeat(64)], kinds: [1], limit: 1 }],
+      coverage: { configuredRelayUrls: [hinted.relay.url] },
+      completionDeadlineMs: 1_000,
+      onEvent: vi.fn(),
+    });
+    await flushPromises();
+    hinted.callbacks[0]?.oneose?.();
+    await query.done;
+
+    expect(mocks.connect).toHaveBeenCalledOnce();
+    expect(hinted.relay.subscribe).toHaveBeenCalledOnce();
+  });
+
   it("notifies the workflow owner when a finite query completes", async () => {
     const onComplete = vi.fn();
     const pool = new RelayPool();

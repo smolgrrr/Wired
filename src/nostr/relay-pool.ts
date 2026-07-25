@@ -5,6 +5,7 @@ import type {
   BrowserRelayAccess,
   FiniteQuery,
   QueryHandle,
+  RelayConnectionPreparation,
 } from "./browser-relay-access";
 import {
   startBrowserFiniteQuery,
@@ -94,6 +95,56 @@ export class RelayPool implements BrowserRelayAccess {
 
   async connectConfigured(urls: readonly string[]): Promise<void> {
     await this.connect(urls);
+  }
+
+  prepareRelayConnections(
+    urls: readonly string[],
+    workflowOwner: FiniteQuery["workflowOwner"],
+  ): RelayConnectionPreparation {
+    const relayUrls = this.normalizeCoverage(urls);
+    let closed = false;
+    let resolveClosed!: () => void;
+    const closedPromise = new Promise<void>((resolve) => {
+      resolveClosed = resolve;
+    });
+    const leases = relayUrls.map((relayUrl) => ({
+      lease: this.acquireConnection(relayUrl, workflowOwner),
+      released: false,
+      timeout: undefined as ReturnType<typeof setTimeout> | undefined,
+    }));
+    const release = (
+      target: (typeof leases)[number],
+      state?: "timed-out" | "cancelled",
+    ) => {
+      if (target.released) return;
+      target.released = true;
+      if (target.timeout) clearTimeout(target.timeout);
+      target.lease.release(state);
+    };
+    const done = Promise.allSettled(leases.map(async (target) => {
+      let timedOut = false;
+      await Promise.race([
+        target.lease.promise,
+        closedPromise,
+        new Promise<void>((resolve) => {
+          target.timeout = setTimeout(() => {
+            timedOut = true;
+            resolve();
+          }, RELAY_CONNECT_TIMEOUT_MS);
+        }),
+      ]).catch(() => {});
+      release(target, closed ? "cancelled" : timedOut ? "timed-out" : undefined);
+    })).then(() => {});
+
+    return {
+      done,
+      close() {
+        if (closed) return;
+        closed = true;
+        leases.forEach((target) => release(target, "cancelled"));
+        resolveClosed();
+      },
+    };
   }
 
   async ensureConnected(urls: readonly string[]): Promise<void> {

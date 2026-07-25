@@ -3,11 +3,13 @@ import type { Event } from "nostr-tools";
 import { POW_RELAYS, THREAD_RELAYS } from "../../config";
 
 const mocks = vi.hoisted(() => ({
+  prepareRelayConnections: vi.fn(),
   registrySubscribe: vi.fn(),
   startFiniteQuery: vi.fn(),
 }));
 
 vi.mock("../client", () => ({
+  prepareRelayConnections: mocks.prepareRelayConnections,
   getRegistry: () => ({ subscribe: mocks.registrySubscribe }),
   startFiniteQuery: mocks.startFiniteQuery,
   THREAD_RELAYS,
@@ -47,6 +49,11 @@ function completion(
 
 describe("browser root finite-query adapters", () => {
   beforeEach(() => {
+    mocks.prepareRelayConnections.mockReset();
+    mocks.prepareRelayConnections.mockReturnValue({
+      done: Promise.resolve(),
+      close: vi.fn(),
+    });
     mocks.registrySubscribe.mockReset();
     mocks.registrySubscribe.mockReturnValue({ id: "legacy", close: vi.fn() });
     mocks.startFiniteQuery.mockReset();
@@ -79,7 +86,7 @@ describe("browser root finite-query adapters", () => {
     expect(mocks.registrySubscribe).toHaveBeenCalledOnce();
   });
 
-  it("continues feed root resolution after partial finite completion", () => {
+  it("continues feed root resolution after partial finite completion", async () => {
     const rootId = "1".repeat(64);
     const replyId = "2".repeat(64);
     const hint = "wss://hint.example";
@@ -113,10 +120,26 @@ describe("browser root finite-query adapters", () => {
       filters: [{ ids: [rootId], kinds: [1], limit: 1 }],
       coverage: {
         configuredRelayUrls: ["wss://thread.example"],
-        hintedRelayUrls: [hint],
+        hintedRelayUrls: [],
       },
     });
     expect(fetch.filters[0]).not.toHaveProperty("since");
+    expect(mocks.prepareRelayConnections).toHaveBeenCalledWith(
+      [hint],
+      "wired.browser.feed",
+    );
+
+    fetch.onComplete?.(completion(fetch, ["eose"]));
+    await vi.waitFor(() => expect(mocks.startFiniteQuery).toHaveBeenCalledTimes(3));
+    const hintedFetch = mocks.startFiniteQuery.mock.calls[2]?.[0] as FiniteQuery;
+    expect(hintedFetch).toMatchObject({
+      workflowOwner: "wired.browser.feed",
+      filters: [{ ids: [rootId], kinds: [1], limit: 1 }],
+      coverage: {
+        configuredRelayUrls: [hint],
+        hintedRelayUrls: [],
+      },
+    });
   });
 
   it("uses the existing configured defaults when feed options omit relays", () => {
