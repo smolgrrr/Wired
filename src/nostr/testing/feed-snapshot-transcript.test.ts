@@ -297,6 +297,7 @@ describe("server feed snapshot relay transcript", () => {
 
     const snapshot = await fetchFeedSnapshot({
       ageHours: 24,
+      completeTraversal: true,
       filterDifficulty: 0,
       relayCoverage: {
         snapshot: [activityHarness.url],
@@ -317,7 +318,7 @@ describe("server feed snapshot relay transcript", () => {
     const requests = session.entries
       .slice(workflow.startIndex, workflow.completedIndex)
       .filter((entry) => entry.type === "request");
-    expect(requests).toHaveLength(3);
+    expect(requests).toHaveLength(4);
     expect(requests[0]?.relayUrl).toBe(activityHarness.url);
     expect(requests.slice(1).every((request) =>
       request.relayUrl === replyHarness.url
@@ -387,6 +388,24 @@ describe("server feed snapshot relay transcript", () => {
       tags: [],
       content: "referenced context",
     }, referenceKey);
+    const referencedChild = finalizeEvent({
+      created_at: referenced.created_at + 1,
+      kind: 1,
+      tags: [["e", referenced.id, "", "reply"]],
+      content: "referenced child",
+    }, referenceKey);
+    const referencedGrandchild = finalizeEvent({
+      created_at: referenced.created_at + 2,
+      kind: 1,
+      tags: [["e", referencedChild.id, "", "reply"]],
+      content: "referenced grandchild",
+    }, referenceKey);
+    const referencedGreatGrandchild = finalizeEvent({
+      created_at: referenced.created_at + 3,
+      kind: 1,
+      tags: [["e", referencedGrandchild.id, "", "reply"]],
+      content: "referenced great-grandchild",
+    }, referenceKey);
     let relayUrls: string[] = [];
     const makeRoot = () => finalizeEvent({
       created_at: 2_000_000_020,
@@ -408,6 +427,12 @@ describe("server feed snapshot relay transcript", () => {
             }, key)));
           } else if (filter?.ids?.includes(referenced.id)) {
             request.sendEvent(referenced);
+          } else if (filter?.["#e"]?.includes(referencedGrandchild.id)) {
+            request.sendEvent(referencedGreatGrandchild);
+          } else if (filter?.["#e"]?.includes(referencedChild.id)) {
+            request.sendEvent(referencedGrandchild);
+          } else if (filter?.["#e"]?.includes(referenced.id)) {
+            request.sendEvent(referencedChild);
           } else if (filter?.kinds?.includes(1) && !filter["#e"]) {
             request.sendEvent(enrichedRoot);
           }
@@ -424,6 +449,7 @@ describe("server feed snapshot relay transcript", () => {
     const workflow = session.beginWorkflow("wired-server-feed-reference-metadata");
     const snapshot = await fetchFeedSnapshot({
       ageHours: 24,
+      completeTraversal: true,
       filterDifficulty: 0,
       relayCoverage: {
         snapshot: relayUrls,
@@ -435,12 +461,18 @@ describe("server feed snapshot relay transcript", () => {
     });
     await session.waitFor((entries) =>
       entries.filter((entry) => entry.type === "connection-closed").length === 6 &&
-      entries.filter((entry) => entry.type === "close").length === 10
+      entries.filter((entry) => entry.type === "close").length === 16
     );
     workflow.complete();
 
     expect(Object.keys(snapshot.eventsById).sort()).toEqual(
-      [enrichedRoot.id, referenced.id].sort(),
+      [
+        enrichedRoot.id,
+        referenced.id,
+        referencedChild.id,
+        referencedGrandchild.id,
+        referencedGreatGrandchild.id,
+      ].sort(),
     );
     expect(snapshot.profiles[enrichedRoot.pubkey]).toEqual({ name: "newer-0" });
     expect(snapshot.profiles[referenced.pubkey]).toEqual({ name: "newer-1" });
@@ -458,10 +490,10 @@ describe("server feed snapshot relay transcript", () => {
     expect(session.summary(workflow)).toMatchObject({
       openedConnections: 6,
       closedConnections: 6,
-      requests: 10,
-      closes: 10,
-      eose: 10,
-      returnedEvents: 8,
+      requests: 16,
+      closes: 16,
+      eose: 16,
+      returnedEvents: 16,
       relayFanout: 2,
     });
   });
@@ -521,6 +553,7 @@ describe("server feed snapshot relay transcript", () => {
 
     const snapshot = await fetchFeedSnapshot({
       ageHours: 24,
+      completeTraversal: true,
       filterDifficulty: 0,
       relayCoverage: {
         snapshot: [configuredHarness.url],
@@ -559,4 +592,5 @@ describe("server feed snapshot relay transcript", () => {
       }],
     });
   });
+
 });

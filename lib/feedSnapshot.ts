@@ -1,6 +1,7 @@
 import { type Event, type Filter, useWebSocketImplementation } from "nostr-tools";
 import { WebSocket } from "ws";
 import {
+  COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED,
   POW_RELAYS,
   THREAD_RELAYS,
 } from "../src/config.js";
@@ -38,7 +39,14 @@ import type {
 import {
   withFiniteRelaySession,
   type FiniteRelaySession,
+  type QueryCompletion,
 } from "./serverRelaySession.js";
+import {
+  snapshotQueryIncompleteReason,
+  traverseCompleteSnapshotReplies,
+  type SnapshotReplyTraversalIncompleteReason,
+  type SnapshotReplyTraversalCompletion,
+} from "./completeSnapshotReplyTraversal.js";
 
 useWebSocketImplementation(WebSocket);
 
@@ -52,23 +60,77 @@ const REPLY_FETCH_DEPTH = 2;
 type EventBatch = {
   events: Event[];
   relayHintsByEventId: Map<string, string[]>;
+  queryCompletions: QueryCompletion[];
+  replyTraversalCompletion?: SnapshotReplyTraversalCompletion;
 };
 
 type FeedEventBatch = EventBatch & {
   activityRootIds: string[];
+  finitePhases: FeedSnapshotFinitePhaseCompletion[];
 };
 
 export type { FeedBootstrapSnapshot };
 
+export type FeedSnapshotTraversalPhase =
+  | "activity"
+  | "root-resolution"
+  | "references"
+  | "profiles"
+  | "feed-replies"
+  | "reference-replies";
+
+export type FeedSnapshotFinitePhaseCompletion = {
+  phase: Exclude<
+    FeedSnapshotTraversalPhase,
+    "feed-replies" | "reference-replies"
+  >;
+  queries: readonly QueryCompletion[];
+};
+
+export type FeedSnapshotTraversalCompletion =
+  | {
+      state: "complete";
+      finitePhases: readonly FeedSnapshotFinitePhaseCompletion[];
+      feedReplies: SnapshotReplyTraversalCompletion;
+      referenceReplies: SnapshotReplyTraversalCompletion;
+    }
+  | {
+      state: "incomplete";
+      phase: FeedSnapshotTraversalPhase;
+      reason: SnapshotReplyTraversalIncompleteReason;
+      finitePhases: readonly FeedSnapshotFinitePhaseCompletion[];
+      feedReplies?: SnapshotReplyTraversalCompletion;
+      referenceReplies?: SnapshotReplyTraversalCompletion;
+    };
+
+export class IncompleteFeedSnapshotTraversalError extends Error {
+  constructor(
+    readonly completion: Extract<
+      FeedSnapshotTraversalCompletion,
+      { state: "incomplete" }
+    >,
+  ) {
+    super(
+      `Incomplete Wired snapshot traversal: ${completion.phase} ${completion.reason}`,
+    );
+    this.name = "IncompleteFeedSnapshotTraversalError";
+  }
+}
+
 export type FeedSnapshotOptions = {
   ageHours?: number;
+  completeTraversal?: boolean;
   filterDifficulty?: number;
+  onTraversalComplete?: (
+    completion: FeedSnapshotTraversalCompletion,
+  ) => void;
   relayCoverage?: {
     snapshot: readonly string[];
     pow: readonly string[];
     replies: readonly string[];
     profiles: readonly string[];
   };
+  signal?: AbortSignal;
   timeoutMs?: number;
 };
 
@@ -116,6 +178,30 @@ function mergeEvents(...eventGroups: Event[][]): Event[] {
   return [...merged.values()];
 }
 
+function emptyReplyTraversalCompletion(): SnapshotReplyTraversalCompletion {
+  return {
+    state: "complete",
+    passes: 0,
+    queries: 0,
+    parentCount: 0,
+  };
+}
+
+function incompleteFinitePhase(
+  finitePhases: readonly FeedSnapshotFinitePhaseCompletion[],
+): {
+  phase: FeedSnapshotFinitePhaseCompletion["phase"];
+  reason: SnapshotReplyTraversalIncompleteReason;
+} | null {
+  for (const phase of finitePhases) {
+    for (const completion of phase.queries) {
+      const reason = snapshotQueryIncompleteReason(completion);
+      if (reason) return { phase: phase.phase, reason };
+    }
+  }
+  return null;
+}
+
 function serializeRelayHints(
   relayHintsByEventId: RelayHintsByEventId,
 ): Record<string, string[]> {
@@ -137,7 +223,7 @@ async function querySessionOnce(
   const seenIds = new Set<string>();
   const relayHintsByEventId = new Map<string, string[]>();
 
-  await session.query({
+  const completion = await session.query({
     filters: [filter],
     relayUrls,
     deadlineMs: timeoutMs,
@@ -149,7 +235,11 @@ async function querySessionOnce(
     },
   });
 
-  return { events, relayHintsByEventId };
+  return {
+    events,
+    relayHintsByEventId,
+    queryCompletions: [completion],
+  };
 }
 
 async function fetchRootEvents(
@@ -160,10 +250,15 @@ async function fetchRootEvents(
   snapshotRelayUrls: readonly string[],
 ): Promise<EventBatch> {
   if (rootRefs.length === 0) {
-    return { events: [], relayHintsByEventId: new Map() };
+    return {
+      events: [],
+      relayHintsByEventId: new Map(),
+      queryCompletions: [],
+    };
   }
 
   const events: Event[] = [];
+  const queryCompletions: QueryCompletion[] = [];
   const eventsById = buildFeedEventMap(knownEvents);
   const relayHintsByEventId = new Map<string, string[]>();
   const requestedIds = new Set<string>();
@@ -200,6 +295,7 @@ async function fetchRootEvents(
       timeoutMs,
       relayUrls,
     );
+    queryCompletions.push(...batch.queryCompletions);
 
     events.push(...batch.events);
     batch.events.forEach((event) => {
@@ -218,18 +314,20 @@ async function fetchRootEvents(
     refsToResolve = mergeFeedRootRefs(nextRefs);
   }
 
-  return { events, relayHintsByEventId };
+  return { events, relayHintsByEventId, queryCompletions };
 }
 
 async function fetchGlobalFeedEvents(
   ageHours: number,
   filterDifficulty: number,
   timeoutMs: number,
+  completeTraversal: boolean,
   relayUrls: {
     pow: readonly string[];
     replies: readonly string[];
     snapshot: readonly string[];
   },
+  signal?: AbortSignal,
 ): Promise<FeedEventBatch> {
   const sessionRelayUrls = uniqueRelays([
     ...relayUrls.snapshot,
@@ -237,7 +335,7 @@ async function fetchGlobalFeedEvents(
     ...relayUrls.replies,
   ]);
   return withFiniteRelaySession(
-    { relayUrls: sessionRelayUrls, connectDeadlineMs: timeoutMs },
+    { relayUrls: sessionRelayUrls, connectDeadlineMs: timeoutMs, signal },
     async (session) => {
       const since = sinceFromAgeHours(ageHours);
 
@@ -254,7 +352,25 @@ async function fetchGlobalFeedEvents(
       );
 
       if (activityRootRefs.length === 0) {
-        return { ...activityBatch, activityRootIds: [] };
+        const replyTraversalCompletion = completeTraversal
+          ? (await traverseCompleteSnapshotReplies({
+              session,
+              initialParentIds: [],
+              relayUrls: relayUrls.replies,
+              since,
+              deadlineMs: timeoutMs,
+              signal,
+            })).completion
+          : undefined;
+        return {
+          ...activityBatch,
+          activityRootIds: [],
+          finitePhases: [
+            { phase: "activity", queries: activityBatch.queryCompletions },
+            { phase: "root-resolution", queries: [] },
+          ],
+          replyTraversalCompletion,
+        };
       }
 
       const resolvedRootBatch = await fetchRootEvents(
@@ -275,9 +391,47 @@ async function fetchGlobalFeedEvents(
         .map((ref) => seedEventsById.get(ref.id))
         .filter((event): event is Event => !!event && isFeedThreadRootEvent(event))
         .map((event) => event.id.toLowerCase());
+      if (completeTraversal) {
+        const replyTraversal = await traverseCompleteSnapshotReplies({
+          session,
+          initialParentIds: rootIds,
+          knownEventIds: seedEvents.map((event) => event.id),
+          relayUrls: relayUrls.replies,
+          since,
+          deadlineMs: timeoutMs,
+          signal,
+        });
+        return {
+          events: mergeEvents(
+            activityEvents,
+            resolvedRootBatch.events,
+            replyTraversal.events,
+          ),
+          relayHintsByEventId: mergeRelayHints(
+            activityBatch.relayHintsByEventId,
+            resolvedRootBatch.relayHintsByEventId,
+            replyTraversal.relayHintsByEventId,
+          ),
+          activityRootIds: rootRefs.map((ref) => ref.id),
+          queryCompletions: [
+            ...activityBatch.queryCompletions,
+            ...resolvedRootBatch.queryCompletions,
+          ],
+          finitePhases: [
+            { phase: "activity", queries: activityBatch.queryCompletions },
+            {
+              phase: "root-resolution",
+              queries: resolvedRootBatch.queryCompletions,
+            },
+          ],
+          replyTraversalCompletion: replyTraversal.completion,
+        };
+      }
+
       const replyEvents: Event[] = [];
       const seenReplyIds = new Set<string>();
       const replyRelayHintsByEventId = new Map<string, string[]>();
+      const replyQueryCompletions: QueryCompletion[] = [];
       let parentIds = [...new Set(rootIds)];
 
       const replyDepth = clampReplyDepth(REPLY_FETCH_DEPTH);
@@ -291,6 +445,7 @@ async function fetchGlobalFeedEvents(
           timeoutMs,
           [...relayUrls.replies],
         );
+        replyQueryCompletions.push(...replyBatch.queryCompletions);
         const nextReplies = replyBatch.events;
         const nextParentIds: string[] = [];
 
@@ -319,6 +474,18 @@ async function fetchGlobalFeedEvents(
           replyRelayHintsByEventId,
         ),
         activityRootIds: rootRefs.map((ref) => ref.id),
+        queryCompletions: [
+          ...activityBatch.queryCompletions,
+          ...resolvedRootBatch.queryCompletions,
+          ...replyQueryCompletions,
+        ],
+        finitePhases: [
+          { phase: "activity", queries: activityBatch.queryCompletions },
+          {
+            phase: "root-resolution",
+            queries: resolvedRootBatch.queryCompletions,
+          },
+        ],
       };
     },
   );
@@ -347,10 +514,19 @@ async function fetchReferencedEvents(
   ageHours: number,
   timeoutMs: number,
   snapshotRelayUrls: readonly string[],
+  completeTraversal: boolean,
+  signal?: AbortSignal,
 ): Promise<EventBatch> {
   const missingRefs = refs.filter((ref) => !knownEventIds.has(ref.id));
   if (missingRefs.length === 0) {
-    return { events: [], relayHintsByEventId: new Map() };
+    return {
+      events: [],
+      relayHintsByEventId: new Map(),
+      queryCompletions: [],
+      replyTraversalCompletion: completeTraversal
+        ? emptyReplyTraversalCompletion()
+        : undefined,
+    };
   }
 
   const configuredRelayUrls = uniqueRelays(snapshotRelayUrls);
@@ -360,7 +536,11 @@ async function fetchReferencedEvents(
   const relayUrls = uniqueRelays([...configuredRelayUrls, ...hintedRelayUrls]);
 
   return withFiniteRelaySession(
-    { relayUrls: configuredRelayUrls, connectDeadlineMs: timeoutMs },
+    {
+      relayUrls: configuredRelayUrls,
+      connectDeadlineMs: timeoutMs,
+      signal,
+    },
     async (session) => {
       const hintedConnections = session.ensureRelays(hintedRelayUrls, timeoutMs);
       const configuredBatch = await querySessionOnce(
@@ -411,10 +591,39 @@ async function fetchReferencedEvents(
           configuredBatch.relayHintsByEventId,
           ...hintedBatches.map((batch) => batch.relayHintsByEventId),
         ),
+        queryCompletions: [
+          ...configuredBatch.queryCompletions,
+          ...hintedBatches.flatMap((batch) => batch.queryCompletions),
+        ],
       };
+      if (completeTraversal) {
+        const replyTraversal = await traverseCompleteSnapshotReplies({
+          session,
+          initialParentIds: referencedBatch.events.map((event) => event.id),
+          knownEventIds: [
+            ...knownEventIds,
+            ...referencedBatch.events.map((event) => event.id),
+          ],
+          relayUrls,
+          since: sinceFromAgeHours(ageHours),
+          deadlineMs: timeoutMs,
+          signal,
+        });
+        return {
+          events: mergeEvents(referencedBatch.events, replyTraversal.events),
+          relayHintsByEventId: mergeRelayHints(
+            referencedBatch.relayHintsByEventId,
+            replyTraversal.relayHintsByEventId,
+          ),
+          queryCompletions: referencedBatch.queryCompletions,
+          replyTraversalCompletion: replyTraversal.completion,
+        };
+      }
+
       const replyEvents: Event[] = [];
       const seenReplyIds = new Set<string>();
       const replyRelayHintsByEventId = new Map<string, string[]>();
+      const replyQueryCompletions: QueryCompletion[] = [];
       const since = sinceFromAgeHours(ageHours);
       let parentIds = referencedBatch.events.map((event) => event.id);
 
@@ -429,6 +638,7 @@ async function fetchReferencedEvents(
           timeoutMs,
           relayUrls,
         );
+        replyQueryCompletions.push(...replyBatch.queryCompletions);
         const nextParentIds: string[] = [];
 
         replyBatch.relayHintsByEventId.forEach((relays, eventId) => {
@@ -454,6 +664,10 @@ async function fetchReferencedEvents(
           referencedBatch.relayHintsByEventId,
           replyRelayHintsByEventId,
         ),
+        queryCompletions: [
+          ...referencedBatch.queryCompletions,
+          ...replyQueryCompletions,
+        ],
       };
     },
   );
@@ -463,15 +677,23 @@ async function fetchProfileMetadata(
   pubkeys: string[],
   timeoutMs: number,
   profileRelayUrls: readonly string[],
-): Promise<Record<string, ProfileMetadata>> {
+  signal?: AbortSignal,
+): Promise<{
+  profiles: Record<string, ProfileMetadata>;
+  queryCompletions: QueryCompletion[];
+}> {
   if (pubkeys.length === 0) {
-    return {};
+    return { profiles: {}, queryCompletions: [] };
   }
 
   return withFiniteRelaySession(
-    { relayUrls: profileRelayUrls, connectDeadlineMs: timeoutMs },
+    {
+      relayUrls: profileRelayUrls,
+      connectDeadlineMs: timeoutMs,
+      signal,
+    },
     async (session) => {
-      const { events } = await querySessionOnce(
+      const batch = await querySessionOnce(
         session,
         {
           authors: pubkeys,
@@ -484,7 +706,7 @@ async function fetchProfileMetadata(
       const profiles: Record<string, { profile: ProfileMetadata; createdAt: number }> =
         {};
 
-      events.forEach((event) => {
+      batch.events.forEach((event) => {
         const profile = parseProfileEvent(event);
         if (!profile) return;
 
@@ -497,9 +719,15 @@ async function fetchProfileMetadata(
         };
       });
 
-      return Object.fromEntries(
-        Object.entries(profiles).map(([pubkey, entry]) => [pubkey, entry.profile]),
-      );
+      return {
+        profiles: Object.fromEntries(
+          Object.entries(profiles).map(([pubkey, entry]) => [
+            pubkey,
+            entry.profile,
+          ]),
+        ),
+        queryCompletions: batch.queryCompletions,
+      };
     },
   );
 }
@@ -549,6 +777,8 @@ export async function fetchFeedSnapshot(
   options: FeedSnapshotOptions = {},
 ): Promise<FeedBootstrapSnapshot> {
   const ageHours = options.ageHours ?? BOOTSTRAP_AGE_HOURS;
+  const completeTraversal =
+    options.completeTraversal ?? COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED;
   const filterDifficulty = options.filterDifficulty ?? BOOTSTRAP_FILTER_DIFFICULTY;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const snapshotRelayUrls = options.relayCoverage?.snapshot ?? FEED_SNAPSHOT_RELAYS;
@@ -560,12 +790,41 @@ export async function fetchFeedSnapshot(
     ageHours,
     filterDifficulty,
     timeoutMs,
+    completeTraversal,
     {
       pow: powRelayUrls,
       replies: replyRelayUrls,
       snapshot: snapshotRelayUrls,
     },
+    options.signal,
   );
+  const feedReplyCompletion =
+    feedBatch.replyTraversalCompletion ?? emptyReplyTraversalCompletion();
+  const finitePhases: FeedSnapshotFinitePhaseCompletion[] = [
+    ...feedBatch.finitePhases,
+  ];
+  const feedFiniteFailure = incompleteFinitePhase(finitePhases);
+  if (completeTraversal && feedFiniteFailure) {
+    const completion = {
+      state: "incomplete",
+      ...feedFiniteFailure,
+      finitePhases,
+      feedReplies: feedReplyCompletion,
+    } satisfies FeedSnapshotTraversalCompletion;
+    options.onTraversalComplete?.(completion);
+    throw new IncompleteFeedSnapshotTraversalError(completion);
+  }
+  if (completeTraversal && feedReplyCompletion.state === "incomplete") {
+    const completion = {
+      state: "incomplete",
+      phase: "feed-replies",
+      reason: feedReplyCompletion.reason,
+      finitePhases,
+      feedReplies: feedReplyCompletion,
+    } satisfies FeedSnapshotTraversalCompletion;
+    options.onTraversalComplete?.(completion);
+    throw new IncompleteFeedSnapshotTraversalError(completion);
+  }
   const processedEvents = processFeedEvents(
     feedBatch.events,
     filterDifficulty,
@@ -579,27 +838,76 @@ export async function fetchFeedSnapshot(
     ageHours,
     timeoutMs,
     snapshotRelayUrls,
+    completeTraversal,
+    options.signal,
   );
+  const referenceReplyCompletion =
+    referencedBatch.replyTraversalCompletion ?? emptyReplyTraversalCompletion();
+  finitePhases.push({
+    phase: "references",
+    queries: referencedBatch.queryCompletions,
+  });
+  const referenceFiniteFailure = incompleteFinitePhase(finitePhases);
+  if (completeTraversal && referenceFiniteFailure) {
+    const completion = {
+      state: "incomplete",
+      ...referenceFiniteFailure,
+      finitePhases,
+      feedReplies: feedReplyCompletion,
+      referenceReplies: referenceReplyCompletion,
+    } satisfies FeedSnapshotTraversalCompletion;
+    options.onTraversalComplete?.(completion);
+    throw new IncompleteFeedSnapshotTraversalError(completion);
+  }
+  if (completeTraversal && referenceReplyCompletion.state === "incomplete") {
+    const completion = {
+      state: "incomplete",
+      phase: "reference-replies",
+      reason: referenceReplyCompletion.reason,
+      finitePhases,
+      feedReplies: feedReplyCompletion,
+      referenceReplies: referenceReplyCompletion,
+    } satisfies FeedSnapshotTraversalCompletion;
+    options.onTraversalComplete?.(completion);
+    throw new IncompleteFeedSnapshotTraversalError(completion);
+  }
   const events = mergeEvents(feedBatch.events, referencedBatch.events);
   const relayHintsByEventId = mergeRelayHints(
     feedBatch.relayHintsByEventId,
     referencedBatch.relayHintsByEventId,
   );
-  const profiles = await fetchProfileMetadata(
+  const profileBatch = await fetchProfileMetadata(
     [...new Set([
       ...pubkeysFromProcessedEvents(processedEvents),
       ...pubkeysFromEvents(referencedBatch.events),
     ])],
     timeoutMs,
     profileRelayUrls,
+    options.signal,
   );
+  finitePhases.push({
+    phase: "profiles",
+    queries: profileBatch.queryCompletions,
+  });
+  const profileFiniteFailure = incompleteFinitePhase(finitePhases);
+  if (completeTraversal && profileFiniteFailure) {
+    const completion = {
+      state: "incomplete",
+      ...profileFiniteFailure,
+      finitePhases,
+      feedReplies: feedReplyCompletion,
+      referenceReplies: referenceReplyCompletion,
+    } satisfies FeedSnapshotTraversalCompletion;
+    options.onTraversalComplete?.(completion);
+    throw new IncompleteFeedSnapshotTraversalError(completion);
+  }
 
-  return {
+  const snapshot: FeedBootstrapSnapshot = {
     fetchedAt: Date.now(),
     processedEvents: serializeProcessedEvents(processedEvents),
     eventsById: eventsById(events),
     relayHintsByEventId: serializeRelayHints(relayHintsByEventId),
-    profiles,
+    profiles: profileBatch.profiles,
     scoring: {
       ageHours,
       minPow: filterDifficulty,
@@ -607,4 +915,13 @@ export async function fetchFeedSnapshot(
       sort: "totalWork",
     },
   };
+  if (completeTraversal) {
+    options.onTraversalComplete?.({
+      state: "complete",
+      finitePhases,
+      feedReplies: feedReplyCompletion,
+      referenceReplies: referenceReplyCompletion,
+    });
+  }
+  return snapshot;
 }
