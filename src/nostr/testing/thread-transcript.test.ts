@@ -5,7 +5,7 @@ import {
 } from "nostr-tools";
 import { WebSocket } from "ws";
 import { ensureRelaysConnected } from "../client";
-import { subNotesOnce } from "../subscriptions";
+import { subNotesOnce, subReferencedEventsOnce } from "../subscriptions";
 import { subNote } from "../subscriptions/thread";
 import {
   auditSampleCount,
@@ -265,5 +265,123 @@ describe("thread relay transcript", () => {
           .map((entry) => entry.lifetimeMs),
       },
     });
+  });
+
+  it("restores missing referenced context from its exact relay hint", async () => {
+    const session = new RelayTranscriptSession();
+    const configuredHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        request.sendEose();
+      },
+    });
+    const hintedHarness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        if (request.filters[0]?.ids?.includes(root.id)) {
+          request.sendEvent(root);
+        }
+        request.sendEose();
+      },
+    });
+    harnesses.push(configuredHarness, hintedHarness);
+    await ensureRelaysConnected([configuredHarness.url]);
+
+    const completionLatencies: number[] = [];
+    const initialContextLatencies: number[] = [];
+    let connectedHints = 0;
+    let evidenceEntries: readonly RelayTranscriptEntry[] = [];
+    for (let run = 0; run < auditSampleCount(); run += 1) {
+      const workflow = session.beginWorkflow(`thread-hinted-context-${run + 1}`);
+      const receivedIds = new Set<string>();
+      let initialContextLatencyMs: number | undefined;
+      const handle = subReferencedEventsOnce(
+        [{ id: root.id, relays: [hintedHarness.url] }],
+        (event) => {
+          initialContextLatencyMs ??= Date.now() - workflow.startedAt;
+          receivedIds.add(event.id);
+        },
+        {
+          relayUrls: [configuredHarness.url],
+          dynamicHints: true,
+        },
+      );
+
+      await session.waitFor(
+        (entries) => entries.filter((entry) => entry.type === "close").length ===
+          (run + 1) * 2,
+      );
+      handle.close();
+      workflow.complete();
+
+      expect([...receivedIds]).toEqual([root.id]);
+      const entries = workflowEntries(session, workflow.startIndex, workflow.completedIndex);
+      const requests = entries.filter((entry) => entry.type === "request");
+      expect(requests).toHaveLength(2);
+      const exactFilter = [{ ids: [root.id], kinds: [1], limit: 1 }];
+      expect(
+        requests.find((entry) => entry.relayUrl === configuredHarness.url)?.filters,
+      ).toEqual(exactFilter);
+      expect(
+        requests.find((entry) => entry.relayUrl === hintedHarness.url)?.filters,
+      ).toEqual(exactFilter);
+      expectMatchingProtocolCompletion(entries);
+
+      const summary = session.summary(workflow);
+      expect(summary).toMatchObject({
+        openedConnections: run === 0 ? 1 : 0,
+        requests: 2,
+        closes: 2,
+        returnedEvents: 1,
+        eose: 2,
+        repeatedOperations: 1,
+        relayFanout: 2,
+      });
+      completionLatencies.push(summary.completionLatencyMs);
+      initialContextLatencies.push(
+        initialContextLatencyMs ?? summary.completionLatencyMs,
+      );
+      connectedHints += entries.filter(
+        (entry) =>
+          entry.type === "connection-opened" &&
+          entry.relayUrl === hintedHarness.url,
+      ).length;
+      evidenceEntries = entries;
+    }
+
+    const initialContextLatencyMs = summarizeSamples(initialContextLatencies);
+    const completionLatencyMs = summarizeSamples(completionLatencies);
+    emitAuditMeasurement({
+      scenario: "thread-hinted-context-recovery-local-fixture",
+      samples: completionLatencies.length,
+      initialContextLatencyMs,
+      completionLatencyMs,
+      evidence: {
+        configuredRequests: 1,
+        discoveredHints: 1,
+        connectedHints,
+        queriedHintRequests: 1,
+        resolvedContextEvents: 1,
+        filters: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => ({
+            relayRole: entry.relayUrl === hintedHarness.url ? "hint" : "configured",
+            filters: entry.filters,
+          })),
+        requestBytes: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .map((entry) => entry.bytes),
+        returnedEventBytes: evidenceEntries
+          .filter((entry) => entry.type === "event-returned")
+          .map((entry) => entry.bytes),
+        subscriptionLifetimesMs: evidenceEntries
+          .filter((entry) => entry.type === "close")
+          .map((entry) => entry.lifetimeMs),
+      },
+    });
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      expect(initialContextLatencyMs.p95).toBeLessThanOrEqual(19);
+      expect(completionLatencyMs.p95).toBeLessThanOrEqual(19);
+    }
   });
 });

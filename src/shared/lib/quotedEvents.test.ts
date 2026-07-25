@@ -3,6 +3,7 @@ import { Event, nip19 } from "nostr-tools";
 import {
   decodeProfileRef,
   decodeNostrRef,
+  extractEventTagRefs,
   extractMentionedEventRefs,
   extractQuotedRefs,
 } from "./quotedEvents";
@@ -166,5 +167,23 @@ describe("extractMentionedEventRefs", () => {
       },
       { id: "d".repeat(64), relays: ["wss://relay.damus.io"] },
     ]);
+  });
+});
+
+describe("extractEventTagRefs", () => {
+  it("keeps exact e-tag ids with normalized, deduplicated relay hints", () => {
+    const eventId = "d".repeat(64);
+    const event = {
+      tags: [
+        ["e", eventId, "wss://hint.example/"],
+        ["e", eventId, "wss://hint.example"],
+        ["q", "e".repeat(64), "wss://quote.example"],
+      ],
+    } as Event;
+
+    expect(extractEventTagRefs(event)).toEqual([{
+      id: eventId,
+      relays: ["wss://hint.example"],
+    }]);
   });
 });

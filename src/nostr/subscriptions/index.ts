@@ -19,36 +19,20 @@ import { profileQueryLimit } from "./query-limits";
 export type { SubCallback, SubHandle };
 
 export { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
+export { subReferencedEventsOnce } from "./context";
 export { subNote } from "./thread";
 export { subNotifications } from "./notifications";
+import { subReferencedEventsOnce } from "./context";
 
 export const subNotesOnce = (
   eventIds: string[],
   onEvent: SubCallback,
   relayUrls: readonly string[] = THREAD_RELAYS,
-): SubHandle => {
-  if (eventIds.length === 0) {
-    return emptySubHandle("notes-once:empty");
-  }
-
-  return finiteQuerySubHandle(
-    "notes-once",
-    startFiniteQuery({
-      workflowOwner: "wired.browser.thread",
-      filters: [{
-        ids: eventIds,
-        kinds: [1],
-        limit: eventIds.length,
-      }],
-      coverage: {
-        configuredRelayUrls: relayUrls,
-        hintedRelayUrls: [],
-      },
-      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
-      onEvent,
-    }),
-  );
-};
+): SubHandle => subReferencedEventsOnce(
+  eventIds.map((id) => ({ id, relays: [] })),
+  onEvent,
+  { relayUrls },
+);
 
 export async function subProfilesOnce(
   pubkeys: string[],

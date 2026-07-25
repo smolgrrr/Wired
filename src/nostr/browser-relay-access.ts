@@ -43,8 +43,21 @@ export type QueryHandle = {
   close(): void;
 };
 
+export type RelayConnectionPreparationState =
+  | "connected"
+  | "connect-failed"
+  | "timed-out"
+  | "cancelled";
+
+export type RelayConnectionPreparationResult = {
+  targets: readonly {
+    relayUrl: string;
+    state: RelayConnectionPreparationState;
+  }[];
+};
+
 export type RelayConnectionPreparation = {
-  done: Promise<void>;
+  done: Promise<RelayConnectionPreparationResult>;
   close(): void;
 };
 

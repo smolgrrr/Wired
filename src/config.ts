@@ -151,3 +151,7 @@ export const MEDIA_MODERATION_COHORT_PERCENT = Math.max(
 export const DYNAMIC_FEED_ROOT_HINTS_ENABLED = configuredFlag(
   configuredEnv("VITE_DYNAMIC_FEED_ROOT_HINTS_ENABLED"),
 );
+
+export const DYNAMIC_CONTEXT_HINTS_ENABLED = configuredFlag(
+  configuredEnv("VITE_DYNAMIC_CONTEXT_HINTS_ENABLED"),
+);

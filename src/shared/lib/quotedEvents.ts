@@ -69,27 +69,35 @@ export function extractNostrRefs(content: string): QuotedRef[] {
   return refs;
 }
 
-export function extractQuotedRefs(event: Event): QuotedRef[] {
-  const byId = new Map<string, QuotedRef>();
+function mergeQuotedRefs(refs: readonly QuotedRef[]): QuotedRef[] {
+  const byId = new Map<string, string[]>();
+  refs.forEach((ref) => {
+    const id = ref.id.toLowerCase();
+    byId.set(id, [
+      ...new Set([
+        ...(byId.get(id) ?? []),
+        ...ref.relays.map(normalizeRelayUrl),
+      ]),
+    ]);
+  });
+  return [...byId.entries()].map(([id, relays]) => ({ id, relays }));
+}
 
-  const addRef = (id: string, relays: string[] = []) => {
-    const existing = byId.get(id);
-    if (existing) {
-      existing.relays = [...new Set([...existing.relays, ...relays])];
-      return;
-    }
-    byId.set(id, { id, relays: [...new Set(relays)] });
-  };
+export function extractQuotedRefs(event: Event): QuotedRef[] {
+  const refs: QuotedRef[] = [];
 
   const addTaggedRef = (value: string, relayHints: string[] = []) => {
     if (EVENT_ID_PATTERN.test(value)) {
-      addRef(value.toLowerCase(), relayHints);
+      refs.push({ id: value.toLowerCase(), relays: relayHints });
       return;
     }
 
     const decoded = decodeNostrRef(value);
     if (decoded) {
-      addRef(decoded.id, [...decoded.relays, ...relayHints]);
+      refs.push({
+        id: decoded.id,
+        relays: [...decoded.relays, ...relayHints],
+      });
     }
   };
 
@@ -100,35 +108,29 @@ export function extractQuotedRefs(event: Event): QuotedRef[] {
     }
   }
 
-  for (const ref of extractNostrRefs(event.content)) {
-    addRef(ref.id, ref.relays);
-  }
+  refs.push(...extractNostrRefs(event.content));
 
-  return [...byId.values()];
+  return mergeQuotedRefs(refs);
 }
 
 export function extractMentionedEventRefs(event: Event): QuotedRef[] {
-  const byId = new Map<string, QuotedRef>();
+  return mergeQuotedRefs([
+    ...extractQuotedRefs(event),
+    ...extractEventTagRefs(event),
+  ]);
+}
 
-  const addRef = (id: string, relays: string[] = []) => {
-    const existing = byId.get(id);
-    if (existing) {
-      existing.relays = [...new Set([...existing.relays, ...relays])];
-      return;
-    }
-    byId.set(id, { id, relays: [...new Set(relays)] });
-  };
-
-  extractQuotedRefs(event).forEach((ref) => addRef(ref.id, ref.relays));
-
+export function extractEventTagRefs(event: Event): QuotedRef[] {
+  const refs: QuotedRef[] = [];
   for (const tag of event.tags ?? []) {
     if (tag[0] !== "e" || !tag[1] || !EVENT_ID_PATTERN.test(tag[1])) continue;
-
     const relayHint = tag[2] ? normalizeRelayUrl(tag[2]) : undefined;
-    addRef(tag[1].toLowerCase(), relayHint ? [relayHint] : []);
+    refs.push({
+      id: tag[1].toLowerCase(),
+      relays: relayHint ? [relayHint] : [],
+    });
   }
-
-  return [...byId.values()];
+  return mergeQuotedRefs(refs);
 }
 
 /** @deprecated Use extractQuotedRefs instead. */
