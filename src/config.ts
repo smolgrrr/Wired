@@ -160,3 +160,8 @@ export const COMPLETE_THREAD_TRAVERSAL_ENABLED = configuredFlag(
   configuredEnv("VITE_COMPLETE_THREAD_TRAVERSAL_ENABLED"),
   false,
 );
+
+export const COMPLETE_FEED_TRAVERSAL_ENABLED = configuredFlag(
+  configuredEnv("VITE_COMPLETE_FEED_TRAVERSAL_ENABLED"),
+  false,
+);

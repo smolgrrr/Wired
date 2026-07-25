@@ -25,6 +25,7 @@
     "test": "vitest run",
     "test:relay-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/thread-preview-transcript.test.ts src/nostr/testing/publish-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'keeps preview identity and p95 stable|keeps collection and export scheduling timing-equivalent'",
     "test:thread-traversal-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/thread-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'measures complete traversal against the ordinary thread comparator|keeps approved large complete-traversal fixtures'",
+    "test:feed-traversal-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/global-feed-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'measures complete live feed traversal against the ordinary guardrail|keeps approved complete feed fixtures within their large ceilings'",
     "lint": "eslint src lib/feedBootstrapCache.ts api scripts vite.config.ts eslint.config.js"
   },
   "devDependencies": {

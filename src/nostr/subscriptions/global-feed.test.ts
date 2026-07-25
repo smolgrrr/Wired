@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { Event } from "nostr-tools";
+import type { Event, Filter } from "nostr-tools";
 import type { FiniteQuery, QueryCompletion } from "../browser-relay-access";
 import type { SubCallback } from "../types";
 import {
@@ -769,6 +769,69 @@ describe("subGlobalFeed", () => {
       limit: REPLY_QUERY_LIMIT,
       since: expect.any(Number),
     });
+  });
+
+  it("can traverse complete bootstrap replies without parent or result limits", () => {
+    const rootIds = Array.from({ length: MAX_REPLY_PARENT_IDS + 10 }, (_, index) =>
+      String(index).padStart(64, "0"),
+    );
+    prepareRelayConnectionsMock.mockReturnValue({
+      done: Promise.resolve({
+        targets: [{ relayUrl: "wss://relay.damus.io", state: "connected" }],
+      }),
+      close: vi.fn(),
+    });
+    subscribeMock.mockImplementation((requests) => {
+      requests[0].onCoverage?.({ requested: 1, connected: 1 });
+      return { id: "complete", close: vi.fn() };
+    });
+
+    subRepliesForRootIds(rootIds, vi.fn(), {
+      relayUrls: ["wss://relay.damus.io"],
+      depth: 0,
+      completeTraversal: true,
+    });
+
+    expect(subscribeMock).toHaveBeenCalledOnce();
+    const request = subscribeMock.mock.calls[0][0][0];
+    expect(request.filters).toHaveLength(2);
+    expect(request.filters.flatMap((filter: Filter) => filter["#e"])).toEqual(rootIds);
+    expect(request.filters.every((filter: Filter) =>
+      filter.limit === undefined &&
+      (filter["#e"]?.length ?? 0) <= MAX_REPLY_PARENT_IDS &&
+      typeof filter.since === "number"
+    )).toBe(true);
+  });
+
+  it("reports incomplete when complete bootstrap reply coverage cannot connect", async () => {
+    prepareRelayConnectionsMock.mockReturnValue({
+      done: Promise.resolve({
+        targets: [{
+          relayUrl: "wss://offline.example",
+          state: "connect-failed",
+        }],
+      }),
+      close: vi.fn(),
+    });
+    subscribeMock.mockImplementation((requests) => {
+      requests[0].onCoverage?.({ requested: 1, connected: 0 });
+      requests[0].onEose?.();
+      return { id: "offline", close: vi.fn() };
+    });
+    const onTraversalComplete = vi.fn();
+
+    subRepliesForRootIds(["1".repeat(64)], vi.fn(), {
+      relayUrls: ["wss://offline.example"],
+      completeTraversal: true,
+      onTraversalComplete,
+    });
+
+    await vi.waitFor(() =>
+      expect(onTraversalComplete).toHaveBeenCalledWith({
+        state: "incomplete",
+        reason: "connect-failed",
+      })
+    );
   });
 
   it("opens reply parent chunks sequentially", () => {
