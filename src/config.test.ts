@@ -6,6 +6,7 @@ import {
   DEFAULT_POST_DIFFICULTY,
   DEFAULT_RELAYS,
   COMPLETE_FEED_TRAVERSAL_ENABLED,
+  COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED,
   configuredFlag,
   configuredHttpUrls,
   configuredRelays,
@@ -89,6 +90,10 @@ describe("configuredFlag", () => {
 
   it("keeps complete feed traversal default-off for rollback", () => {
     expect(COMPLETE_FEED_TRAVERSAL_ENABLED).toBe(false);
+  });
+
+  it("keeps complete Wired snapshot traversal default-off for rollback", () => {
+    expect(COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED).toBe(false);
   });
 });
 

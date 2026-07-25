@@ -165,3 +165,8 @@ export const COMPLETE_FEED_TRAVERSAL_ENABLED = configuredFlag(
   configuredEnv("VITE_COMPLETE_FEED_TRAVERSAL_ENABLED"),
   false,
 );
+
+export const COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED = configuredFlag(
+  configuredEnv("COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED"),
+  false,
+);
