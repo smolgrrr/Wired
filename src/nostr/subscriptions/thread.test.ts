@@ -71,4 +71,41 @@ describe("subNote", () => {
     expect(opRequest.relayUrls).toEqual(relays);
     expect(replyRequest.relayUrls).toEqual(relays);
   });
+
+  it("can enable complete traversal without changing relay coverage", () => {
+    subNote(
+      "1".repeat(64),
+      vi.fn(),
+      ["wss://hint.example/"],
+      {
+        configuredRelayUrls: ["wss://configured.example"],
+        completeTraversal: true,
+      },
+    );
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+    const replyRequest = subscribeMock.mock.calls[0][0][0];
+    const rootRequest = subscribeMock.mock.calls[1][0][0];
+    expect(replyRequest).toMatchObject({
+      filters: [{
+        "#e": ["1".repeat(64)],
+        kinds: [1],
+      }],
+      relayUrls: [
+        "wss://configured.example",
+        "wss://hint.example",
+      ],
+    });
+    expect(rootRequest).toMatchObject({
+      filter: {
+        ids: ["1".repeat(64)],
+        kinds: [1, 1068],
+        limit: 1,
+      },
+      relayUrls: [
+        "wss://configured.example",
+        "wss://hint.example",
+      ],
+    });
+  });
 });

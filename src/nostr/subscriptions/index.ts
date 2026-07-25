@@ -21,6 +21,7 @@ export type { SubCallback, SubHandle };
 export { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
 export { subReferencedEventsOnce } from "./context";
 export { subNote } from "./thread";
+export type { ThreadTraversalCompletion } from "./thread";
 export { subNotifications } from "./notifications";
 import { subReferencedEventsOnce } from "./context";
 

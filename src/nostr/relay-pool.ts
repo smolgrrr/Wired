@@ -28,6 +28,9 @@ export type SubscribeOptions = {
   closeOnEose?: boolean;
   relayUrls?: readonly string[];
   onEose?: () => void;
+  onRelayClose?: (relayUrl: string) => void;
+  onCoverage?: (coverage: { requested: number; connected: number }) => void;
+  deduplicateEventIds?: boolean;
 };
 
 type RelayPoolOptions = {
@@ -352,8 +355,20 @@ export class RelayPool implements BrowserRelayAccess {
     if (tracked?.size === 0) this.subscriptionsByRelay.delete(mapKey);
   }
 
-  subscribe(filter: Filter, cb: SubCallback, options: SubscribeOptions = {}): Subscription[] {
-    const { closeOnEose = false, relayUrls, onEose } = options;
+  subscribe(
+    input: Filter | readonly Filter[],
+    cb: SubCallback,
+    options: SubscribeOptions = {},
+  ): Subscription[] {
+    const {
+      closeOnEose = false,
+      relayUrls,
+      onEose,
+      onRelayClose,
+      onCoverage,
+      deduplicateEventIds = false,
+    } = options;
+    const filters = Array.isArray(input) ? [...input] : [input];
     const targetUrls = relayUrls ?? [...this.defaultRelayUrls];
     const subscriptions: Subscription[] = [];
     let connectedUrls = targetUrls.filter((url) => this.relays.get(url)?.connected);
@@ -363,7 +378,12 @@ export class RelayPool implements BrowserRelayAccess {
         return connected?.relay.connected ? [connected.mapKey] : [];
       }))];
     }
+    onCoverage?.({
+      requested: new Set(this.normalizeCoverage(targetUrls)).size,
+      connected: connectedUrls.length,
+    });
     let eoseCount = 0;
+    const seenEventIds = new Set<string>();
 
     const handleEose = (sub: Subscription) => {
       eoseCount += 1;
@@ -379,11 +399,20 @@ export class RelayPool implements BrowserRelayAccess {
       const relay = this.relays.get(url);
       if (!relay) continue;
 
-      const sub = relay.subscribe([filter], {
+      let removeRelayCloseListener = () => {};
+      const sub = relay.subscribe(filters, {
+        alreadyHaveEvent: deduplicateEventIds
+          ? (eventId) => {
+            if (seenEventIds.has(eventId)) return true;
+            seenEventIds.add(eventId);
+            return false;
+          }
+          : undefined,
         onevent(event) {
           cb(event, relay.url);
         },
         onclose: () => {
+          removeRelayCloseListener();
           const tracked = this.subscriptionsByRelay.get(url);
           tracked?.delete(sub);
           if (tracked?.size === 0) {
@@ -391,6 +420,13 @@ export class RelayPool implements BrowserRelayAccess {
           }
         },
       });
+      if (onRelayClose) {
+        const normalizedUrl = this.normalizeCoverage([url])[0] ?? url;
+        removeRelayCloseListener = this.addRelayCloseListener(
+          normalizedUrl,
+          () => onRelayClose(relay.url),
+        );
+      }
 
       const tracked = this.subscriptionsByRelay.get(url) ?? new Set<Subscription>();
       tracked.add(sub);
@@ -404,7 +440,7 @@ export class RelayPool implements BrowserRelayAccess {
     }
 
     if ((closeOnEose || onEose) && connectedUrls.length === 0) {
-      onEose?.();
+      queueMicrotask(() => onEose?.());
     }
 
     return subscriptions;

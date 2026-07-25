@@ -2,13 +2,12 @@ import type { Filter, Subscription } from "nostr-tools";
 import type { RelayPool, SubscribeOptions } from "./relay-pool";
 import type { SubCallback, SubHandle } from "./types";
 
-type SubscribeRequest = {
-  filter: Filter;
+type SubscribeRequest = SubscribeOptions & {
   cb: SubCallback;
-  closeOnEose?: boolean;
-  relayUrls?: readonly string[];
-  onEose?: () => void;
-};
+} & (
+  | { filter: Filter; filters?: never }
+  | { filter?: never; filters: Filter[] }
+);
 
 export class SubscriptionRegistry {
   private readonly active = new Map<string, Subscription[]>();
@@ -20,9 +19,11 @@ export class SubscriptionRegistry {
     const id = String(++this.nextId);
     const subscriptions: Subscription[] = [];
 
-    for (const { filter, cb, closeOnEose, relayUrls, onEose } of requests) {
-      const options: SubscribeOptions = { closeOnEose, relayUrls, onEose };
-      subscriptions.push(...this.pool.subscribe(filter, cb, options));
+    for (const request of requests) {
+      const filters = request.filters ?? [request.filter];
+      subscriptions.push(
+        ...this.pool.subscribe(filters, request.cb, request),
+      );
     }
 
     this.active.set(id, subscriptions);

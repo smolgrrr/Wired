@@ -12,11 +12,11 @@ import { extractEventTagRefs } from "../shared/lib/quotedEvents";
 export function useThreadViewModel(
   hexID: string,
   seedEvents: Event[] = [],
-  relayHints: readonly string[] = [],
+  relayHints?: readonly string[],
 ) {
   const [showAllReplies, setShowAllReplies] = useState(true);
   const moderationManifest = useModerationManifest();
-  const { noteEvents } = useThreadEvents(hexID, relayHints);
+  const { noteEvents, traversalCompletion } = useThreadEvents(hexID, relayHints);
 
   const allEvents = useMemo(() => {
     return filterModeratedEvents([...noteEvents, ...seedEvents], moderationManifest);
@@ -86,5 +86,6 @@ export function useThreadViewModel(
     showAllReplies,
     setShowAllReplies,
     uniqMentions,
+    traversalCompletion,
   };
 }
