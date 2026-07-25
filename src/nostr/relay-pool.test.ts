@@ -92,6 +92,35 @@ describe("RelayPool", () => {
     expect(pool.connectedUrls).toEqual([]);
   });
 
+  it("reports live coverage and can deduplicate relay copies before parsing", async () => {
+    const pool = new RelayPool();
+    const firstRelay = relay("wss://first.example");
+    const secondRelay = relay("wss://second.example");
+    const subscription = () => ({
+      close: vi.fn(),
+      receivedEose: vi.fn(),
+    });
+    firstRelay.subscribe.mockImplementation(() => subscription());
+    secondRelay.subscribe.mockImplementation(() => subscription());
+    mocks.connect.mockImplementation((url: string) =>
+      Promise.resolve(url === firstRelay.url ? firstRelay : secondRelay)
+    );
+    await pool.connect([firstRelay.url, secondRelay.url]);
+    const onCoverage = vi.fn();
+
+    pool.subscribe({ kinds: [1] }, vi.fn(), {
+      relayUrls: [firstRelay.url, secondRelay.url],
+      deduplicateEventIds: true,
+      onCoverage,
+    });
+
+    expect(onCoverage).toHaveBeenCalledWith({ requested: 2, connected: 2 });
+    const firstParams = firstRelay.subscribe.mock.calls[0]?.[1];
+    const secondParams = secondRelay.subscribe.mock.calls[0]?.[1];
+    expect(firstParams?.alreadyHaveEvent("a".repeat(64))).toBe(false);
+    expect(secondParams?.alreadyHaveEvent("a".repeat(64))).toBe(true);
+  });
+
   it("records browser publishing without changing accepted relays", async () => {
     const recorder = { record: vi.fn() };
     const acceptedRelay = relay("wss://accepted.example");

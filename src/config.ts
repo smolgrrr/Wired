@@ -155,3 +155,8 @@ export const DYNAMIC_FEED_ROOT_HINTS_ENABLED = configuredFlag(
 export const DYNAMIC_CONTEXT_HINTS_ENABLED = configuredFlag(
   configuredEnv("VITE_DYNAMIC_CONTEXT_HINTS_ENABLED"),
 );
+
+export const COMPLETE_THREAD_TRAVERSAL_ENABLED = configuredFlag(
+  configuredEnv("VITE_COMPLETE_THREAD_TRAVERSAL_ENABLED"),
+  false,
+);

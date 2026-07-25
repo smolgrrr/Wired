@@ -43,6 +43,7 @@ Optional relay configuration:
 
 - Set `VITE_POW_RELAYS` to a comma-separated list of public PoW relay WebSocket URLs, for example `wss://relay.wiredsignal.online`.
 - Set `VITE_ENRICHMENT_RELAYS` to a comma-separated list of read/enrichment relay WebSocket URLs if the defaults should be replaced.
+- `VITE_COMPLETE_THREAD_TRAVERSAL_ENABLED` defaults to `false`. Enable it for staged rollout of complete deep/wide/live browser-thread traversal; set it back to `false` for immediate rollback to the prior traversal.
 - `VITE_DYNAMIC_FEED_ROOT_HINTS_ENABLED` defaults to `true`. Set it to `false` to restore the prior combined configured-plus-hint root query path without narrowing relay coverage.
 - `VITE_DYNAMIC_CONTEXT_HINTS_ENABLED` defaults to `true`. Set it to `false` to keep referenced-context queries on configured relays only.
 - If unset, the client uses the built-in relay defaults.
