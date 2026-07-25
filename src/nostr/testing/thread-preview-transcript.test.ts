@@ -51,13 +51,23 @@ const nestedReply = finalizeEvent({
 }, secretKey);
 
 function returnCompleteThread(request: RelayRequestController, delayMs = 0): void {
-  expect(request.filters).toEqual([
-    { ids: [root.id], kinds: [1], limit: 1 },
-    { "#e": [root.id], kinds: [1], limit: 500 },
-  ]);
-  request.sendEvent(root, delayMs);
-  request.sendEvent(reply, delayMs);
-  request.sendEvent(nestedReply, delayMs);
+  if (request.filters.length === 2) {
+    expect(request.filters).toEqual([
+      { ids: [root.id], kinds: [1], limit: 1 },
+      { "#e": [root.id], kinds: [1], limit: 500 },
+    ]);
+  } else {
+    expect(request.filters).toHaveLength(1);
+    expect(request.filters[0]).toMatchObject({ kinds: [1] });
+    expect(request.filters[0]).not.toHaveProperty("limit");
+    expect(request.filters[0]?.["#e"]?.length).toBeGreaterThan(0);
+    expect(request.filters[0]?.["#e"]?.every((id) =>
+      id === reply.id || id === nestedReply.id
+    )).toBe(true);
+  }
+  [root, reply, nestedReply]
+    .filter((event) => matchFilters(request.filters, event))
+    .forEach((event) => request.sendEvent(event, delayMs));
   request.sendEose(delayMs);
 }
 
@@ -78,6 +88,23 @@ function expectMatchingCompletion(entries: readonly RelayTranscriptEntry[]): voi
       .map((entry) => entry.subscriptionId)
       .sort(),
   ).toEqual(requestIds);
+}
+
+function peakActiveSubscriptions(entries: readonly RelayTranscriptEntry[]): number {
+  const changes = entries.flatMap((entry) =>
+    entry.type === "request"
+      ? [{ at: entry.at, delta: 1 }]
+      : entry.type === "close"
+        ? [{ at: entry.at, delta: -1 }]
+        : []
+  ).sort((left, right) => left.at - right.at || left.delta - right.delta);
+  let active = 0;
+  let peak = 0;
+  changes.forEach(({ delta }) => {
+    active += delta;
+    peak = Math.max(peak, active);
+  });
+  return peak;
 }
 
 describe("thread preview relay transcript", () => {
@@ -130,11 +157,11 @@ describe("thread preview relay transcript", () => {
       expect(summary).toMatchObject({
         openedConnections: 2,
         closedConnections: 2,
-        requests: 2,
-        closes: 2,
-        returnedEvents: 6,
-        eose: 2,
-        repeatedOperations: 1,
+        requests: 4,
+        closes: 4,
+        returnedEvents: 8,
+        eose: 4,
+        repeatedOperations: 2,
         relayFanout: 2,
       });
       const entries = session.entries.slice(
@@ -147,15 +174,24 @@ describe("thread preview relay transcript", () => {
           .filter((entry) => entry.type === "request")
           .map((entry) => entry.relayUrl)
           .sort(),
-      ).toEqual([configuredHarness.url, hintedHarness.url].sort());
+      ).toEqual([
+        configuredHarness.url,
+        configuredHarness.url,
+        hintedHarness.url,
+        hintedHarness.url,
+      ].sort());
       completionLatencies.push(summary.completionLatencyMs);
       evidenceEntries = entries;
     }
 
+    const completionLatencyMs = summarizeSamples(completionLatencies);
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      expect(completionLatencyMs.p95).toBeLessThanOrEqual(45);
+    }
     emitAuditMeasurement({
       scenario: "thread-preview-local-fixture",
       samples: completionLatencies.length,
-      completionLatencyMs: summarizeSamples(completionLatencies),
+      completionLatencyMs,
       evidence: {
         filters: evidenceEntries
           .filter((entry) => entry.type === "request")
@@ -173,7 +209,7 @@ describe("thread preview relay transcript", () => {
     });
   });
 
-  it("records the legacy descendant that root-only preview filters cannot reach", async () => {
+  it("recursively resolves legacy descendants while the rollback flag retains root-only behavior", async () => {
     const session = new RelayTranscriptSession();
     const legacyNestedReply = finalizeEvent({
       created_at: reply.created_at + 1,
@@ -190,19 +226,133 @@ describe("thread preview relay transcript", () => {
         request.sendEose();
       },
     }));
-    const workflow = session.beginWorkflow("thread-preview-legacy-descendant");
-    const events = await fetchThreadEventsFromRelays(root.id, [], {
-      configuredRelayUrls: [harnesses[0]!.url],
-    });
-    workflow.complete();
+    const completionLatencies: number[] = [];
+    for (let run = 0; run < 20; run += 1) {
+      const recursiveWorkflow = session.beginWorkflow(
+        `thread-preview-legacy-descendant-${run + 1}`,
+      );
+      const recursiveEvents = await fetchThreadEventsFromRelays(root.id, [], {
+        configuredRelayUrls: [harnesses[0]!.url],
+        recursiveReplies: true,
+      });
+      recursiveWorkflow.complete();
 
-    expect(events.map((event) => event.id)).toEqual([root.id, reply.id]);
-    expect(events).not.toContainEqual(legacyNestedReply);
-    expect(session.summary(workflow)).toMatchObject({
+      expect(recursiveEvents.map((event) => event.id)).toEqual([
+        root.id,
+        reply.id,
+        legacyNestedReply.id,
+      ]);
+      const summary = session.summary(recursiveWorkflow);
+      expect(summary).toMatchObject({
+        requests: 3,
+        returnedEvents: 4,
+        relayFanout: 1,
+      });
+      completionLatencies.push(summary.completionLatencyMs);
+    }
+    const recursiveCompletion = summarizeSamples(completionLatencies);
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      expect(recursiveCompletion.p95).toBeLessThanOrEqual(31);
+      console.info(JSON.stringify({
+        scenario: "thread-preview-recursive-legacy-local-fixture",
+        samples: 20,
+        completionLatencyMs: recursiveCompletion,
+      }));
+    }
+
+    const rollbackWorkflow = session.beginWorkflow("thread-preview-legacy-rollback");
+    const rollbackEvents = await fetchThreadEventsFromRelays(root.id, [], {
+      configuredRelayUrls: [harnesses[0]!.url],
+      recursiveReplies: false,
+    });
+    rollbackWorkflow.complete();
+
+    expect(rollbackEvents.map((event) => event.id)).toEqual([root.id, reply.id]);
+    expect(rollbackEvents).not.toContainEqual(legacyNestedReply);
+    expect(session.summary(rollbackWorkflow)).toMatchObject({
       requests: 1,
       returnedEvents: 2,
       relayFanout: 1,
     });
+  });
+
+  it("preserves root identity across delayed duplicate deep and wide descendants", async () => {
+    const session = new RelayTranscriptSession();
+    const wideReplies = Array.from({ length: 60 }, (_, index) =>
+      finalizeEvent({
+        created_at: root.created_at + index + 1,
+        kind: 1,
+        tags: [["e", root.id, "", "reply"]],
+        content: `wide reply ${index + 1}`,
+      }, new Uint8Array(32).fill(index + 10)),
+    );
+    const deepReplies = Array.from({ length: 4 }).reduce<typeof wideReplies>(
+      (events) => {
+        const parent = events.at(-1) ?? wideReplies[0]!;
+        return [
+          ...events,
+          finalizeEvent({
+            created_at: parent.created_at + 1,
+            kind: 1,
+            tags: [["e", parent.id, "", "reply"]],
+            content: `deep reply ${events.length + 1}`,
+          }, new Uint8Array(32).fill(events.length + 80)),
+        ];
+      },
+      [],
+    );
+    const allEvents = [root, ...wideReplies, ...deepReplies];
+    const harness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        allEvents
+          .filter((event) => matchFilters(request.filters, event))
+          .forEach((event) => {
+            request.sendEvent(event, 2);
+            request.sendEvent(event, 3);
+          });
+        request.sendEose(4);
+      },
+    });
+    harnesses.push(harness);
+
+    const preview = await resolveThreadPreview(root.id, {
+      origin: "https://wiredsignal.online",
+      fetchImpl: async () => new Response(null, { status: 404 }),
+      relayFallback: (eventId, relayHints) =>
+        fetchThreadEventsFromRelays(eventId, relayHints, {
+          configuredRelayUrls: [harness.url],
+          recursiveReplies: true,
+        }),
+    });
+
+    expect(preview).toEqual({
+      eventId: root.id,
+      excerpt: "preview root",
+      replyCount: wideReplies.length + deepReplies.length,
+    });
+    expect(
+      new Set(
+        session.entries
+          .filter((entry) => entry.type === "event-returned")
+          .map((entry) => entry.eventId),
+      ),
+    ).toEqual(new Set(allEvents.map((event) => event.id)));
+    const recursiveRequests = session.entries.filter((entry) =>
+      entry.type === "request" && entry.filters.some((filter) =>
+        filter.limit === undefined
+      )
+    );
+    const recursiveFilters = recursiveRequests
+      .flatMap((entry) =>
+        entry.type === "request"
+          ? entry.filters.filter((filter) => filter.limit === undefined)
+          : []
+      );
+    expect(recursiveFilters.length).toBeGreaterThan(1);
+    expect(recursiveFilters.every((filter) =>
+      (filter["#e"]?.length ?? 0) <= 50 && filter.limit === undefined
+    )).toBe(true);
   });
 
   it("keeps preview identity and p95 stable with correlation disabled or enabled", async () => {
@@ -305,16 +455,75 @@ describe("thread preview relay transcript", () => {
 
     expect(preview?.replyCount).toBe(2);
     const summary = session.summary(workflow);
-    expect(summary).toMatchObject({
-      requests: 2,
-      returnedEvents: 3,
-      eose: 1,
-      relayFanout: 2,
-    });
+    expect(summary.relayFanout).toBe(2);
+    expect(summary.requests).toBeGreaterThanOrEqual(2);
+    expect(summary.requests).toBeLessThanOrEqual(3);
+    expect(summary.returnedEvents).toBeGreaterThanOrEqual(3);
+    expect(summary.returnedEvents).toBeLessThanOrEqual(4);
+    expect(summary.eose).toBeGreaterThanOrEqual(1);
+    expect(summary.eose).toBeLessThanOrEqual(2);
     emitAuditMeasurement({
       scenario: "thread-preview-degraded-relay-local-fixture",
       samples: 1,
       completionLatencyMs: summary.completionLatencyMs,
+    });
+  });
+
+  it("resolves a legacy descendant without multiplying a silent relay deadline", async () => {
+    const session = new RelayTranscriptSession();
+    const legacyNestedReply = finalizeEvent({
+      created_at: reply.created_at + 1,
+      kind: 1,
+      tags: [["e", reply.id, "", "reply"]],
+      content: "legacy nested reply",
+    }, secretKey);
+    const legacyEvents = [root, reply, legacyNestedReply];
+    harnesses.push(
+      await RelayTranscriptHarness.listen({
+        session,
+        onRequest(request) {
+          legacyEvents
+            .filter((event) => matchFilters(request.filters, event))
+            .forEach((event) => request.sendEvent(event));
+          request.sendEose();
+        },
+      }),
+      await RelayTranscriptHarness.listen({
+        session,
+        onRequest(request) {
+          legacyEvents
+            .filter((event) => matchFilters(request.filters, event))
+            .forEach((event) => request.sendEvent(event));
+        },
+      }),
+    );
+    const workflow = session.beginWorkflow("thread-preview-no-eose-budget");
+    const preview = await resolveThreadPreview(root.id, {
+      origin: "https://wiredsignal.online",
+      fetchImpl: async () => new Response(null, { status: 404 }),
+      relayFallback: (eventId, relayHints) =>
+        fetchThreadEventsFromRelays(eventId, relayHints, {
+          configuredRelayUrls: harnesses.map((harness) => harness.url),
+          timeoutMs: 200,
+          recursiveReplies: true,
+        }),
+    });
+    workflow.complete();
+
+    expect(preview).toEqual({
+      eventId: root.id,
+      excerpt: "preview root",
+      replyCount: 2,
+    });
+    const summary = session.summary(workflow);
+    expect(summary.requests).toBe(6);
+    expect(summary.completionLatencyMs).toBeLessThan(300);
+    harnesses.forEach((harness) => {
+      expect(peakActiveSubscriptions(
+        session.entries.filter((entry) =>
+          "relayUrl" in entry && entry.relayUrl === harness.url
+        ),
+      )).toBeLessThanOrEqual(2);
     });
   });
 

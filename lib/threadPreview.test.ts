@@ -71,6 +71,31 @@ describe("thread preview", () => {
     });
   });
 
+  it("returns a snapshot hit without opening relay fallback coverage", async () => {
+    const relayFallback = vi.fn();
+    const onResolution = vi.fn();
+
+    const preview = await resolveThreadPreview(rootId, {
+      origin: "https://wiredsignal.online",
+      fetchImpl: vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(snapshot()), { status: 200 }),
+      ),
+      relayFallback,
+      onResolution,
+    });
+
+    expect(preview).toEqual({
+      eventId: rootId,
+      excerpt: "A useful anonymous signal",
+      replyCount: 7,
+    });
+    expect(relayFallback).not.toHaveBeenCalled();
+    expect(onResolution).toHaveBeenCalledWith({
+      eventId: rootId,
+      outcome: "snapshot-hit",
+    });
+  });
+
   it("rejects invalid thread references without network work", async () => {
     const fetchImpl = vi.fn();
     const relayFallback = vi.fn();
