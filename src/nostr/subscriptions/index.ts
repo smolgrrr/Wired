@@ -19,6 +19,7 @@ import { profileQueryLimit } from "./query-limits";
 export type { SubCallback, SubHandle };
 
 export { subGlobalFeed, subRepliesForRootIds } from "./global-feed";
+export type { FeedTraversalCompletion } from "./global-feed";
 export { subReferencedEventsOnce } from "./context";
 export { subNote } from "./thread";
 export type { ThreadTraversalCompletion } from "./thread";

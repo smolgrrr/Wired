@@ -5,6 +5,7 @@ import {
   DEFAULT_FILTER_DIFFICULTY,
   DEFAULT_POST_DIFFICULTY,
   DEFAULT_RELAYS,
+  COMPLETE_FEED_TRAVERSAL_ENABLED,
   configuredFlag,
   configuredHttpUrls,
   configuredRelays,
@@ -84,6 +85,10 @@ describe("configuredFlag", () => {
     expect(configuredFlag("0")).toBe(false);
     expect(configuredFlag("true", false)).toBe(true);
     expect(configuredFlag("unexpected", false)).toBe(false);
+  });
+
+  it("keeps complete feed traversal default-off for rollback", () => {
+    expect(COMPLETE_FEED_TRAVERSAL_ENABLED).toBe(false);
   });
 });
 

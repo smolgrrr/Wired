@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   finalizeEvent,
+  type Event,
   useWebSocketImplementation as configureWebSocketImplementation,
 } from "nostr-tools";
 import { WebSocket } from "ws";
 import { ensureRelaysConnected } from "../client";
 import {
+  type FeedTraversalCompletion,
   subGlobalFeed,
   subRepliesForRootIds,
 } from "../subscriptions/global-feed";
@@ -59,6 +61,51 @@ function matchingIds(entries: readonly RelayTranscriptEntry[], type: "eose" | "c
   return entries
     .flatMap((entry) => entry.type === type ? [entry.subscriptionId] : [])
     .sort();
+}
+
+interface FeedCompleteMeasurement {
+  initialLatencyMs: number;
+  completionLatencyMs: number;
+  entries: readonly RelayTranscriptEntry[];
+}
+
+async function measureCompleteBootstrapFixture(
+  session: RelayTranscriptSession,
+  relayUrl: string,
+  expectedEvents: readonly Event[],
+): Promise<FeedCompleteMeasurement> {
+  await ensureRelaysConnected([relayUrl]);
+  const startIndex = session.entries.length;
+  const startedAt = Date.now();
+  let initialLatencyMs: number | undefined;
+  const callbackCounts = new Map<string, number>();
+  let resolveCompletion!: (completion: FeedTraversalCompletion) => void;
+  const completion = new Promise<FeedTraversalCompletion>((resolve) => {
+    resolveCompletion = resolve;
+  });
+  const handle = subRepliesForRootIds([rootEvent.id], (event) => {
+    initialLatencyMs ??= Date.now() - startedAt;
+    callbackCounts.set(event.id, (callbackCounts.get(event.id) ?? 0) + 1);
+  }, {
+    relayUrls: [relayUrl],
+    completeTraversal: true,
+    onTraversalComplete: resolveCompletion,
+  });
+
+  await expect(completion).resolves.toEqual({
+    state: "complete",
+    reason: "fixpoint-eose",
+  });
+  const completionLatencyMs = Date.now() - startedAt;
+  handle.close();
+  expect(callbackCounts).toEqual(new Map(
+    expectedEvents.map((event) => [event.id, 1]),
+  ));
+  return {
+    initialLatencyMs: initialLatencyMs ?? completionLatencyMs,
+    completionLatencyMs,
+    entries: session.entries.slice(startIndex),
+  };
 }
 
 describe("global feed relay transcript", () => {
@@ -180,6 +227,393 @@ describe("global feed relay transcript", () => {
       expect(initialContent.p95).toBeLessThanOrEqual(26);
       expect(completion.p95).toBeLessThanOrEqual(50);
     }
+  });
+
+  it("measures complete live feed traversal against the ordinary guardrail", async () => {
+    const initialLatencies: number[] = [];
+    const completionLatencies: number[] = [];
+    let evidenceEntries: readonly RelayTranscriptEntry[] = [];
+
+    for (let run = 0; run < auditSampleCount(); run += 1) {
+      const session = new RelayTranscriptSession();
+      const runHarnesses = [
+        await RelayTranscriptHarness.listen({ session, onRequest: driveFeed }),
+        await RelayTranscriptHarness.listen({ session, onRequest: driveFeed }),
+      ];
+      const relayUrls = runHarnesses.map((harness) => harness.url);
+      await ensureRelaysConnected(relayUrls);
+      const startedAt = Date.now();
+      let initialLatencyMs: number | undefined;
+      const callbackCounts = new Map<string, number>();
+      let resolveCompletion!: (completion: FeedTraversalCompletion) => void;
+      const completion = new Promise<FeedTraversalCompletion>((resolve) => {
+        resolveCompletion = resolve;
+      });
+      const startIndex = session.entries.length;
+
+      const handle = subGlobalFeed((event) => {
+        initialLatencyMs ??= Date.now() - startedAt;
+        callbackCounts.set(event.id, (callbackCounts.get(event.id) ?? 0) + 1);
+      }, 24, {
+        rootRelayUrls: relayUrls,
+        replyRelayUrls: relayUrls,
+        rootFilterDifficulty: 0,
+        completeTraversal: true,
+        onTraversalComplete: resolveCompletion,
+      });
+
+      await expect(completion).resolves.toEqual({
+        state: "complete",
+        reason: "fixpoint-eose",
+      });
+      const completionLatencyMs = Date.now() - startedAt;
+      handle.close();
+      expect(callbackCounts).toEqual(new Map([
+        [rootEvent.id, 1],
+        [replyEvent.id, 1],
+        [nestedReplyEvent.id, 1],
+      ]));
+      initialLatencies.push(initialLatencyMs ?? completionLatencyMs);
+      completionLatencies.push(completionLatencyMs);
+      evidenceEntries = session.entries.slice(startIndex);
+      await Promise.all(runHarnesses.map((harness) => harness.close()));
+    }
+
+    const initialContentLatencyMs = summarizeSamples(initialLatencies);
+    const completionLatencyMs = summarizeSamples(completionLatencies);
+    emitAuditMeasurement({
+      scenario: "wired-browser-global-feed-complete-local-fixture",
+      samples: completionLatencies.length,
+      exactCallbacks: 3,
+      initialContentLatencyMs,
+      completionLatencyMs,
+      evidence: {
+        requests: evidenceEntries.filter((entry) => entry.type === "request").length,
+        requestBytes: evidenceEntries
+          .filter((entry) => entry.type === "request")
+          .reduce((total, entry) => total + entry.bytes, 0),
+        returnedEvents: evidenceEntries
+          .filter((entry) => entry.type === "event-returned").length,
+      },
+    });
+    if (process.env.RELAY_AUDIT_OUTPUT === "1") {
+      expect(initialContentLatencyMs.p95).toBeLessThanOrEqual(26);
+      expect(completionLatencyMs.p95).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("resolves complete bootstrap reply closure across deep and wide sets", async () => {
+    const directReplies = Array.from({ length: 60 }, (_, index) =>
+      finalizeEvent({
+        created_at: rootEvent.created_at + 1,
+        kind: 1,
+        tags: [["e", rootEvent.id, "", "reply"]],
+        content: `feed-wide-direct-${index}`,
+      }, new Uint8Array(32).fill((index % 200) + 20))
+    );
+    const wideChildren = directReplies.map((parent, index) =>
+      finalizeEvent({
+        created_at: rootEvent.created_at + 2,
+        kind: 1,
+        tags: [["e", parent.id, "", "reply"]],
+        content: `feed-wide-child-${index}`,
+      }, new Uint8Array(32).fill((index % 180) + 50))
+    );
+    const deepReplies: Event[] = [];
+    let parentId = rootEvent.id;
+    for (let depth = 1; depth <= 5; depth += 1) {
+      const event = finalizeEvent({
+        created_at: rootEvent.created_at + depth,
+        kind: 1,
+        tags: [["e", parentId]],
+        content: `feed-depth-${depth}`,
+      }, new Uint8Array(32).fill(depth + 210));
+      deepReplies.push(event);
+      parentId = event.id;
+    }
+    const replies = [...directReplies, ...wideChildren, ...deepReplies];
+    const session = new RelayTranscriptSession();
+    const harness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const parentIds = new Set(
+          request.filters.flatMap((filter) => filter["#e"] ?? []),
+        );
+        replies
+          .filter((event) =>
+            event.tags.some((tag) =>
+              tag[0] === "e" && parentIds.has(tag[1] ?? "")
+            )
+          )
+          .forEach((event) => request.sendEvent(event));
+        request.sendEose();
+      },
+    });
+    harnesses.push(harness);
+    await ensureRelaysConnected([harness.url]);
+    const receivedIds = new Set<string>();
+    let resolveCompletion!: (completion: FeedTraversalCompletion) => void;
+    const completion = new Promise<FeedTraversalCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+
+    const handle = subRepliesForRootIds(
+      [rootEvent.id],
+      (event) => receivedIds.add(event.id),
+      {
+        relayUrls: [harness.url],
+        completeTraversal: true,
+        onTraversalComplete: resolveCompletion,
+      },
+    );
+
+    await expect(completion).resolves.toEqual({
+      state: "complete",
+      reason: "fixpoint-eose",
+    });
+    handle.close();
+    expect([...receivedIds].sort()).toEqual(
+      replies.map((event) => event.id).sort(),
+    );
+    const filters = session.entries
+      .filter((entry) => entry.type === "request")
+      .flatMap((entry) => entry.filters);
+    expect(filters.every((filter) =>
+      filter.limit === undefined &&
+      (filter["#e"]?.length ?? 0) <= 50 &&
+      typeof filter.since === "number"
+    )).toBe(true);
+  });
+
+  it("keeps approved complete feed fixtures within their large ceilings", async () => {
+    if (process.env.RELAY_AUDIT_OUTPUT !== "1") return;
+
+    const wideDirect = Array.from({ length: 60 }, (_, index) =>
+      finalizeEvent({
+        created_at: rootEvent.created_at + 1,
+        kind: 1,
+        tags: [["e", rootEvent.id, "", "reply"]],
+        content: `feed-audit-wide-${index}`,
+      }, new Uint8Array(32).fill((index % 200) + 20))
+    );
+    const wide = [
+      ...wideDirect,
+      ...wideDirect.map((parent, index) =>
+        finalizeEvent({
+          created_at: rootEvent.created_at + 2,
+          kind: 1,
+          tags: [["e", parent.id, "", "reply"]],
+          content: `feed-audit-wide-child-${index}`,
+        }, new Uint8Array(32).fill((index % 180) + 50))
+      ),
+    ];
+    const limit = Array.from({ length: 101 }, (_, index) =>
+      finalizeEvent({
+        created_at: rootEvent.created_at + 1,
+        kind: 1,
+        tags: [["e", rootEvent.id]],
+        content: `feed-audit-limit-${index}`,
+      }, new Uint8Array(32).fill((index % 220) + 10))
+    );
+    const handoffFirst = finalizeEvent({
+      created_at: rootEvent.created_at + 1,
+      kind: 1,
+      tags: [["e", rootEvent.id, "", "reply"]],
+      content: "feed-audit-handoff-first",
+    }, new Uint8Array(32).fill(93));
+    const handoffLate = finalizeEvent({
+      created_at: handoffFirst.created_at,
+      kind: 1,
+      tags: [["e", rootEvent.id, "", "reply"]],
+      content: "feed-audit-handoff-late",
+    }, new Uint8Array(32).fill(94));
+    const staticHarness = async (
+      session: RelayTranscriptSession,
+      replies: readonly Event[],
+    ) => RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        const parentIds = new Set(
+          request.filters.flatMap((filter) => filter["#e"] ?? []),
+        );
+        replies
+          .filter((event) =>
+            event.tags.some((tag) =>
+              tag[0] === "e" && parentIds.has(tag[1] ?? "")
+            )
+          )
+          .forEach((event) => request.sendEvent(event));
+        request.sendEose();
+      },
+    });
+    const wideSession = new RelayTranscriptSession();
+    const limitSession = new RelayTranscriptSession();
+    const handoffSession = new RelayTranscriptSession();
+    const wideHarness = await staticHarness(wideSession, wide);
+    const limitHarness = await staticHarness(limitSession, limit);
+    let handoffPass = 0;
+    let predecessor: RelayRequestController | undefined;
+    const handoffHarness = await RelayTranscriptHarness.listen({
+      session: handoffSession,
+      onRequest(request) {
+        const pass = handoffPass % 3;
+        handoffPass += 1;
+        if (pass === 0) {
+          predecessor = request;
+          request.sendEvent(handoffFirst);
+          request.sendEose();
+          return;
+        }
+        if (pass === 1) {
+          predecessor?.sendEvent(handoffLate);
+          request.sendEvent(handoffFirst);
+          request.sendEose();
+          return;
+        }
+        request.sendEvent(handoffFirst);
+        request.sendEvent(handoffLate);
+        request.sendEose();
+      },
+    });
+    harnesses.push(wideHarness, limitHarness, handoffHarness);
+    const measurements = {
+      wide: [] as FeedCompleteMeasurement[],
+      limit: [] as FeedCompleteMeasurement[],
+      handoff: [] as FeedCompleteMeasurement[],
+    };
+
+    for (let run = 0; run < auditSampleCount(); run += 1) {
+      measurements.wide.push(
+        await measureCompleteBootstrapFixture(wideSession, wideHarness.url, wide),
+      );
+      measurements.limit.push(
+        await measureCompleteBootstrapFixture(limitSession, limitHarness.url, limit),
+      );
+      measurements.handoff.push(
+        await measureCompleteBootstrapFixture(
+          handoffSession,
+          handoffHarness.url,
+          [handoffFirst, handoffLate],
+        ),
+      );
+    }
+
+    const summarizeFixture = (samples: readonly FeedCompleteMeasurement[]) => ({
+      samples: samples.length,
+      initialContentLatencyMs: summarizeSamples(
+        samples.map((sample) => sample.initialLatencyMs),
+      ),
+      completionLatencyMs: summarizeSamples(
+        samples.map((sample) => sample.completionLatencyMs),
+      ),
+      evidence: {
+        requests: samples.at(-1)?.entries.filter(
+          (entry) => entry.type === "request",
+        ).length ?? 0,
+        requestBytes: samples.at(-1)?.entries
+          .filter((entry) => entry.type === "request")
+          .reduce((total, entry) => total + entry.bytes, 0) ?? 0,
+        returnedEvents: samples.at(-1)?.entries.filter(
+          (entry) => entry.type === "event-returned",
+        ).length ?? 0,
+      },
+    });
+    const wideSummary = summarizeFixture(measurements.wide);
+    const limitSummary = summarizeFixture(measurements.limit);
+    const handoffSummary = summarizeFixture(measurements.handoff);
+    emitAuditMeasurement({
+      scenario: "wired-browser-feed-approved-large-local-fixtures",
+      wide: wideSummary,
+      limit: limitSummary,
+      handoff: handoffSummary,
+    });
+    expect(wideSummary.completionLatencyMs.p95).toBeLessThanOrEqual(1_900);
+    expect(limitSummary.completionLatencyMs.p95).toBeLessThanOrEqual(1_500);
+    expect(handoffSummary.completionLatencyMs.p95).toBeLessThanOrEqual(60);
+  }, 180_000);
+
+  it("retains a live global-feed arrival across overlapping replacements", async () => {
+    const firstReply = finalizeEvent({
+      created_at: rootEvent.created_at + 1,
+      kind: 1,
+      tags: [["e", rootEvent.id, "", "reply"]],
+      content: "feed-live-first",
+    }, new Uint8Array(32).fill(91));
+    const lateReply = finalizeEvent({
+      created_at: firstReply.created_at,
+      kind: 1,
+      tags: [["e", rootEvent.id, "", "reply"]],
+      content: "feed-live-late",
+    }, new Uint8Array(32).fill(92));
+    const session = new RelayTranscriptSession();
+    const replyRequests: RelayRequestController[] = [];
+    const harness = await RelayTranscriptHarness.listen({
+      session,
+      onRequest(request) {
+        if (!request.filters.some((filter) => filter["#e"] !== undefined)) {
+          request.sendEvent(rootEvent);
+          request.sendEose();
+          return;
+        }
+        replyRequests.push(request);
+        if (replyRequests.length === 1) {
+          request.sendEvent(firstReply);
+          request.sendEose();
+          return;
+        }
+        if (replyRequests.length === 2) {
+          replyRequests[0]?.sendEvent(lateReply);
+          request.sendEvent(firstReply);
+          request.sendEose();
+          return;
+        }
+        request.sendEvent(firstReply);
+        request.sendEvent(lateReply);
+        request.sendEose();
+      },
+    });
+    harnesses.push(harness);
+    await ensureRelaysConnected([harness.url]);
+    const callbackCounts = new Map<string, number>();
+    let resolveCompletion!: (completion: FeedTraversalCompletion) => void;
+    const completion = new Promise<FeedTraversalCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+
+    const handle = subGlobalFeed((event) => {
+      callbackCounts.set(event.id, (callbackCounts.get(event.id) ?? 0) + 1);
+    }, 24, {
+      rootRelayUrls: [harness.url],
+      replyRelayUrls: [harness.url],
+      rootFilterDifficulty: 0,
+      completeTraversal: true,
+      onTraversalComplete: resolveCompletion,
+    });
+
+    await expect(completion).resolves.toEqual({
+      state: "complete",
+      reason: "fixpoint-eose",
+    });
+    handle.close();
+    expect(callbackCounts).toEqual(new Map([
+      [rootEvent.id, 1],
+      [firstReply.id, 1],
+      [lateReply.id, 1],
+    ]));
+    expect(replyRequests).toHaveLength(3);
+    const active = new Set<string>();
+    let peakReplySubscriptions = 0;
+    session.entries.forEach((entry) => {
+      if (
+        entry.type === "request" &&
+        entry.filters.some((filter) => filter["#e"] !== undefined)
+      ) {
+        active.add(entry.subscriptionId);
+      }
+      if (entry.type === "close") active.delete(entry.subscriptionId);
+      peakReplySubscriptions = Math.max(peakReplySubscriptions, active.size);
+    });
+    expect(peakReplySubscriptions).toBe(2);
   });
 
   it("captures missing-root chunking and a distinct NIP-10 relay hint", async () => {

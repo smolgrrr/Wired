@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Event } from "nostr-tools";
-import { subGlobalFeed, subRepliesForRootIds } from "../nostr/subscriptions";
+import {
+  subGlobalFeed,
+  subRepliesForRootIds,
+  type FeedTraversalCompletion,
+} from "../nostr/subscriptions";
 import {
   compareProcessedEventsByWork,
   processFeedEvents,
@@ -32,6 +36,10 @@ const FEED_RELAY_DEGRADED_AFTER_MS = 8000;
 
 type FeedMode = "default" | "raw";
 type FeedBootstrapLoadState = "disabled" | "loading" | "loaded" | "error";
+type KeyedTraversalCompletion = {
+  key: string;
+  completion: FeedTraversalCompletion;
+};
 
 export type FeedStatusKind =
   | "snapshot"
@@ -242,6 +250,10 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     );
   const [liveInitialEose, setLiveInitialEose] = useState(false);
   const [relayWaitElapsed, setRelayWaitElapsed] = useState(false);
+  const [liveTraversalResult, setLiveTraversalResult] =
+    useState<KeyedTraversalCompletion | null>(null);
+  const [bootstrapTraversalResult, setBootstrapTraversalResult] =
+    useState<KeyedTraversalCompletion | null>(null);
   const [bootstrapProcessedEvents, setBootstrapProcessedEvents] = useState<ProcessedEvent[]>([]);
   const [bootstrapEvents, setBootstrapEvents] = useState<Event[]>([]);
   const [bootstrapRootIds, setBootstrapRootIds] = useState<string[]>([]);
@@ -310,6 +322,11 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
     return () => window.clearTimeout(timer);
   }, [mode, settings.ageHours, settings.filterDifficulty]);
 
+  const liveTraversalKey = [
+    mode,
+    settings.ageHours,
+    settings.filterDifficulty,
+  ].join(":");
   const subscribe = useCallback(
     (onEvent: Parameters<typeof subGlobalFeed>[0]) =>
       subGlobalFeed(
@@ -321,9 +338,12 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
           rootFilterDifficulty: settings.filterDifficulty,
           replyDepth: FEED_REPLY_DEPTH,
           onInitialEose: () => setLiveInitialEose(true),
+          onTraversalComplete: (completion) => {
+            setLiveTraversalResult({ key: liveTraversalKey, completion });
+          },
         },
       ),
-    [settings.ageHours, settings.filterDifficulty],
+    [liveTraversalKey, settings.ageHours, settings.filterDifficulty],
   );
 
   const {
@@ -336,15 +356,25 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
   ]);
 
   const bootstrapRootKey = bootstrapRootIds.join(",");
+  const bootstrapTraversalKey = [
+    mode,
+    settings.ageHours,
+    settings.filterDifficulty,
+    bootstrapRootKey,
+  ].join(":");
   const subscribeBootstrapReplies = useCallback(
     (onEvent: Parameters<typeof subRepliesForRootIds>[1]) =>
       subRepliesForRootIds(bootstrapRootIds, onEvent, {
         relayUrls: THREAD_RELAYS,
         depth: FEED_REPLY_DEPTH,
+        onTraversalComplete: (completion) => {
+          setBootstrapTraversalResult({
+            key: bootstrapTraversalKey,
+            completion,
+          });
+        },
       }),
-    // Subscription factory is intentionally tied to the stable root key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bootstrapRootKey],
+    [bootstrapRootIds, bootstrapTraversalKey],
   );
   const {
     noteEvents: bootstrapReplyEvents,
@@ -444,6 +474,26 @@ export function useFeed({ mode = "default" }: { mode?: FeedMode } = {}) {
       relayWaitElapsed,
     ],
   );
+  const liveTraversalCompletion =
+    liveTraversalResult?.key === liveTraversalKey
+      ? liveTraversalResult.completion
+      : null;
+  const bootstrapTraversalCompletion =
+    bootstrapTraversalResult?.key === bootstrapTraversalKey
+      ? bootstrapTraversalResult.completion
+      : null;
+  const traversalCompletion = useMemo(
+    () => ({
+      live: liveTraversalCompletion,
+      bootstrap: bootstrapTraversalCompletion,
+    }),
+    [liveTraversalCompletion, bootstrapTraversalCompletion],
+  );
 
-  return { processedEvents, noteEvents: visibleNoteEvents, feedStatus };
+  return {
+    processedEvents,
+    noteEvents: visibleNoteEvents,
+    feedStatus,
+    traversalCompletion,
+  };
 }

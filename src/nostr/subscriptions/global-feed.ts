@@ -1,5 +1,9 @@
 import type { Event } from "nostr-tools";
-import { DYNAMIC_FEED_ROOT_HINTS_ENABLED, POW_RELAYS } from "../../config";
+import {
+  COMPLETE_FEED_TRAVERSAL_ENABLED,
+  DYNAMIC_FEED_ROOT_HINTS_ENABLED,
+  POW_RELAYS,
+} from "../../config";
 import {
   getRegistry,
   prepareRelayConnections,
@@ -26,6 +30,11 @@ import {
   limitReplyParentIds,
   sinceFromAgeHours,
 } from "./query-limits";
+import {
+  CompleteReplyTraversal,
+  queryCompletionToReplyTraversal,
+  type ReplyTraversalCompletion,
+} from "./complete-reply-traversal";
 
 export const FEED_REPLY_PARENT_CHUNK_SIZE = 20;
 export const FEED_ROOT_FETCH_CHUNK_SIZE = 20;
@@ -37,7 +46,11 @@ type GlobalFeedOptions = {
   replyDepth?: number;
   onInitialEose?: () => void;
   dynamicRootHints?: boolean;
+  completeTraversal?: boolean;
+  onTraversalComplete?: (completion: FeedTraversalCompletion) => void;
 };
+
+export type FeedTraversalCompletion = ReplyTraversalCompletion;
 
 function uniqueRelays(relays: readonly string[]): string[] {
   return uniqueRelayUrls(relays);
@@ -163,6 +176,83 @@ class FeedReplyTraversal {
   }
 }
 
+class CompleteFeedReplyTraversal {
+  private readonly owner = createSubHandleOwner("feed-complete-replies");
+  private readonly traversal: CompleteReplyTraversal;
+  private preparationComplete = false;
+  private discoveryComplete = false;
+  private preparationFailure:
+    | Extract<ReplyTraversalCompletion, { state: "incomplete" }>["reason"]
+    | undefined;
+
+  constructor(
+    onEvent: SubCallback,
+    relayUrls: readonly string[] | undefined,
+    since: number,
+    onComplete?: (completion: FeedTraversalCompletion) => void,
+  ) {
+    const coverage = uniqueRelays(relayUrls ?? POW_RELAYS);
+    this.traversal = new CompleteReplyTraversal({
+      initialParentIds: [],
+      relayUrls: coverage,
+      onEvent,
+      onComplete,
+      since,
+    });
+    this.owner.add(this.traversal.handle);
+    const preparation = prepareRelayConnections(
+      coverage,
+      "wired.browser.feed",
+    );
+    this.owner.add({
+      id: "feed-reply-coverage",
+      close: preparation.close,
+    });
+    void preparation.done.then((result) => {
+      const targets = result?.targets ?? [];
+      const incomplete = targets.find((target) => target.state !== "connected");
+      if (incomplete) {
+        this.preparationFailure = incomplete.state === "timed-out"
+          ? "deadline"
+          : incomplete.state === "connect-failed"
+          ? "connect-failed"
+          : "cancelled";
+      }
+      this.preparationComplete = true;
+      this.maybeConfirm();
+    });
+  }
+
+  get handle(): SubHandle {
+    return this.owner.handle();
+  }
+
+  addRoots(rootIds: readonly string[]): void {
+    this.traversal.addParentIds(rootIds);
+  }
+
+  reportIncomplete(completion: ReplyTraversalCompletion): void {
+    if (completion.state === "incomplete") {
+      this.traversal.reportIncomplete(completion.reason);
+    }
+  }
+
+  completeDiscovery(completion?: ReplyTraversalCompletion): void {
+    if (completion) this.reportIncomplete(completion);
+    this.discoveryComplete = true;
+    this.maybeConfirm();
+  }
+
+  private maybeConfirm(): void {
+    if (!this.preparationComplete || !this.discoveryComplete) return;
+    if (this.preparationFailure) {
+      this.traversal.reportIncomplete(this.preparationFailure);
+      return;
+    }
+    this.traversal.confirmCoverage();
+  }
+}
+
 class FeedRootFetch {
   private closed = false;
   private readonly owner = createSubHandleOwner(
@@ -177,14 +267,23 @@ class FeedRootFetch {
     private readonly eventsById: Map<string, Event>,
     private readonly onRootEvents: (events: Event[]) => void,
     private readonly dynamicRootHints: boolean,
+    private readonly onComplete?: (completion: ReplyTraversalCompletion) => void,
   ) {}
+
+  private completionReported = false;
+  private incomplete:
+    | Extract<ReplyTraversalCompletion, { state: "incomplete" }>
+    | undefined;
 
   get handle(): SubHandle {
     return this.owner.handle();
   }
 
   start(rootRefs: FeedRootRef[], depth = ROOT_RESOLUTION_DEPTH) {
-    if (rootRefs.length === 0) return;
+    if (rootRefs.length === 0) {
+      this.finish();
+      return;
+    }
 
     const { rootEvents, refsToFetch } = planFeedRootResolution(
       rootRefs,
@@ -196,7 +295,10 @@ class FeedRootFetch {
       this.onRootEvents(rootEvents);
     }
 
-    if (depth <= 0) return;
+    if (depth <= 0) {
+      this.finish();
+      return;
+    }
 
     refsToFetch.forEach((ref) => this.requestedIds.add(ref.id));
 
@@ -284,7 +386,11 @@ class FeedRootFetch {
         coverage: { configuredRelayUrls, hintedRelayUrls },
         completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
         onEvent: onExpectedRootEvent(ids),
-        onComplete,
+        onComplete: (completion) => {
+          const result = queryCompletionToReplyTraversal(completion);
+          if (result.state === "incomplete") this.incomplete ??= result;
+          onComplete(completion);
+        },
       });
       this.owner.add(finiteQuerySubHandle(handleId, query));
     };
@@ -381,6 +487,14 @@ class FeedRootFetch {
       });
     }
   }
+
+  private finish(): void {
+    if (this.closed || this.completionReported) return;
+    this.completionReported = true;
+    this.onComplete?.(
+      this.incomplete ?? { state: "complete", reason: "fixpoint-eose" },
+    );
+  }
 }
 
 export const subRepliesForRootIds = (
@@ -390,8 +504,22 @@ export const subRepliesForRootIds = (
     relayUrls?: readonly string[];
     depth?: number;
     since?: number;
+    completeTraversal?: boolean;
+    onTraversalComplete?: (completion: FeedTraversalCompletion) => void;
   } = {},
 ): SubHandle => {
+  if (options.completeTraversal ?? COMPLETE_FEED_TRAVERSAL_ENABLED) {
+    const traversal = new CompleteFeedReplyTraversal(
+      onEvent,
+      options.relayUrls,
+      options.since ?? sinceFromAgeHours(24),
+      options.onTraversalComplete,
+    );
+    traversal.addRoots(rootIds);
+    traversal.completeDiscovery();
+    return traversal.handle;
+  }
+
   const traversal = new FeedReplyTraversal(
     onEvent,
     options.relayUrls,
@@ -415,12 +543,33 @@ export const subGlobalFeed = (
   const now = Math.floor(Date.now() / 1000);
   const since = sinceFromAgeHours(ageHours, now);
   const replyDepth = clampReplyDepth(options.replyDepth ?? 1);
-  const replies = new FeedReplyTraversal(
-    onEvent,
-    options.replyRelayUrls,
-    replyDepth,
-    since,
-  );
+  const completeTraversal =
+    options.completeTraversal ?? COMPLETE_FEED_TRAVERSAL_ENABLED;
+  const deliveredIds = new Set<string>();
+  const deliver: SubCallback = completeTraversal
+    ? (event, relayUrl) => {
+      const eventId = event.id.toLowerCase();
+      if (deliveredIds.has(eventId)) return;
+      deliveredIds.add(eventId);
+      onEvent(event, relayUrl);
+    }
+    : onEvent;
+  const completeReplies = completeTraversal
+    ? new CompleteFeedReplyTraversal(
+      deliver,
+      options.replyRelayUrls,
+      since,
+      options.onTraversalComplete,
+    )
+    : undefined;
+  const legacyReplies = completeTraversal
+    ? undefined
+    : new FeedReplyTraversal(
+      deliver,
+      options.replyRelayUrls,
+      replyDepth,
+      since,
+    );
   const startRepliesForRoots = (events: Event[]) => {
     const rootIds = events
       .map((event) => event.id.toLowerCase())
@@ -430,17 +579,19 @@ export const subGlobalFeed = (
         return true;
       });
 
-    replies.start(rootIds);
+    if (completeReplies) completeReplies.addRoots(rootIds);
+    else legacyReplies?.start(rootIds);
   };
   const rootFetch = new FeedRootFetch(
-    onEvent,
+    deliver,
     options.replyRelayUrls ?? options.rootRelayUrls ?? POW_RELAYS,
     eventsById,
     startRepliesForRoots,
     options.dynamicRootHints ?? DYNAMIC_FEED_ROOT_HINTS_ENABLED,
+    (completion) => completeReplies?.completeDiscovery(completion),
   );
 
-  owner.add(replies.handle);
+  owner.add(completeReplies?.handle ?? legacyReplies!.handle);
   owner.add(rootFetch.handle);
 
   const activityQuery = startFiniteQuery({
@@ -458,10 +609,13 @@ export const subGlobalFeed = (
     onEvent: (evt, relay) => {
       eventsById.set(evt.id.toLowerCase(), evt);
       activityEvents.push(evt);
-      onEvent(evt, relay);
+      deliver(evt, relay);
     },
     onComplete: (completion) => {
       if (completion.reason !== "cancelled") {
+        completeReplies?.reportIncomplete(
+          queryCompletionToReplyTraversal(completion),
+        );
         options.onInitialEose?.();
         const rootRefs = feedRootRefsFromQualifyingActivity(
           activityEvents,
