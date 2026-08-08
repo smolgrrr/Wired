@@ -27,6 +27,7 @@
     "test:thread-traversal-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/thread-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'measures complete traversal against the ordinary thread comparator|keeps approved large complete-traversal fixtures'",
     "test:feed-traversal-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/global-feed-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'measures complete live feed traversal against the ordinary guardrail|keeps approved complete feed fixtures within their large ceilings'",
     "test:profile-request-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/profile-request-joining-transcript.test.tsx --maxWorkers=1 --minWorkers=1",
+    "test:profile-batch-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/profile-batch-transcript.test.ts --maxWorkers=1 --minWorkers=1",
     "test:wired-snapshot-traversal-audit": "RELAY_AUDIT_OUTPUT=1 vitest run src/nostr/testing/feed-snapshot-complete-transcript.test.ts --maxWorkers=1 --minWorkers=1 -t 'keeps approved complete snapshot fixtures within their controlled ceilings'",
     "lint": "eslint src lib/feedBootstrapCache.ts lib/feedSnapshot.ts lib/completeSnapshotReplyTraversal.ts lib/completeSnapshotReplyTraversal.test.ts api scripts vite.config.ts eslint.config.js"
   },

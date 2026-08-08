@@ -1,4 +1,8 @@
-import { POW_RELAYS, QUOTE_FALLBACK_RELAYS } from "../../config";
+import {
+  COMPLETE_PROFILE_BATCHES_ENABLED,
+  POW_RELAYS,
+  QUOTE_FALLBACK_RELAYS,
+} from "../../config";
 import {
   ensureRelaysConnected,
   initNostr,
@@ -15,7 +19,7 @@ import {
   emptySubHandle,
   finiteQuerySubHandle,
 } from "./utils";
-import { profileQueryLimit } from "./query-limits";
+import { chunkProfilePubkeys, profileQueryLimit } from "./query-limits";
 
 export type { SubCallback, SubHandle };
 
@@ -46,31 +50,62 @@ export async function subProfilesOnce(
     onComplete?: (completion: QueryCompletion) => void;
   } = {},
 ): Promise<SubHandle> {
-  if (pubkeys.length === 0) {
+  let chunks: string[][] = [];
+  if (pubkeys.length > 0) {
+    chunks = COMPLETE_PROFILE_BATCHES_ENABLED
+      ? chunkProfilePubkeys(pubkeys)
+      : [pubkeys];
+  }
+  if (chunks.length === 0) {
     return emptySubHandle("profiles-once:empty");
   }
 
-  return finiteQuerySubHandle(
-    "profiles-once",
-    startFiniteQuery({
-      workflowOwner: "wired.browser.profiles",
-      filters: [{
-        authors: pubkeys,
-        kinds: [0],
-        limit: profileQueryLimit(pubkeys.length),
-      }],
-      coverage: {
-        configuredRelayUrls: options.relayUrls ?? PROFILE_RELAYS,
-        hintedRelayUrls: [],
-      },
-      completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
-      onEvent,
-      onComplete: (completion) => {
-        options.onComplete?.(completion);
-        if (completion.reason !== "cancelled") onEose?.();
-      },
-    }),
-  );
+  const owner = createSubHandleOwner("profiles-once");
+  const handle = owner.handle();
+  const completions: Array<QueryCompletion | undefined> = Array(chunks.length)
+    .fill(undefined);
+  try {
+    chunks.forEach((chunk, index) => {
+      const query = startFiniteQuery({
+        workflowOwner: "wired.browser.profiles",
+        filters: [{
+          authors: chunk,
+          kinds: [0],
+          limit: profileQueryLimit(chunk.length),
+        }],
+        coverage: {
+          configuredRelayUrls: options.relayUrls ?? PROFILE_RELAYS,
+          hintedRelayUrls: [],
+        },
+        completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
+        onEvent,
+        onComplete: (completion) => {
+          completions[index] = completion;
+          if (completions.some((candidate) => candidate === undefined)) return;
+          const completed = completions as QueryCompletion[];
+          const aggregate: QueryCompletion = {
+            reason: completed.some(({ reason }) => reason === "cancelled")
+              ? "cancelled"
+              : completed.some(({ reason }) => reason === "deadline")
+              ? "deadline"
+              : "settled",
+            targets: completed.flatMap(({ targets }) => targets),
+            receivedEvents: completed.reduce(
+              (total, candidate) => total + candidate.receivedEvents,
+              0,
+            ),
+          };
+          options.onComplete?.(aggregate);
+          if (aggregate.reason !== "cancelled") onEose?.();
+        },
+      });
+      owner.add(finiteQuerySubHandle(`profiles-once:${index}`, query));
+    });
+  } catch (error) {
+    handle.close();
+    throw error;
+  }
+  return handle;
 }
 
 function uniqueRelayUrls(relays: readonly string[]): string[] {

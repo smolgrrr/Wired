@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildReplyFilter,
   buildThreadReplyFilter,
+  chunkProfilePubkeys,
   clampReplyDepth,
   MAX_REPLY_FETCH_DEPTH,
   MAX_REPLY_PARENT_IDS,
@@ -47,5 +48,17 @@ describe("query limits", () => {
   it("caps profile query limits", () => {
     expect(profileQueryLimit(10)).toBe(10);
     expect(profileQueryLimit(PROFILE_QUERY_LIMIT + 1)).toBe(PROFILE_QUERY_LIMIT);
+  });
+
+  it("deduplicates profile pubkeys into stable relay-safe chunks", () => {
+    const pubkeys = Array.from({ length: PROFILE_QUERY_LIMIT + 1 }, (_, index) =>
+      index.toString(16).padStart(64, "0")
+    );
+
+    expect(chunkProfilePubkeys([...pubkeys, pubkeys[0]])).toEqual([
+      pubkeys.slice(0, PROFILE_QUERY_LIMIT),
+      pubkeys.slice(PROFILE_QUERY_LIMIT),
+    ]);
+    expect(chunkProfilePubkeys([])).toEqual([]);
   });
 });

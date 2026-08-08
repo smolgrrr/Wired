@@ -171,6 +171,11 @@ export const PROFILE_REQUEST_JOIN_ENABLED = configuredFlag(
   false,
 );
 
+export const COMPLETE_PROFILE_BATCHES_ENABLED = configuredFlag(
+  configuredEnv("VITE_COMPLETE_PROFILE_BATCHES_ENABLED"),
+  false,
+);
+
 export const COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED = configuredFlag(
   configuredEnv("COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED"),
   false,

@@ -50,3 +50,12 @@ export function buildThreadReplyFilter(parentIds: readonly string[]): Filter | n
 export function profileQueryLimit(pubkeyCount: number): number {
   return Math.min(pubkeyCount, PROFILE_QUERY_LIMIT);
 }
+
+export function chunkProfilePubkeys(pubkeys: readonly string[]): string[][] {
+  const uniquePubkeys = [...new Set(pubkeys)];
+  const chunks: string[][] = [];
+  for (let index = 0; index < uniquePubkeys.length; index += PROFILE_QUERY_LIMIT) {
+    chunks.push(uniquePubkeys.slice(index, index + PROFILE_QUERY_LIMIT));
+  }
+  return chunks;
+}
