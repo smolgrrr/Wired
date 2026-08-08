@@ -1,7 +1,9 @@
-// PROTOTYPE — do not ship.
+// PROTOTYPE — do not ship. VERDICT: FALSIFIED / NO-GO.
 // Question: can two independently paged notification streams advance without
-// gaps when relay limits land inside a second shared by many events, while an
-// incomplete aggregate query remains retryable and never advances its cursor?
+// gaps when relay limits land inside a second shared by many events?
+// Answer: not with standard NIP-01 filters. This model's adaptive ID-prefix
+// escape hatch is intentionally retained as the falsified idea, but pinned
+// NIP-01 requires exact 64-character ids and does not permit these prefixes.
 
 export type NotificationStream = "authored" | "mentions";
 export type QueryPhase = "page" | "boundary";

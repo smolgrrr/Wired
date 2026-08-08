@@ -73,8 +73,8 @@ function driveIncomplete(stream: NotificationStream): void {
 
 function render(): void {
   console.clear();
-  console.log(`${bold}Notification history cursor prototype${reset}`);
-  console.log(`${dim}Question: can page + same-second spill avoid gaps without advancing incomplete work?${reset}\n`);
+  console.log(`${bold}Notification history cursor prototype — FALSIFIED / NO-GO${reset}`);
+  console.log(`${dim}ID-prefix partition is visualized here but is not legal under pinned NIP-01.${reset}\n`);
   (Object.entries(state.streams) as [NotificationStream, NotificationHistoryPrototypeState["streams"][NotificationStream]][])
     .forEach(([name, value]) => {
       console.log(`${bold}${name}${reset}`);
