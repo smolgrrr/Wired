@@ -186,7 +186,7 @@ export const COMPLETE_PROFILE_BATCHES_ENABLED = configuredFlag(
 );
 
 export const BROWSER_PUBLISH_OBSERVATION_MS = configuredPublishObservationMs(
-  configuredEnv("VITE_BROWSER_PUBLISH_OBSERVATION_MS"),
+  import.meta.env.VITE_BROWSER_PUBLISH_OBSERVATION_MS,
 );
 
 export const COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED = configuredFlag(
