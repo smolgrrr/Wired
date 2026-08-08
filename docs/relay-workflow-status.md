@@ -28,11 +28,14 @@ WORKFLOW_STATUS_PREVIEW_HMAC_SECRET=<at least 32 random bytes>
 RELAY_WORKFLOW_PREVIEW_CORRELATION_ENABLED=true
 VITE_RELAY_WORKFLOW_STATUS_ENABLED=true
 VITE_RELAY_WORKFLOW_STATUS_PERCENT=10
+VITE_BROWSER_PUBLISH_OBSERVATION_MS=60000
 ```
 
 `WORKFLOW_STATUS_PREVIEW_HMAC_SECRET` stays server-side. Every instance derives the same UTC-daily key, emits only a 96-bit HMAC token, and never stores either the daily key or event ID. Rotate the deployment secret at least quarterly; rotation intentionally breaks correlation across the boundary.
 
 Browser writes require an exact `Origin` match with `WORKFLOW_STATUS_ALLOWED_ORIGIN`. The wired-admin source requires `WORKFLOW_STATUS_ADMIN_TOKEN`. The Blob token is available only to the Wired deployment. The current named deployment owner and wired-admin operator is the GitHub/Vercel account `smolgrrr` (`doot`); store browsing/deletion is limited to that account through project-scoped Vercel access until ownership is explicitly reassigned.
+
+`VITE_BROWSER_PUBLISH_OBSERVATION_MS=60000` adds a passive observer only for clients selected by the workflow-status cohort. It never settles, cancels, or narrows the underlying publish. See [`browser-publish-observation.md`](browser-publish-observation.md) for its bounded owner states and counting contract.
 
 ## Rollout and rollback
 
@@ -41,6 +44,8 @@ Browser writes require an exact `Origin` match with `WORKFLOW_STATUS_ALLOWED_ORI
 3. Verify accepted results and workflow p95 are unchanged, then set the percentage to 100.
 
 Disable browser export with `VITE_RELAY_WORKFLOW_STATUS_ENABLED=false` or percentage `0`. Disable preview correlation with `RELAY_WORKFLOW_PREVIEW_CORRELATION_ENABLED=false`. Disable ingest independently with `RELAY_WORKFLOW_STATUS_INGEST_ENABLED=false`. Any switch leaves relay/query/publish operations unchanged; exporter, network, Blob, or purge failures drop evidence only.
+
+Set `VITE_BROWSER_PUBLISH_OBSERVATION_MS=0` to disable only the passive publish timer while retaining ordinary workflow evidence.
 
 Run `npm run test:relay-audit` as the isolated single-worker latency guard before rollout. It enforces the absolute preview p95 ceiling of 31 ms and reports paired enabled/disabled preview and publish measurements without parallel-suite contention.
 

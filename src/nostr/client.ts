@@ -1,5 +1,6 @@
 import type { Event } from "nostr-tools";
 import {
+  BROWSER_PUBLISH_OBSERVATION_MS,
   ENRICHMENT_RELAYS,
   POW_RELAYS,
   THREAD_RELAYS as CONFIG_THREAD_RELAYS,
@@ -65,7 +66,12 @@ export const PROFILE_RELAYS = [...CONFIG_THREAD_RELAYS];
 
 function ensureNostrClient(): void {
   if (!pool) {
-    pool = new RelayPool({ workflowEvidence });
+    pool = new RelayPool({
+      workflowEvidence,
+      publishObservationMs: workflowExportEnabled
+        ? BROWSER_PUBLISH_OBSERVATION_MS
+        : 0,
+    });
     registry = new SubscriptionRegistry(pool);
   }
 }

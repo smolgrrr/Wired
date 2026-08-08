@@ -7,6 +7,7 @@ export const RELAY_WORKFLOW_OWNERS = [
   "wired.browser.quotes",
   "wired.browser.profiles",
   "wired.browser.publish",
+  "wired.browser.publish-observation",
   "wired.server.preview",
   "wired.server.feed-snapshot",
   "wired-admin.server.feed-snapshot",

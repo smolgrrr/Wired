@@ -69,6 +69,15 @@ export function configuredFlag(
   return fallback;
 }
 
+export function configuredPublishObservationMs(
+  envValue: string | undefined,
+): number {
+  const parsed = Number(envValue);
+  return Number.isInteger(parsed) && parsed >= 1_000 && parsed <= 60_000
+    ? parsed
+    : 0;
+}
+
 function configuredEnv(key: string): string | undefined {
   const viteEnv = import.meta.env as Record<string, string | undefined> | undefined;
   if (viteEnv?.[key] !== undefined) return viteEnv[key];
@@ -174,6 +183,10 @@ export const PROFILE_REQUEST_JOIN_ENABLED = configuredFlag(
 export const COMPLETE_PROFILE_BATCHES_ENABLED = configuredFlag(
   configuredEnv("VITE_COMPLETE_PROFILE_BATCHES_ENABLED"),
   false,
+);
+
+export const BROWSER_PUBLISH_OBSERVATION_MS = configuredPublishObservationMs(
+  configuredEnv("VITE_BROWSER_PUBLISH_OBSERVATION_MS"),
 );
 
 export const COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED = configuredFlag(
