@@ -47,4 +47,43 @@ describe("profile finite query", () => {
     handle.close();
     expect(mocks.startFiniteQuery.mock.results[0]?.value.close).toHaveBeenCalledOnce();
   });
+
+  it("reports cancellation as aggregate completion without calling EOSE", async () => {
+    const onEose = vi.fn();
+    const onComplete = vi.fn();
+    await subProfilesOnce(["c".repeat(64)], vi.fn(), onEose, { onComplete });
+
+    const query = mocks.startFiniteQuery.mock.calls[0]?.[0] as FiniteQuery;
+    const completion = {
+      reason: "cancelled" as const,
+      targets: [{ relayUrl: "wss://profiles.example", state: "cancelled" as const }],
+      receivedEvents: 0,
+    };
+    query.onComplete?.(completion);
+
+    expect(onComplete).toHaveBeenCalledWith(completion);
+    expect(onEose).not.toHaveBeenCalled();
+  });
+
+  it("reports mixed partial-terminal aggregate completion", async () => {
+    const onEose = vi.fn();
+    const onComplete = vi.fn();
+    await subProfilesOnce(["d".repeat(64)], vi.fn(), onEose, { onComplete });
+
+    const query = mocks.startFiniteQuery.mock.calls[0]?.[0] as FiniteQuery;
+    const completion = {
+      reason: "deadline" as const,
+      targets: [
+        { relayUrl: "wss://eose.example", state: "eose" as const },
+        { relayUrl: "wss://closed.example", state: "closed" as const },
+        { relayUrl: "wss://failed.example", state: "connect-failed" as const },
+        { relayUrl: "wss://silent.example", state: "timed-out" as const },
+      ],
+      receivedEvents: 1,
+    };
+    query.onComplete?.(completion);
+
+    expect(onComplete).toHaveBeenCalledWith(completion);
+    expect(onEose).toHaveBeenCalledOnce();
+  });
 });

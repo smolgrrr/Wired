@@ -6,6 +6,7 @@ import {
   DEFAULT_POST_DIFFICULTY,
   DEFAULT_RELAYS,
   COMPLETE_FEED_TRAVERSAL_ENABLED,
+  PROFILE_REQUEST_JOIN_ENABLED,
   COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED,
   configuredFlag,
   configuredHttpUrls,
@@ -94,6 +95,10 @@ describe("configuredFlag", () => {
 
   it("keeps complete Wired snapshot traversal default-off for rollback", () => {
     expect(COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED).toBe(false);
+  });
+
+  it("keeps in-flight profile request joining default-off for rollback", () => {
+    expect(PROFILE_REQUEST_JOIN_ENABLED).toBe(false);
   });
 });
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Event } from "nostr-tools";
+import { PROFILE_REQUEST_JOIN_ENABLED } from "../../config";
 import { subProfilesOnce } from "../../nostr/subscriptions";
 import { parseProfileEvent, type ProfileMetadata } from "@lib/profile";
 
@@ -10,6 +11,7 @@ type CachedProfile = {
 
 const profileCache = new Map<string, CachedProfile>();
 const pendingPubkeys = new Set<string>();
+const inflightPubkeys = new Set<string>();
 const listeners = new Set<() => void>();
 
 let flushScheduled = false;
@@ -34,7 +36,10 @@ function mergeProfileEvent(event: Event): void {
 
 function scheduleProfileFetch(pubkeys: string[]): void {
   pubkeys.forEach((pubkey) => {
-    if (!profileCache.has(pubkey)) {
+    if (
+      !profileCache.has(pubkey) &&
+      (!PROFILE_REQUEST_JOIN_ENABLED || !inflightPubkeys.has(pubkey))
+    ) {
       pendingPubkeys.add(pubkey);
     }
   });
@@ -61,9 +66,19 @@ async function flushProfileBatch(): Promise<void> {
   if (pubkeys.length === 0) return;
 
   pubkeys.forEach((pubkey) => pendingPubkeys.delete(pubkey));
+  if (PROFILE_REQUEST_JOIN_ENABLED) {
+    pubkeys.forEach((pubkey) => inflightPubkeys.add(pubkey));
+  }
 
   inflightBatch = (async () => {
     let handle: { close: () => void } | null = null;
+    let queryCompleted = false;
+    const completeRequest = () => {
+      queryCompleted = true;
+      if (PROFILE_REQUEST_JOIN_ENABLED) {
+        pubkeys.forEach((pubkey) => inflightPubkeys.delete(pubkey));
+      }
+    };
 
     try {
       handle = await subProfilesOnce(
@@ -73,9 +88,15 @@ async function flushProfileBatch(): Promise<void> {
           notifyListeners();
         },
         () => {
+          completeRequest();
           handle?.close();
         },
+        { onComplete: completeRequest },
       );
+      if (queryCompleted) handle.close();
+    } catch (error) {
+      completeRequest();
+      throw error;
     } finally {
       inflightBatch = null;
     }
