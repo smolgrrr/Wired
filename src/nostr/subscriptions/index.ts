@@ -7,6 +7,7 @@ import {
   startFiniteQuery,
 } from "../client";
 import { DEFAULT_BROWSER_QUERY_DEADLINE_MS } from "../browser-relay-access";
+import type { QueryCompletion } from "../browser-relay-access";
 import type { SubCallback, SubHandle } from "../types";
 import type { QuotedRef } from "@lib/quotedEvents";
 import {
@@ -40,7 +41,10 @@ export async function subProfilesOnce(
   pubkeys: string[],
   onEvent: SubCallback,
   onEose?: () => void,
-  options: { relayUrls?: readonly string[] } = {},
+  options: {
+    relayUrls?: readonly string[];
+    onComplete?: (completion: QueryCompletion) => void;
+  } = {},
 ): Promise<SubHandle> {
   if (pubkeys.length === 0) {
     return emptySubHandle("profiles-once:empty");
@@ -62,6 +66,7 @@ export async function subProfilesOnce(
       completionDeadlineMs: DEFAULT_BROWSER_QUERY_DEADLINE_MS,
       onEvent,
       onComplete: (completion) => {
+        options.onComplete?.(completion);
         if (completion.reason !== "cancelled") onEose?.();
       },
     }),

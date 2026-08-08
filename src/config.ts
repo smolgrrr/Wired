@@ -166,6 +166,11 @@ export const COMPLETE_FEED_TRAVERSAL_ENABLED = configuredFlag(
   false,
 );
 
+export const PROFILE_REQUEST_JOIN_ENABLED = configuredFlag(
+  configuredEnv("VITE_PROFILE_REQUEST_JOIN_ENABLED"),
+  false,
+);
+
 export const COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED = configuredFlag(
   configuredEnv("COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED"),
   false,
