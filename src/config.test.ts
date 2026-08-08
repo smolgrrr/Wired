@@ -6,6 +6,7 @@ import {
   DEFAULT_POST_DIFFICULTY,
   DEFAULT_RELAYS,
   COMPLETE_FEED_TRAVERSAL_ENABLED,
+  COMPLETE_PROFILE_BATCHES_ENABLED,
   PROFILE_REQUEST_JOIN_ENABLED,
   COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED,
   configuredFlag,
@@ -99,6 +100,10 @@ describe("configuredFlag", () => {
 
   it("keeps in-flight profile request joining default-off for rollback", () => {
     expect(PROFILE_REQUEST_JOIN_ENABLED).toBe(false);
+  });
+
+  it("keeps complete profile batches default-off for rollback", () => {
+    expect(COMPLETE_PROFILE_BATCHES_ENABLED).toBe(false);
   });
 });
 

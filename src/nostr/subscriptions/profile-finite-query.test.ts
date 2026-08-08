@@ -14,6 +14,11 @@ vi.mock("../client", () => ({
   THREAD_RELAYS: [],
 }));
 
+vi.mock("../../config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../config")>()),
+  COMPLETE_PROFILE_BATCHES_ENABLED: true,
+}));
+
 import type { FiniteQuery } from "../browser-relay-access";
 import { subProfilesOnce } from ".";
 
@@ -85,5 +90,77 @@ describe("profile finite query", () => {
 
     expect(onComplete).toHaveBeenCalledWith(completion);
     expect(onEose).toHaveBeenCalledOnce();
+  });
+
+  it("deduplicates and completes profile authors in relay-safe chunks", async () => {
+    const pubkeys = Array.from({ length: 251 }, (_, index) =>
+      index.toString(16).padStart(64, "0")
+    );
+    const onEose = vi.fn();
+    const onComplete = vi.fn();
+    const relayUrls = ["wss://profile-one.example", "wss://profile-two.example"];
+    await subProfilesOnce([...pubkeys, pubkeys[0]], vi.fn(), onEose, {
+      onComplete,
+      relayUrls,
+    });
+
+    expect(mocks.startFiniteQuery).toHaveBeenCalledTimes(2);
+    const queries = mocks.startFiniteQuery.mock.calls.map((call) => call[0] as FiniteQuery);
+    expect(queries.map((query) => query.filters)).toEqual([
+      [{ authors: pubkeys.slice(0, 250), kinds: [0], limit: 250 }],
+      [{ authors: pubkeys.slice(250), kinds: [0], limit: 1 }],
+    ]);
+    expect(queries.map((query) => query.coverage)).toEqual([
+      { configuredRelayUrls: relayUrls, hintedRelayUrls: [] },
+      { configuredRelayUrls: relayUrls, hintedRelayUrls: [] },
+    ]);
+
+    queries[0]?.onComplete?.({ reason: "settled", targets: [], receivedEvents: 250 });
+    expect(onEose).not.toHaveBeenCalled();
+    queries[1]?.onComplete?.({ reason: "settled", targets: [], receivedEvents: 1 });
+    expect(onEose).toHaveBeenCalledOnce();
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(onComplete).toHaveBeenCalledWith({
+      reason: "settled",
+      targets: [],
+      receivedEvents: 251,
+    });
+  });
+
+  it("aggregates cancellation across profile chunks", async () => {
+    const pubkeys = Array.from({ length: 251 }, (_, index) =>
+      index.toString(16).padStart(64, "0")
+    );
+    const onEose = vi.fn();
+    const onComplete = vi.fn();
+    await subProfilesOnce(pubkeys, vi.fn(), onEose, { onComplete });
+    const queries = mocks.startFiniteQuery.mock.calls.map((call) => call[0] as FiniteQuery);
+
+    queries[0]?.onComplete?.({ reason: "settled", targets: [], receivedEvents: 250 });
+    queries[1]?.onComplete?.({ reason: "cancelled", targets: [], receivedEvents: 0 });
+
+    expect(onComplete).toHaveBeenCalledWith({
+      reason: "cancelled",
+      targets: [],
+      receivedEvents: 250,
+    });
+    expect(onEose).not.toHaveBeenCalled();
+  });
+
+  it("closes earlier chunks when a later chunk cannot start", async () => {
+    const firstHandle = { done: new Promise(() => {}), close: vi.fn() };
+    mocks.startFiniteQuery
+      .mockReturnValueOnce(firstHandle)
+      .mockImplementationOnce(() => {
+        throw new Error("second chunk failed to start");
+      });
+    const pubkeys = Array.from({ length: 251 }, (_, index) =>
+      index.toString(16).padStart(64, "0")
+    );
+
+    await expect(subProfilesOnce(pubkeys, vi.fn())).rejects.toThrow(
+      "second chunk failed to start",
+    );
+    expect(firstHandle.close).toHaveBeenCalledOnce();
   });
 });
