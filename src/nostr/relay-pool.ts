@@ -36,6 +36,7 @@ export type SubscribeOptions = {
 type RelayPoolOptions = {
   workflowEvidence?: RelayWorkflowEvidenceRecorder;
   scheduleEvidence?: (task: () => void) => void;
+  publishObservationMs?: number;
 };
 
 type InFlightPublish = {
@@ -44,6 +45,18 @@ type InFlightPublish = {
 };
 
 type PublishSettlement = "accepted" | "rejected" | "closed";
+
+type PublishEvidencePrimitives = {
+  acceptedCount: number;
+  coalescedOperations: number;
+  completionMs: number;
+  connectedTargetCount: number;
+  eventFrameBytes: number;
+  explicitRejections: number;
+  firstAcceptedMs: number | null;
+  terminalClosed: number;
+  targetCount: number;
+};
 
 type InFlightConnection = {
   mapKey: string;
@@ -66,6 +79,7 @@ export class RelayPool implements BrowserRelayAccess {
   private readonly inFlightPublishes = new Map<string, InFlightPublish>();
   private readonly workflowEvidence?: RelayWorkflowEvidenceRecorder;
   private readonly scheduleEvidence: (task: () => void) => void;
+  private readonly publishObservationMs: number;
   private readonly evidenceTasks: Array<() => void> = [];
   private evidenceFlushScheduled = false;
   private droppedEvidenceTasks = 0;
@@ -75,6 +89,11 @@ export class RelayPool implements BrowserRelayAccess {
     this.scheduleEvidence = options.scheduleEvidence ?? ((task) => {
       setTimeout(task, 0);
     });
+    this.publishObservationMs = typeof options.publishObservationMs === "number" &&
+        Number.isFinite(options.publishObservationMs) &&
+        options.publishObservationMs > 0
+      ? options.publishObservationMs
+      : 0;
   }
 
   get connectedUrls(): string[] {
@@ -552,65 +571,130 @@ export class RelayPool implements BrowserRelayAccess {
   ): Promise<Set<string>> {
     const startedAt = this.workflowEvidence ? performance.now() : 0;
     const accepted = new Set<string>();
+    let firstAcceptedAt: number | null = null;
     const targetUrls = [...this.defaultRelayUrls];
     const connectedTargets = targetUrls.flatMap((url) => {
       const relay = this.relays.get(url) ?? this.findRelay(url)?.relay;
       return relay ? [{ url, relay }] : [];
     });
 
-    const settlements: PublishSettlement[] = await Promise.all(
-      connectedTargets.map(async ({ url, relay }) => {
+    let eventFrameBytes = 0;
+    if (this.workflowEvidence) {
+      try {
+        eventFrameBytes = new TextEncoder().encode(
+          JSON.stringify(["EVENT", event]),
+        ).byteLength;
+      } catch {
+        // Byte evidence is optional and cannot affect publication completion.
+      }
+    }
+    const settlements: Array<PublishSettlement | undefined> = Array(
+      connectedTargets.length,
+    ).fill(undefined);
+    let observationEmitted = false;
+    let observationTimer: ReturnType<typeof setTimeout> | undefined;
+    if (this.workflowEvidence && this.publishObservationMs > 0) {
+      observationTimer = setTimeout(() => {
+        const pendingTargets = settlements.filter((result) => result === undefined).length;
+        if (pendingTargets === 0) return;
+        observationEmitted = true;
+        const primitives = this.publishEvidencePrimitives({
+          accepted,
+          connectedTargetCount: connectedTargets.length,
+          eventFrameBytes,
+          firstAcceptedAt,
+          operation,
+          settlements,
+          startedAt,
+          targetCount: targetUrls.length,
+          completionMs: this.publishObservationMs,
+        });
+        this.deferEvidence(() => this.recordPublishEvidence(primitives, {
+          workflowOwner: "wired.browser.publish-observation",
+          outcome: "timed-out",
+          timedOut: pendingTargets,
+        }));
+      }, this.publishObservationMs);
+    }
+
+    await Promise.all(
+      connectedTargets.map(async ({ url, relay }, index) => {
+        let settlement: PublishSettlement;
         try {
           await relay.publish(event);
           accepted.add(url);
-          return "accepted" as const;
+          firstAcceptedAt ??= performance.now();
+          settlement = "accepted";
         } catch {
-          return relay.connected ? "rejected" as const : "closed" as const;
+          settlement = relay.connected ? "rejected" : "closed";
         }
+        settlements[index] = settlement;
       }),
     );
+    if (observationTimer) clearTimeout(observationTimer);
 
     if (!this.workflowEvidence) return accepted;
 
     const completion = performance.now();
-    const terminalClosed = settlements.filter((result) => result === "closed").length;
-    const explicitRejections = settlements.filter((result) =>
-      result === "rejected"
-    ).length;
-    let eventFrameBytes = 0;
-    try {
-      eventFrameBytes = new TextEncoder().encode(
-        JSON.stringify(["EVENT", event]),
-      ).byteLength;
-    } catch {
-      // Byte evidence is optional and cannot affect publication completion.
-    }
-    const primitives = {
-      acceptedCount: accepted.size,
-      coalescedOperations: operation.coalescedOperations,
-      completionMs: completion - startedAt,
+    const primitives = this.publishEvidencePrimitives({
+      accepted,
       connectedTargetCount: connectedTargets.length,
       eventFrameBytes,
-      explicitRejections,
-      terminalClosed,
+      firstAcceptedAt,
+      operation,
+      settlements,
+      startedAt,
       targetCount: targetUrls.length,
-    };
-    this.deferEvidence(() => this.recordPublishEvidence(primitives));
+      completionMs: completion - startedAt,
+    });
+    if (observationEmitted) {
+      this.deferEvidence(() => this.recordPublishEvidence(primitives, {
+        workflowOwner: "wired.browser.publish-observation",
+        attempts: 0,
+      }));
+    } else {
+      this.deferEvidence(() => this.recordPublishEvidence(primitives));
+    }
 
     return accepted;
   }
 
+  private publishEvidencePrimitives(input: {
+    accepted: ReadonlySet<string>;
+    connectedTargetCount: number;
+    eventFrameBytes: number;
+    firstAcceptedAt: number | null;
+    operation: InFlightPublish;
+    settlements: readonly (PublishSettlement | undefined)[];
+    startedAt: number;
+    targetCount: number;
+    completionMs: number;
+  }): PublishEvidencePrimitives {
+    return {
+      acceptedCount: input.accepted.size,
+      coalescedOperations: input.operation.coalescedOperations,
+      completionMs: input.completionMs,
+      connectedTargetCount: input.connectedTargetCount,
+      eventFrameBytes: input.eventFrameBytes,
+      explicitRejections: input.settlements.filter((result) =>
+        result === "rejected"
+      ).length,
+      firstAcceptedMs: input.firstAcceptedAt === null
+        ? null
+        : input.firstAcceptedAt - input.startedAt,
+      terminalClosed: input.settlements.filter((result) => result === "closed").length,
+      targetCount: input.targetCount,
+    };
+  }
+
   private recordPublishEvidence(
-    primitives: {
-      acceptedCount: number;
-      coalescedOperations: number;
-      completionMs: number;
-      connectedTargetCount: number;
-      eventFrameBytes: number;
-      explicitRejections: number;
-      terminalClosed: number;
-      targetCount: number;
-    },
+    primitives: PublishEvidencePrimitives,
+    options: {
+      workflowOwner?: "wired.browser.publish" | "wired.browser.publish-observation";
+      outcome?: RelayWorkflowEvidence["outcome"];
+      timedOut?: number;
+      attempts?: number;
+    } = {},
   ): void {
     // Only ACKed or explicitly rejected publishes confirm that the relay parsed
     // the EVENT. A terminal close is retained separately and never treated as
@@ -619,15 +703,15 @@ export class RelayPool implements BrowserRelayAccess {
       primitives.acceptedCount + primitives.explicitRejections;
     const evidence: RelayWorkflowEvidence = {
       schemaVersion: 1,
-      workflowOwner: "wired.browser.publish",
+      workflowOwner: options.workflowOwner ?? "wired.browser.publish",
       operation: "publish",
-      outcome: relayWorkflowOutcome({
+      outcome: options.outcome ?? relayWorkflowOutcome({
         targets: primitives.targetCount,
         successfulTargets: primitives.acceptedCount,
-        timedOut: 0,
+        timedOut: options.timedOut ?? 0,
         cancelled: 0,
       }),
-      work: { attempts: 1, targets: primitives.targetCount },
+      work: { attempts: options.attempts ?? 1, targets: primitives.targetCount },
       connections: {
         opened: 0,
         closed: primitives.terminalClosed,
@@ -654,7 +738,7 @@ export class RelayPool implements BrowserRelayAccess {
         eose: 0,
         closed: primitives.terminalClosed,
         connectFailed: primitives.targetCount - primitives.connectedTargetCount,
-        timedOut: 0,
+        timedOut: options.timedOut ?? 0,
         cancelled: 0,
       },
       publishing: {
@@ -666,7 +750,10 @@ export class RelayPool implements BrowserRelayAccess {
         ownerRetries: 0,
       },
       timingMs: {
-        firstResult: null,
+        firstResult: options.workflowOwner !== "wired.browser.publish-observation" ||
+            primitives.firstAcceptedMs === null
+          ? null
+          : this.boundedDuration(primitives.firstAcceptedMs),
         completion: Math.min(
           RELAY_EVIDENCE_LIMITS.durationMs,
           Math.max(0, Math.round(primitives.completionMs)),

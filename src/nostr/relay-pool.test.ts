@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { RelayWorkflowCollector } from "./evidence/relay-workflow-collector";
 import { RelayPool } from "./relay-pool";
 
 const mocks = vi.hoisted(() => ({
@@ -156,6 +157,210 @@ describe("RelayPool", () => {
     }));
     expect(JSON.stringify(recorder.record.mock.calls)).not.toContain("not exported");
     expect(JSON.stringify(recorder.record.mock.calls)).not.toContain(acceptedRelay.url);
+  });
+
+  it("observes accepted publishes with a silent peer without settling delivery", async () => {
+    vi.useFakeTimers();
+    const acceptedRelay = relay("wss://accepted.example");
+    const silentRelay = relay("wss://silent.example");
+    acceptedRelay.publish.mockImplementation(() => new Promise<string>((resolve) => {
+      setTimeout(() => resolve("accepted"), 5);
+    }));
+    let acknowledgeSilent: (() => void) | undefined;
+    silentRelay.publish.mockImplementation(() => new Promise<string>((resolve) => {
+      acknowledgeSilent = () => resolve("accepted");
+    }));
+    mocks.connect.mockImplementation((url: string) =>
+      Promise.resolve(url === acceptedRelay.url ? acceptedRelay : silentRelay)
+    );
+    const collector = new RelayWorkflowCollector();
+    const pool = new RelayPool({
+      workflowEvidence: collector,
+      publishObservationMs: 50,
+    });
+    await pool.connect([acceptedRelay.url, silentRelay.url]);
+
+    let settled = false;
+    const publishing = pool.publish({
+      id: "7".repeat(64), pubkey: "2".repeat(64), sig: "3".repeat(128),
+      kind: 1, created_at: 1, tags: [], content: "never exported",
+    }).then((result) => {
+      settled = true;
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(50);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(settled).toBe(false);
+    expect(collector.snapshot()).toEqual([
+      expect.objectContaining({
+        workflowOwner: "wired.browser.publish-observation",
+        operation: "publish",
+        outcome: "timed-out",
+        samples: 1,
+        totals: expect.objectContaining({ targets: 2, timedOut: 1 }),
+        acceptedCountBuckets: { none: 0, one: 1, multiple: 0, all: 0 },
+        firstResultMs: { "10": 1 },
+        completionMs: { "50": 1 },
+      }),
+    ]);
+
+    acknowledgeSilent?.();
+    await expect(publishing).resolves.toEqual(
+      new Set([acceptedRelay.url, silentRelay.url]),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    const observations = collector.snapshot().filter(({ workflowOwner }) =>
+      workflowOwner === "wired.browser.publish-observation"
+    );
+    expect(collector.snapshot()).toHaveLength(2);
+    expect(observations).toEqual([
+      expect.objectContaining({ outcome: "completed", samples: 1 }),
+      expect.objectContaining({ outcome: "timed-out", samples: 1 }),
+    ]);
+    expect(JSON.stringify(observations)).not.toContain("never exported");
+    expect(JSON.stringify(observations)).not.toContain(acceptedRelay.url);
+  });
+
+  it("observes zero-accept timeout and later rejection without settling early", async () => {
+    vi.useFakeTimers();
+    const firstRelay = relay("wss://first-silent.example");
+    const secondRelay = relay("wss://second-silent.example");
+    const rejectors: Array<() => void> = [];
+    for (const target of [firstRelay, secondRelay]) {
+      target.publish.mockImplementation(() => new Promise<string>((_resolve, reject) => {
+        rejectors.push(() => reject(new Error("late rejection")));
+      }));
+    }
+    mocks.connect.mockImplementation((url: string) =>
+      Promise.resolve(url === firstRelay.url ? firstRelay : secondRelay)
+    );
+    const collector = new RelayWorkflowCollector();
+    const pool = new RelayPool({
+      workflowEvidence: collector,
+      publishObservationMs: 50,
+    });
+    await pool.connect([firstRelay.url, secondRelay.url]);
+
+    let settled = false;
+    const publishing = pool.publish({
+      id: "8".repeat(64), pubkey: "2".repeat(64), sig: "3".repeat(128),
+      kind: 1, created_at: 1, tags: [], content: "event",
+    }).then((result) => {
+      settled = true;
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(50);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(settled).toBe(false);
+    expect(collector.snapshot()).toEqual([
+      expect.objectContaining({
+        workflowOwner: "wired.browser.publish-observation",
+        outcome: "timed-out",
+        totals: expect.objectContaining({ timedOut: 2, rejected: 0 }),
+        acceptedCountBuckets: { none: 1, one: 0, multiple: 0, all: 0 },
+        firstResultMs: { none: 1 },
+      }),
+    ]);
+
+    rejectors.forEach((reject) => reject());
+    await expect(publishing).resolves.toEqual(new Set());
+    await vi.runOnlyPendingTimersAsync();
+    expect(collector.snapshot()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workflowOwner: "wired.browser.publish-observation",
+        outcome: "failed",
+        totals: expect.objectContaining({ rejected: 2 }),
+      }),
+    ]));
+  });
+
+  it("classifies an ACK delivered at the observation boundary as late", async () => {
+    vi.useFakeTimers();
+    const earlyRelay = relay("wss://early.example");
+    const boundaryRelay = relay("wss://boundary.example");
+    earlyRelay.publish.mockImplementation(() => new Promise<string>((resolve) => {
+      setTimeout(() => resolve("accepted"), 5);
+    }));
+    boundaryRelay.publish.mockImplementation(() => new Promise<string>((resolve) => {
+      setTimeout(() => resolve("accepted"), 50);
+    }));
+    mocks.connect.mockImplementation((url: string) =>
+      Promise.resolve(url === earlyRelay.url ? earlyRelay : boundaryRelay)
+    );
+    const collector = new RelayWorkflowCollector();
+    const pool = new RelayPool({
+      workflowEvidence: collector,
+      publishObservationMs: 50,
+    });
+    await pool.connect([earlyRelay.url, boundaryRelay.url]);
+
+    const publishing = pool.publish({
+      id: "b".repeat(64), pubkey: "2".repeat(64), sig: "3".repeat(128),
+      kind: 1, created_at: 1, tags: [], content: "event",
+    });
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(publishing).resolves.toEqual(
+      new Set([earlyRelay.url, boundaryRelay.url]),
+    );
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(collector.snapshot()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workflowOwner: "wired.browser.publish-observation",
+        outcome: "timed-out",
+        totals: expect.objectContaining({ timedOut: 1 }),
+        acceptedCountBuckets: { none: 0, one: 1, multiple: 0, all: 0 },
+      }),
+      expect.objectContaining({
+        workflowOwner: "wired.browser.publish-observation",
+        outcome: "completed",
+        acceptedCountBuckets: { none: 0, one: 0, multiple: 0, all: 1 },
+      }),
+    ]));
+  });
+
+  it("does not emit a timeout for fully rejected or observation-disabled publishes", async () => {
+    vi.useFakeTimers();
+    const rejectedRelay = relay("wss://rejected.example");
+    rejectedRelay.publish.mockRejectedValue(new Error("blocked"));
+    mocks.connect.mockResolvedValue(rejectedRelay);
+    const observedCollector = new RelayWorkflowCollector();
+    const observedPool = new RelayPool({
+      workflowEvidence: observedCollector,
+      publishObservationMs: 50,
+    });
+    await observedPool.connect([rejectedRelay.url]);
+
+    await expect(observedPool.publish({
+      id: "9".repeat(64), pubkey: "2".repeat(64), sig: "3".repeat(128),
+      kind: 1, created_at: 1, tags: [], content: "event",
+    })).resolves.toEqual(new Set());
+    await vi.advanceTimersByTimeAsync(50);
+    expect(observedCollector.snapshot().some(({ workflowOwner }) =>
+      workflowOwner === "wired.browser.publish-observation"
+    )).toBe(false);
+
+    let releaseSilent: (() => void) | undefined;
+    rejectedRelay.publish.mockImplementation(() => new Promise<string>((resolve) => {
+      releaseSilent = () => resolve("accepted");
+    }));
+    const disabledCollector = new RelayWorkflowCollector();
+    const disabledPool = new RelayPool({ workflowEvidence: disabledCollector });
+    await disabledPool.connect([rejectedRelay.url]);
+    const publishing = disabledPool.publish({
+      id: "a".repeat(64), pubkey: "2".repeat(64), sig: "3".repeat(128),
+      kind: 1, created_at: 1, tags: [], content: "event",
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(disabledCollector.snapshot()).toEqual([]);
+    releaseSilent?.();
+    await publishing;
+    await vi.runOnlyPendingTimersAsync();
+    expect(disabledCollector.snapshot().some(({ workflowOwner }) =>
+      workflowOwner === "wired.browser.publish-observation"
+    )).toBe(false);
   });
 
   it("does not let a failing recorder affect browser publication", async () => {

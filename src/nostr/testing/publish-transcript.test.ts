@@ -248,6 +248,11 @@ describe("browser publish relay transcript", () => {
     const variants = [
       { name: "disabled", recorder: undefined },
       { name: "enabled", recorder: new RelayWorkflowCollector() },
+      {
+        name: "observed",
+        recorder: new RelayWorkflowCollector(),
+        publishObservationMs: 60_000,
+      },
       { name: "export-scheduled", recorder: exportCollector },
       { name: "full", recorder: new RelayWorkflowCollector({ counterLimit: 1 }) },
       {
@@ -257,7 +262,12 @@ describe("browser publish relay transcript", () => {
     ];
     const p95ByVariant = new Map<string, number>();
     const measured = await Promise.all(variants.map(async (variant) => {
-      const pool = new RelayPool({ workflowEvidence: variant.recorder });
+      const pool = new RelayPool({
+        workflowEvidence: variant.recorder,
+        publishObservationMs: "publishObservationMs" in variant
+          ? variant.publishObservationMs
+          : 0,
+      });
       await pool.connect(runHarnesses.map((harness) => harness.url));
       return { ...variant, pool, latencies: [] as number[] };
     }));

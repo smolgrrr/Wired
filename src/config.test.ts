@@ -9,6 +9,8 @@ import {
   COMPLETE_PROFILE_BATCHES_ENABLED,
   PROFILE_REQUEST_JOIN_ENABLED,
   COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED,
+  BROWSER_PUBLISH_OBSERVATION_MS,
+  configuredPublishObservationMs,
   configuredFlag,
   configuredHttpUrls,
   configuredRelays,
@@ -104,6 +106,14 @@ describe("configuredFlag", () => {
 
   it("keeps complete profile batches default-off for rollback", () => {
     expect(COMPLETE_PROFILE_BATCHES_ENABLED).toBe(false);
+  });
+
+  it("keeps passive publish observation default-off and bounded", () => {
+    expect(BROWSER_PUBLISH_OBSERVATION_MS).toBe(0);
+    expect(configuredPublishObservationMs("60000")).toBe(60_000);
+    expect(configuredPublishObservationMs("999")).toBe(0);
+    expect(configuredPublishObservationMs("60001")).toBe(0);
+    expect(configuredPublishObservationMs("not-a-number")).toBe(0);
   });
 });
 

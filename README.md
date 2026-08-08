@@ -47,6 +47,7 @@ Optional relay configuration:
 - `VITE_COMPLETE_FEED_TRAVERSAL_ENABLED` defaults to `false`. Enable it for staged rollout of complete bootstrap/live browser-feed reply traversal; set it back to `false` for immediate rollback to the prior depth/parent/result-bounded traversal.
 - `VITE_PROFILE_REQUEST_JOIN_ENABLED` defaults to `false`. Enable it to let staggered profile consumers join a finite request already covering the same pubkey through aggregate completion; disable it to restore the prior per-consumer retry behavior.
 - `VITE_COMPLETE_PROFILE_BATCHES_ENABLED` defaults to `false`. Enable it to deduplicate and split profile sets above 250 authors into complete concurrent chunks; disable it to restore the prior single capped profile query.
+- `VITE_BROWSER_PUBLISH_OBSERVATION_MS` defaults to `0`. Set it to `60000` only with bounded workflow export enabled to observe silent and late publish settlements without completing or cancelling publication; restore `0` for immediate rollback.
 - `COMPLETE_WIRED_SNAPSHOT_TRAVERSAL_ENABLED` defaults to `false`. Enable it for staged rollout of complete server snapshot reply traversal; set it back to `false` to retain the prior atomic cache and restore the depth/result-bounded refresh path.
 - `VITE_DYNAMIC_FEED_ROOT_HINTS_ENABLED` defaults to `true`. Set it to `false` to restore the prior combined configured-plus-hint root query path without narrowing relay coverage.
 - `VITE_DYNAMIC_CONTEXT_HINTS_ENABLED` defaults to `true`. Set it to `false` to keep referenced-context queries on configured relays only.
